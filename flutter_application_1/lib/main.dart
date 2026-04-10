@@ -11,7 +11,7 @@ void main() {
   SystemChrome.setSystemUIOverlayStyle(
     const SystemUiOverlayStyle(
       statusBarColor: Colors.transparent,
-      statusBarIconBrightness: Brightness.light,
+      statusBarIconBrightness: Brightness.dark,
     ),
   );
   runApp(const UniverseApp());
@@ -25,7 +25,7 @@ class UniverseApp extends StatelessWidget {
     return MaterialApp(
       title: 'Universe',
       debugShowCheckedModeBanner: false,
-      theme: UniverseTheme.darkTheme,
+      theme: UniverseTheme.lightTheme,
       home: const UniverseShell(),
     );
   }
@@ -52,15 +52,12 @@ class _UniverseShellState extends State<UniverseShell> {
   Widget build(BuildContext context) {
     return Scaffold(
       extendBody: true,
-      body: IndexedStack(
-        index: _currentIndex,
-        children: _tabs,
-      ),
+      body: IndexedStack(index: _currentIndex, children: _tabs),
       bottomNavigationBar: Container(
-        decoration: BoxDecoration(
-          color: const Color(0xFF1A1A2E).withOpacity(0.95),
+        decoration: const BoxDecoration(
+          color: Colors.white,
           border: Border(
-            top: BorderSide(color: Colors.white.withOpacity(0.05)),
+            top: BorderSide(color: UniverseColors.divider),
           ),
         ),
         child: SafeArea(
@@ -125,24 +122,20 @@ class _NavItem extends StatelessWidget {
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            ShaderMask(
-              shaderCallback: (rect) {
-                if (isActive) {
-                  return UniverseColors.cosmicGradient.createShader(rect);
-                }
-                return const LinearGradient(
-                  colors: [Colors.white38, Colors.white38],
-                ).createShader(rect);
-              },
-              child: Icon(icon, color: Colors.white, size: 26),
+            Icon(
+              icon,
+              color: isActive
+                  ? UniverseColors.accent
+                  : const Color(0xFFABABC7),
+              size: 26,
             ),
             const SizedBox(height: 3),
             Text(
               label,
               style: TextStyle(
                 color: isActive
-                    ? UniverseColors.royalBlue
-                    : Colors.white.withOpacity(0.35),
+                    ? UniverseColors.accent
+                    : const Color(0xFFABABC7),
                 fontSize: 11,
                 fontWeight: isActive ? FontWeight.w700 : FontWeight.w500,
               ),

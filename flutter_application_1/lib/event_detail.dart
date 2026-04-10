@@ -11,25 +11,26 @@ class EventDetailPage extends StatelessWidget {
   Widget build(BuildContext context) {
     final info = categoryInfo[event.category]!;
     return Scaffold(
-      backgroundColor: UniverseColors.darkNavy,
+      backgroundColor: UniverseColors.bgPage,
       body: CustomScrollView(
         slivers: [
           // Hero image
           SliverAppBar(
             expandedHeight: 280,
             pinned: true,
-            backgroundColor: const Color(0xFF1A1A2E),
+            backgroundColor: Colors.white,
             leading: GestureDetector(
               onTap: () => Navigator.pop(context),
               child: Container(
                 margin: const EdgeInsets.all(8),
                 decoration: BoxDecoration(
-                  color: Colors.black.withOpacity(0.4),
+                  color: UniverseColors.bgPage,
                   shape: BoxShape.circle,
+                  border: Border.all(color: UniverseColors.borderColor),
                 ),
                 child: const Icon(
                   Icons.arrow_back_rounded,
-                  color: Colors.white,
+                  color: UniverseColors.textPrimary,
                 ),
               ),
             ),
@@ -53,8 +54,8 @@ class EventDetailPage extends StatelessWidget {
                         end: Alignment.bottomCenter,
                         colors: [
                           Colors.transparent,
-                          UniverseColors.darkNavy.withOpacity(0.8),
-                          UniverseColors.darkNavy,
+                          Colors.white.withOpacity(0.5),
+                          Colors.white,
                         ],
                         stops: const [0.3, 0.75, 1.0],
                       ),
@@ -107,7 +108,7 @@ class EventDetailPage extends StatelessWidget {
                   Text(
                     event.title,
                     style: const TextStyle(
-                      color: Colors.white,
+                      color: UniverseColors.textPrimary,
                       fontSize: 28,
                       fontWeight: FontWeight.w800,
                       height: 1.2,
@@ -116,8 +117,8 @@ class EventDetailPage extends StatelessWidget {
                   const SizedBox(height: 6),
                   Text(
                     'Hosted by ${event.subtitle}',
-                    style: TextStyle(
-                      color: Colors.white.withOpacity(0.5),
+                    style: const TextStyle(
+                      color: UniverseColors.textMuted,
                       fontSize: 15,
                     ),
                   ),
@@ -127,21 +128,21 @@ class EventDetailPage extends StatelessWidget {
                   // Info cards
                   _InfoRow(
                     icon: Icons.location_on_rounded,
-                    iconColor: UniverseColors.cyanBlue,
+                    iconColor: UniverseColors.accentBlue,
                     title: event.location,
                     subtitle: 'On Campus',
                   ),
                   const SizedBox(height: 12),
                   _InfoRow(
                     icon: Icons.access_time_rounded,
-                    iconColor: UniverseColors.lavenderPurple,
+                    iconColor: UniverseColors.accent,
                     title: event.time,
                     subtitle: 'Date & Time',
                   ),
                   const SizedBox(height: 12),
                   _InfoRow(
                     icon: Icons.people_rounded,
-                    iconColor: UniverseColors.hotPink,
+                    iconColor: UniverseColors.accentPink,
                     title: '${event.attendees} going',
                     subtitle: 'Attendees',
                   ),
@@ -154,14 +155,7 @@ class EventDetailPage extends StatelessWidget {
                     height: 54,
                     decoration: BoxDecoration(
                       borderRadius: BorderRadius.circular(16),
-                      gradient: UniverseColors.cosmicGradient,
-                      boxShadow: [
-                        BoxShadow(
-                          color: UniverseColors.royalBlue.withOpacity(0.4),
-                          blurRadius: 20,
-                          offset: const Offset(0, 6),
-                        ),
-                      ],
+                      color: UniverseColors.accent,
                     ),
                     child: Material(
                       color: Colors.transparent,
@@ -170,7 +164,7 @@ class EventDetailPage extends StatelessWidget {
                         onTap: () {},
                         child: const Center(
                           child: Text(
-                            "I'm Going ✦",
+                            "I'm Going",
                             style: TextStyle(
                               color: Colors.white,
                               fontSize: 17,
@@ -190,7 +184,7 @@ class EventDetailPage extends StatelessWidget {
                     height: 48,
                     decoration: BoxDecoration(
                       borderRadius: BorderRadius.circular(16),
-                      border: Border.all(color: Colors.white.withOpacity(0.1)),
+                      border: Border.all(color: UniverseColors.borderColor),
                     ),
                     child: Material(
                       color: Colors.transparent,
@@ -201,7 +195,7 @@ class EventDetailPage extends StatelessWidget {
                           child: Text(
                             'Share with friends',
                             style: TextStyle(
-                              color: Colors.white.withOpacity(0.6),
+                              color: UniverseColors.textMuted,
                               fontSize: 15,
                               fontWeight: FontWeight.w600,
                             ),
@@ -240,8 +234,9 @@ class _InfoRow extends StatelessWidget {
     return Container(
       padding: const EdgeInsets.all(14),
       decoration: BoxDecoration(
-        color: const Color(0xFF22223A),
+          color: Colors.white,
         borderRadius: BorderRadius.circular(14),
+        border: Border.all(color: UniverseColors.borderColor),
       ),
       child: Row(
         children: [
@@ -260,8 +255,8 @@ class _InfoRow extends StatelessWidget {
             children: [
               Text(
                 subtitle,
-                style: TextStyle(
-                  color: Colors.white.withOpacity(0.35),
+                style: const TextStyle(
+                  color: UniverseColors.textMuted,
                   fontSize: 11,
                   fontWeight: FontWeight.w500,
                 ),
@@ -270,7 +265,7 @@ class _InfoRow extends StatelessWidget {
               Text(
                 title,
                 style: const TextStyle(
-                  color: Colors.white,
+                  color: UniverseColors.textPrimary,
                   fontSize: 15,
                   fontWeight: FontWeight.w600,
                 ),

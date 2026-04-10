@@ -17,23 +17,19 @@ class DiscoverTab extends StatelessWidget {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  ShaderMask(
-                    shaderCallback: (rect) =>
-                        UniverseColors.cosmicGradient.createShader(rect),
-                    child: const Text(
-                      'Discover ✦',
-                      style: TextStyle(
-                        color: Colors.white,
-                        fontSize: 30,
-                        fontWeight: FontWeight.w800,
-                      ),
+                  const Text(
+                    'Discover',
+                    style: TextStyle(
+                      color: UniverseColors.textPrimary,
+                      fontSize: 30,
+                      fontWeight: FontWeight.w800,
                     ),
                   ),
                   const SizedBox(height: 4),
-                  Text(
+                  const Text(
                     "What's happening on campus today",
                     style: TextStyle(
-                      color: Colors.white.withOpacity(0.45),
+                      color: UniverseColors.textMuted,
                       fontSize: 15,
                     ),
                   ),
@@ -52,16 +48,16 @@ class DiscoverTab extends StatelessWidget {
                   const Text(
                     '🔥 Trending',
                     style: TextStyle(
-                      color: Colors.white,
+                      color: UniverseColors.textPrimary,
                       fontSize: 18,
                       fontWeight: FontWeight.w700,
                     ),
                   ),
                   const Spacer(),
-                  Text(
+                  const Text(
                     'See all',
                     style: TextStyle(
-                      color: UniverseColors.cyanBlue.withOpacity(0.8),
+                      color: UniverseColors.accent,
                       fontSize: 13,
                       fontWeight: FontWeight.w600,
                     ),
@@ -93,7 +89,15 @@ class DiscoverTab extends StatelessWidget {
                       margin: const EdgeInsets.only(right: 12),
                       decoration: BoxDecoration(
                         borderRadius: BorderRadius.circular(20),
-                        color: const Color(0xFF22223A),
+                        color: Colors.white,
+                        border: Border.all(color: UniverseColors.borderColor),
+                        boxShadow: const [
+                          BoxShadow(
+                            color: Color(0x0A000000),
+                            blurRadius: 8,
+                            offset: Offset(0, 2),
+                          ),
+                        ],
                       ),
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
@@ -126,7 +130,7 @@ class DiscoverTab extends StatelessWidget {
                                 Text(
                                   event.title,
                                   style: const TextStyle(
-                                    color: Colors.white,
+                                    color: UniverseColors.textPrimary,
                                     fontSize: 14,
                                     fontWeight: FontWeight.w700,
                                   ),
@@ -136,8 +140,8 @@ class DiscoverTab extends StatelessWidget {
                                 const SizedBox(height: 4),
                                 Text(
                                   event.location,
-                                  style: TextStyle(
-                                    color: Colors.white.withOpacity(0.4),
+                                  style: const TextStyle(
+                                    color: UniverseColors.textLight,
                                     fontSize: 11,
                                   ),
                                   maxLines: 1,
@@ -186,7 +190,7 @@ class DiscoverTab extends StatelessWidget {
               child: const Text(
                 'Browse by Category',
                 style: TextStyle(
-                  color: Colors.white,
+                  color: UniverseColors.textPrimary,
                   fontSize: 18,
                   fontWeight: FontWeight.w700,
                 ),
@@ -233,7 +237,7 @@ class DiscoverTab extends StatelessWidget {
                           Text(
                             info.label,
                             style: const TextStyle(
-                              color: Colors.white,
+                              color: UniverseColors.textPrimary,
                               fontSize: 15,
                               fontWeight: FontWeight.w700,
                             ),

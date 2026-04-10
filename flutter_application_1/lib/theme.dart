@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 
 class UniverseColors {
+  // Legacy dark palette (kept for reference)
   static const royalBlue = Color(0xFF5D5CFE);
   static const skyBlue = Color(0xFF3C92FF);
   static const cyanBlue = Color(0xFF71CDFF);
@@ -11,52 +12,52 @@ class UniverseColors {
   static const darkNavy = Color(0xFF12121B);
   static const blushPink = Color(0xFFFFD1D1);
 
-  static const primaryGradient = LinearGradient(
-    colors: [royalBlue, lavenderPurple],
-    begin: Alignment.topLeft,
-    end: Alignment.bottomRight,
-  );
+  // Light palette
+  static const accent = Color(0xFF6C63FF);        // primary purple
+  static const accentBlue = Color(0xFF3D8BFF);    // secondary blue
+  static const accentOrange = Color(0xFFFF9F43);  // food/orange
+  static const accentPink = Color(0xFFFF7AD9);    // social/pink
+  static const textPrimary = Color(0xFF0E0F1A);
+  static const textMuted = Color(0xFF9094A5);
+  static const textLight = Color(0xFFABAFC7);
+  static const bgPage = Color(0xFFF5F6FA);
+  static const bgCard = Colors.white;
+  static const borderColor = Color(0xFFE6E8EE);
+  static const divider = Color(0xFFF0F2F8);
 
-  static const accentGradient = LinearGradient(
-    colors: [skyBlue, cyanBlue],
+  static const primaryGradient = LinearGradient(
+    colors: [accent, accentBlue],
     begin: Alignment.topLeft,
     end: Alignment.bottomRight,
   );
 
   static const cosmicGradient = LinearGradient(
-    colors: [royalBlue, lavenderPurple, hotPink],
+    colors: [accent, accentBlue],
     begin: Alignment.topLeft,
     end: Alignment.bottomRight,
   );
 }
 
 class UniverseTheme {
-  static ThemeData get darkTheme => ThemeData(
-        brightness: Brightness.dark,
-        scaffoldBackgroundColor: UniverseColors.darkNavy,
-        colorScheme: const ColorScheme.dark(
-          primary: UniverseColors.royalBlue,
-          secondary: UniverseColors.lavenderPurple,
-          surface: Color(0xFF1C1C2E),
-        ),
-        fontFamily: 'SF Pro Display',
-        appBarTheme: const AppBarTheme(
-          backgroundColor: Colors.transparent,
-          elevation: 0,
-        ),
-        bottomNavigationBarTheme: const BottomNavigationBarThemeData(
-          backgroundColor: Color(0xFF1C1C2E),
-          selectedItemColor: UniverseColors.royalBlue,
-          unselectedItemColor: Colors.white38,
-          type: BottomNavigationBarType.fixed,
-          elevation: 0,
-        ),
-        cardTheme: CardThemeData(
-          color: const Color(0xFF1C1C2E),
-          shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(16),
-          ),
-          elevation: 8,
-        ),
-      );
+  static ThemeData get lightTheme => ThemeData(
+    brightness: Brightness.light,
+    scaffoldBackgroundColor: UniverseColors.bgPage,
+    colorScheme: const ColorScheme.light(
+      primary: UniverseColors.accent,
+      secondary: UniverseColors.accentBlue,
+      surface: Colors.white,
+    ),
+    appBarTheme: const AppBarTheme(
+      backgroundColor: Colors.transparent,
+      elevation: 0,
+      iconTheme: IconThemeData(color: UniverseColors.textPrimary),
+    ),
+    cardTheme: CardThemeData(
+      color: Colors.white,
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+      elevation: 0,
+    ),
+  );
+
+  static ThemeData get darkTheme => lightTheme;
 }

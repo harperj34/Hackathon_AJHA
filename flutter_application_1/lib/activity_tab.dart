@@ -15,23 +15,19 @@ class ActivityTab extends StatelessWidget {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                ShaderMask(
-                  shaderCallback: (rect) =>
-                      UniverseColors.cosmicGradient.createShader(rect),
-                  child: const Text(
-                    'Activity ✦',
-                    style: TextStyle(
-                      color: Colors.white,
-                      fontSize: 30,
-                      fontWeight: FontWeight.w800,
-                    ),
+                const Text(
+                  'Activity',
+                  style: TextStyle(
+                    color: UniverseColors.textPrimary,
+                    fontSize: 30,
+                    fontWeight: FontWeight.w800,
                   ),
                 ),
                 const SizedBox(height: 4),
-                Text(
+                const Text(
                   'Your recent campus activity',
                   style: TextStyle(
-                    color: Colors.white.withOpacity(0.45),
+                    color: UniverseColors.textMuted,
                     fontSize: 15,
                   ),
                 ),
@@ -48,14 +44,14 @@ class ActivityTab extends StatelessWidget {
                   items: [
                     _ActivityItem(
                       icon: Icons.check_circle_rounded,
-                      iconColor: UniverseColors.cyanBlue,
+                      iconColor: UniverseColors.accentBlue,
                       title: 'You RSVPed to BBQ on the Lawn',
                       subtitle: 'Campus Green · 12:00 PM',
                       time: '2h ago',
                     ),
                     _ActivityItem(
                       icon: Icons.favorite_rounded,
-                      iconColor: UniverseColors.hotPink,
+                      iconColor: UniverseColors.accentPink,
                       title: 'You saved Hackathon Kickoff 🚀',
                       subtitle: 'Learning & Teaching Building',
                       time: '5h ago',
@@ -68,14 +64,14 @@ class ActivityTab extends StatelessWidget {
                   items: [
                     _ActivityItem(
                       icon: Icons.people_rounded,
-                      iconColor: UniverseColors.lavenderPurple,
+                      iconColor: UniverseColors.accent,
                       title: '3 friends are going to Dance Club Tryouts',
                       subtitle: 'Campus Centre · 4:30 PM',
                       time: '1d ago',
                     ),
                     _ActivityItem(
                       icon: Icons.star_rounded,
-                      iconColor: UniverseColors.brightYellow,
+                      iconColor: UniverseColors.accentOrange,
                       title: 'New event near you: Free Bubble Tea 🧋',
                       subtitle: 'Sir John Monash Drive',
                       time: '1d ago',
@@ -88,7 +84,7 @@ class ActivityTab extends StatelessWidget {
                   items: [
                     _ActivityItem(
                       icon: Icons.emoji_events_rounded,
-                      iconColor: UniverseColors.brightYellow,
+                      iconColor: UniverseColors.accentOrange,
                       title: 'You attended 3 events this week!',
                       subtitle: 'Keep exploring your campus',
                       time: '3d ago',
@@ -121,17 +117,17 @@ class _ActivitySection extends StatelessWidget {
           child: Text(
             title,
             style: TextStyle(
-              color: Colors.white.withOpacity(0.4),
+              color: UniverseColors.textMuted,
               fontSize: 13,
               fontWeight: FontWeight.w600,
               letterSpacing: 0.5,
             ),
           ),
         ),
-        ...items.map((item) => Padding(
-              padding: const EdgeInsets.only(bottom: 8),
-              child: item,
-            )),
+        ...items.map(
+          (item) =>
+              Padding(padding: const EdgeInsets.only(bottom: 8), child: item),
+        ),
       ],
     );
   }
@@ -157,8 +153,9 @@ class _ActivityItem extends StatelessWidget {
     return Container(
       padding: const EdgeInsets.all(14),
       decoration: BoxDecoration(
-        color: const Color(0xFF22223A),
+        color: Colors.white,
         borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: UniverseColors.borderColor),
       ),
       child: Row(
         children: [
@@ -179,7 +176,7 @@ class _ActivityItem extends StatelessWidget {
                 Text(
                   title,
                   style: const TextStyle(
-                    color: Colors.white,
+                    color: UniverseColors.textPrimary,
                     fontSize: 13,
                     fontWeight: FontWeight.w600,
                   ),
@@ -189,8 +186,8 @@ class _ActivityItem extends StatelessWidget {
                 const SizedBox(height: 3),
                 Text(
                   subtitle,
-                  style: TextStyle(
-                    color: Colors.white.withOpacity(0.35),
+                  style: const TextStyle(
+                    color: UniverseColors.textLight,
                     fontSize: 12,
                   ),
                 ),
@@ -200,8 +197,8 @@ class _ActivityItem extends StatelessWidget {
           const SizedBox(width: 8),
           Text(
             time,
-            style: TextStyle(
-              color: Colors.white.withOpacity(0.25),
+            style: const TextStyle(
+              color: UniverseColors.textLight,
               fontSize: 11,
             ),
           ),

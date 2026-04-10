@@ -22,19 +22,16 @@ class ProfileTab extends StatelessWidget {
                   height: 100,
                   decoration: BoxDecoration(
                     shape: BoxShape.circle,
-                    gradient: UniverseColors.cosmicGradient,
+                    color: UniverseColors.accent,
                   ),
                   padding: const EdgeInsets.all(3),
                   child: Container(
                     decoration: const BoxDecoration(
                       shape: BoxShape.circle,
-                      color: Color(0xFF1A1A2E),
+                      color: Colors.white,
                     ),
                     child: const Center(
-                      child: Text(
-                        '🧑‍🚀',
-                        style: TextStyle(fontSize: 40),
-                      ),
+                      child: Text('🧑‍🚀', style: TextStyle(fontSize: 40)),
                     ),
                   ),
                 ),
@@ -45,16 +42,16 @@ class ProfileTab extends StatelessWidget {
             const Text(
               'Explorer',
               style: TextStyle(
-                color: Colors.white,
+                color: UniverseColors.textPrimary,
                 fontSize: 24,
                 fontWeight: FontWeight.w800,
               ),
             ),
             const SizedBox(height: 4),
-            Text(
+            const Text(
               '@universe_explorer',
               style: TextStyle(
-                color: Colors.white.withOpacity(0.4),
+                color: UniverseColors.textMuted,
                 fontSize: 14,
               ),
             ),
@@ -65,17 +62,30 @@ class ProfileTab extends StatelessWidget {
             Container(
               padding: const EdgeInsets.symmetric(vertical: 18, horizontal: 12),
               decoration: BoxDecoration(
-                color: const Color(0xFF22223A),
+                color: Colors.white,
                 borderRadius: BorderRadius.circular(20),
+                border: Border.all(color: UniverseColors.borderColor),
               ),
               child: Row(
                 mainAxisAlignment: MainAxisAlignment.spaceEvenly,
                 children: [
-                  _StatItem(value: '12', label: 'Events', color: UniverseColors.cyanBlue),
-                  Container(width: 1, height: 32, color: Colors.white10),
-                  _StatItem(value: '5', label: 'Clubs', color: UniverseColors.lavenderPurple),
-                  Container(width: 1, height: 32, color: Colors.white10),
-                  _StatItem(value: '89', label: 'Friends', color: UniverseColors.hotPink),
+                  _StatItem(
+                    value: '12',
+                    label: 'Events',
+                    color: UniverseColors.accentBlue,
+                  ),
+                  Container(width: 1, height: 32, color: UniverseColors.divider),
+                  _StatItem(
+                    value: '5',
+                    label: 'Clubs',
+                    color: UniverseColors.accent,
+                  ),
+                  Container(width: 1, height: 32, color: UniverseColors.divider),
+                  _StatItem(
+                    value: '89',
+                    label: 'Friends',
+                    color: UniverseColors.accentPink,
+                  ),
                 ],
               ),
             ),
@@ -85,25 +95,25 @@ class ProfileTab extends StatelessWidget {
             // Menu items
             _MenuItem(
               icon: Icons.bookmark_rounded,
-              iconColor: UniverseColors.brightYellow,
+              iconColor: UniverseColors.accentOrange,
               title: 'Saved Events',
               subtitle: '3 saved',
             ),
             _MenuItem(
               icon: Icons.groups_rounded,
-              iconColor: UniverseColors.lavenderPurple,
+              iconColor: UniverseColors.accent,
               title: 'My Clubs',
               subtitle: '5 joined',
             ),
             _MenuItem(
               icon: Icons.calendar_today_rounded,
-              iconColor: UniverseColors.cyanBlue,
+              iconColor: UniverseColors.accentBlue,
               title: 'My Calendar',
               subtitle: '2 upcoming',
             ),
             _MenuItem(
               icon: Icons.settings_rounded,
-              iconColor: Colors.white38,
+              iconColor: UniverseColors.textMuted,
               title: 'Settings',
               subtitle: '',
             ),
@@ -111,10 +121,10 @@ class ProfileTab extends StatelessWidget {
             const SizedBox(height: 32),
 
             // Version
-            Text(
-              'Universe v1.0.0 ✦',
+            const Text(
+              'Universe v1.0.0',
               style: TextStyle(
-                color: Colors.white.withOpacity(0.2),
+                color: UniverseColors.textLight,
                 fontSize: 12,
               ),
             ),
@@ -152,10 +162,7 @@ class _StatItem extends StatelessWidget {
         const SizedBox(height: 2),
         Text(
           label,
-          style: TextStyle(
-            color: Colors.white.withOpacity(0.4),
-            fontSize: 12,
-          ),
+          style: TextStyle(color: Colors.white.withOpacity(0.4), fontSize: 12),
         ),
       ],
     );
@@ -182,8 +189,9 @@ class _MenuItem extends StatelessWidget {
       child: Container(
         padding: const EdgeInsets.all(14),
         decoration: BoxDecoration(
-          color: const Color(0xFF22223A),
+          color: Colors.white,
           borderRadius: BorderRadius.circular(16),
+          border: Border.all(color: UniverseColors.borderColor),
         ),
         child: Row(
           children: [
@@ -201,7 +209,7 @@ class _MenuItem extends StatelessWidget {
               child: Text(
                 title,
                 style: const TextStyle(
-                  color: Colors.white,
+                  color: UniverseColors.textPrimary,
                   fontSize: 15,
                   fontWeight: FontWeight.w600,
                 ),
@@ -210,15 +218,15 @@ class _MenuItem extends StatelessWidget {
             if (subtitle.isNotEmpty)
               Text(
                 subtitle,
-                style: TextStyle(
-                  color: Colors.white.withOpacity(0.3),
+                style: const TextStyle(
+                  color: UniverseColors.textLight,
                   fontSize: 12,
                 ),
               ),
             const SizedBox(width: 8),
-            Icon(
+            const Icon(
               Icons.chevron_right_rounded,
-              color: Colors.white.withOpacity(0.2),
+              color: UniverseColors.textLight,
               size: 20,
             ),
           ],

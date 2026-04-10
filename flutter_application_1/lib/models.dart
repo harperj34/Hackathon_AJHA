@@ -1,6 +1,5 @@
 import 'package:flutter/material.dart';
 import 'package:latlong2/latlong.dart';
-import 'theme.dart';
 
 enum EventCategory { clubs, food, events, social }
 
@@ -20,22 +19,22 @@ final Map<EventCategory, EventCategoryInfo> categoryInfo = {
   EventCategory.clubs: const EventCategoryInfo(
     label: 'Clubs',
     icon: Icons.groups_rounded,
-    color: UniverseColors.lavenderPurple,
+    color: Color(0xFF3D8BFF),
   ),
   EventCategory.food: const EventCategoryInfo(
     label: 'Food',
     icon: Icons.restaurant_rounded,
-    color: UniverseColors.brightYellow,
+    color: Color(0xFFFF9F43),
   ),
   EventCategory.events: const EventCategoryInfo(
     label: 'Events',
     icon: Icons.celebration_rounded,
-    color: UniverseColors.hotPink,
+    color: Color(0xFF6C63FF),
   ),
   EventCategory.social: const EventCategoryInfo(
     label: 'Social',
     icon: Icons.emoji_people_rounded,
-    color: UniverseColors.cyanBlue,
+    color: Color(0xFFFF7AD9),
   ),
 };
 
@@ -82,7 +81,8 @@ final List<CampusEvent> sampleEvents = [
     subtitle: 'Academic Support Club',
     location: 'Matheson Library',
     time: 'Today, 2:00 PM',
-    imageUrl: 'https://images.unsplash.com/photo-1522202176988-66273c2fd55f?w=400',
+    imageUrl:
+        'https://images.unsplash.com/photo-1522202176988-66273c2fd55f?w=400',
     category: EventCategory.social,
     position: LatLng(-37.9115, 145.1320),
     attendees: 32,
@@ -115,7 +115,8 @@ final List<CampusEvent> sampleEvents = [
     subtitle: 'WIRED Club',
     location: 'Learning & Teaching Building',
     time: 'Fri, 6:00 PM',
-    imageUrl: 'https://images.unsplash.com/photo-1504384308090-c894fdcc538d?w=400',
+    imageUrl:
+        'https://images.unsplash.com/photo-1504384308090-c894fdcc538d?w=400',
     category: EventCategory.events,
     position: LatLng(-37.9135, 145.1310),
     attendees: 200,
@@ -137,7 +138,8 @@ final List<CampusEvent> sampleEvents = [
     subtitle: 'Music Club',
     location: 'Wholefoods Cafe',
     time: 'Fri, 7:30 PM',
-    imageUrl: 'https://images.unsplash.com/photo-1493225457124-a3eb161ffa5f?w=400',
+    imageUrl:
+        'https://images.unsplash.com/photo-1493225457124-a3eb161ffa5f?w=400',
     category: EventCategory.events,
     position: LatLng(-37.9118, 145.1345),
     attendees: 150,
@@ -148,7 +150,8 @@ final List<CampusEvent> sampleEvents = [
     subtitle: 'Chess Club',
     location: 'Menzies Building',
     time: 'Sat, 10:00 AM',
-    imageUrl: 'https://images.unsplash.com/photo-1529699211952-734e80c4d42b?w=400',
+    imageUrl:
+        'https://images.unsplash.com/photo-1529699211952-734e80c4d42b?w=400',
     category: EventCategory.clubs,
     position: LatLng(-37.9142, 145.1335),
     attendees: 28,
