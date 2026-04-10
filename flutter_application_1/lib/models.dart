@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:latlong2/latlong.dart';
 
-enum EventCategory { clubs, food, events, social }
+enum EventCategory { clubs, food, events, social, study }
 
 class EventCategoryInfo {
   final String label;
@@ -36,6 +36,11 @@ final Map<EventCategory, EventCategoryInfo> categoryInfo = {
     icon: Icons.emoji_people_rounded,
     color: Color(0xFFFF7AD9),
   ),
+  EventCategory.study: const EventCategoryInfo(
+    label: 'Study',
+    icon: Icons.school_rounded,
+    color: Color(0xFF2ECC71),
+  ),
 };
 
 class CampusEvent {
@@ -59,6 +64,22 @@ class CampusEvent {
     required this.category,
     required this.position,
     this.attendees = 0,
+  });
+}
+
+class StudySpot {
+  final String id;
+  final String title;
+  final String location;
+  final String imageUrl;
+  final LatLng position;
+
+  const StudySpot({
+    required this.id,
+    required this.title,
+    required this.location,
+    required this.imageUrl,
+    required this.position,
   });
 }
 
@@ -155,5 +176,25 @@ final List<CampusEvent> sampleEvents = [
     category: EventCategory.clubs,
     position: LatLng(-37.9142, 145.1335),
     attendees: 28,
+  ),
+];
+
+// Persistent-ish list of study spots (in-memory for now)
+final List<StudySpot> sampleStudySpots = [
+  StudySpot(
+    id: 's1',
+    title: 'Quiet Study Area',
+    location: 'Matheson Library - Level 2',
+    imageUrl:
+        'https://images.unsplash.com/photo-1515378791036-0648a3ef77b2?w=400',
+    position: LatLng(-37.9112, 145.1324),
+  ),
+  StudySpot(
+    id: 's2',
+    title: 'Group Study Zone',
+    location: 'Campus Centre - Study Pods',
+    imageUrl:
+        'https://images.unsplash.com/photo-1529070538774-1843cb3265df?w=400',
+    position: LatLng(-37.9120, 145.1338),
   ),
 ];

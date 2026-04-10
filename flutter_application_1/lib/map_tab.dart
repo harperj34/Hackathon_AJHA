@@ -20,8 +20,11 @@ class _MapTabState extends State<MapTab> {
 
   EventCategory? _activeFilter;
   CampusEvent? _selectedEvent;
+  StudySpot? _selectedStudySpot;
   bool _isGoing = false;
   String _searchQuery = '';
+  List<StudySpot> _studySpots = sampleStudySpots;
+  LatLng _mapCenter = const LatLng(-37.9110, 145.1335);
 
   static const double _kCollapsed = 0.20;
   static const double _kPreview = 0.38;
@@ -40,6 +43,17 @@ class _MapTabState extends State<MapTab> {
     }).toList();
   }
 
+  List<StudySpot> get _filteredStudySpots {
+    return _studySpots.where((s) {
+      final matchesFilter = _activeFilter == null || _activeFilter == EventCategory.study;
+      final matchesSearch =
+          _searchQuery.isEmpty ||
+          s.title.toLowerCase().contains(_searchQuery.toLowerCase()) ||
+          s.location.toLowerCase().contains(_searchQuery.toLowerCase());
+      return matchesFilter && matchesSearch;
+    }).toList();
+  }
+
   void _onFilterTap(EventCategory cat) {
     setState(() {
       _activeFilter = _activeFilter == cat ? null : cat;
@@ -54,6 +68,7 @@ class _MapTabState extends State<MapTab> {
 
   void _onPinTap(CampusEvent event) {
     setState(() {
+      _selectedStudySpot = null;
       _selectedEvent = event;
       _isGoing = false;
     });
@@ -62,6 +77,79 @@ class _MapTabState extends State<MapTab> {
       _kPreview,
       duration: const Duration(milliseconds: 350),
       curve: Curves.easeOut,
+    );
+  }
+
+  void _onStudyPinTap(StudySpot spot) {
+    setState(() {
+      _selectedEvent = null;
+      _selectedStudySpot = spot;
+    });
+    _mapController.move(spot.position, 17.0);
+    _sheetController.animateTo(
+      _kPreview,
+      duration: const Duration(milliseconds: 350),
+      curve: Curves.easeOut,
+    );
+  }
+
+  void _showCreateStudySpotDialog() {
+    final titleCtrl = TextEditingController();
+    final locCtrl = TextEditingController();
+
+    showDialog<void>(
+      context: context,
+      builder: (ctx) {
+        return AlertDialog(
+          title: const Text('Add Study Spot'),
+          content: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              TextField(
+                controller: titleCtrl,
+                decoration: const InputDecoration(labelText: 'Title'),
+              ),
+              TextField(
+                controller: locCtrl,
+                decoration: const InputDecoration(labelText: 'Location'),
+              ),
+              const SizedBox(height: 8),
+              Text(
+                'Pin will be placed at current map center',
+                style: TextStyle(color: UniverseColors.textLight, fontSize: 12),
+              ),
+            ],
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.of(ctx).pop(),
+              child: const Text('Cancel'),
+            ),
+            ElevatedButton(
+              onPressed: () {
+                final title = titleCtrl.text.trim();
+                final loc = locCtrl.text.trim();
+                if (title.isEmpty) return;
+                final center = _mapCenter;
+                final id = 's${DateTime.now().millisecondsSinceEpoch}';
+                final spot = StudySpot(
+                  id: id,
+                  title: title,
+                  location: loc.isEmpty ? 'Unknown location' : loc,
+                  imageUrl:
+                      'https://images.unsplash.com/photo-1515378791036-0648a3ef77b2?w=400',
+                  position: center,
+                );
+                setState(() {
+                  _studySpots.add(spot);
+                });
+                Navigator.of(ctx).pop();
+              },
+              child: const Text('Create'),
+            ),
+          ],
+        );
+      },
     );
   }
 
@@ -97,10 +185,15 @@ class _MapTabState extends State<MapTab> {
         FlutterMap(
           mapController: _mapController,
           options: MapOptions(
-            initialCenter: LatLng(-37.9110, 145.1335),
+            initialCenter: _mapCenter,
             initialZoom: 15.5,
             onTap: (_, __) {
               if (_selectedEvent != null) _dismissPreview();
+            },
+            onPositionChanged: (position, _) {
+              if (position.center != null) {
+                setState(() => _mapCenter = position.center!);
+              }
             },
           ),
           children: [
@@ -129,8 +222,27 @@ class _MapTabState extends State<MapTab> {
                 );
               }).toList(),
             ),
+            MarkerLayer(
+              markers: _filteredStudySpots.map((spot) {
+                final isSelected = _selectedStudySpot?.id == spot.id;
+                return Marker(
+                  point: spot.position,
+                  width: isSelected ? 52 : 44,
+                  height: isSelected ? 52 : 44,
+                  child: GestureDetector(
+                    onTap: () => _onStudyPinTap(spot),
+                    child: _StudyPin(
+                      color: categoryInfo[EventCategory.study]!.color,
+                      isSelected: isSelected,
+                    ),
+                  ),
+                );
+              }).toList(),
+            ),
           ],
         ),
+
+        
 
         // ── Search Bar + Filter Chips ──────────────────────
         SafeArea(
@@ -276,11 +388,25 @@ class _MapTabState extends State<MapTab> {
                   ),
                 ],
               ),
-              child: _selectedEvent == null
+              child: _selectedEvent == null && _selectedStudySpot == null
                   ? _buildHappeningNow(scrollController)
-                  : _buildEventPanel(scrollController, _selectedEvent!),
+                  : _selectedEvent != null
+                      ? _buildEventPanel(scrollController, _selectedEvent!)
+                      : _buildStudySpotPanel(scrollController, _selectedStudySpot!),
             );
           },
+        ),
+        // Floating action button — add a study spot (on top of sheet)
+        Positioned(
+          right: 16,
+          bottom: 20,
+          child: SafeArea(
+            child: FloatingActionButton(
+              backgroundColor: categoryInfo[EventCategory.study]!.color,
+              child: const Icon(Icons.add_rounded, size: 28),
+              onPressed: () => _showCreateStudySpotDialog(),
+            ),
+          ),
         ),
       ],
     );
@@ -313,7 +439,7 @@ class _MapTabState extends State<MapTab> {
                     ),
                     const Spacer(),
                     Text(
-                      '${_filteredEvents.length} events',
+                      '${_filteredEvents.length + _filteredStudySpots.length} items',
                       style: const TextStyle(
                         color: UniverseColors.textLight,
                         fontSize: 13,
@@ -692,6 +818,104 @@ class _MapTabState extends State<MapTab> {
       ],
     );
   }
+
+  Widget _buildStudySpotPanel(ScrollController scrollController, StudySpot spot) {
+    return CustomScrollView(
+      controller: scrollController,
+      physics: const ClampingScrollPhysics(),
+      slivers: [
+        SliverToBoxAdapter(
+          child: Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 16),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                const _DragHandle(),
+                Row(
+                  children: [
+                    Container(
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 10,
+                        vertical: 4,
+                      ),
+                      decoration: BoxDecoration(
+                        color: categoryInfo[EventCategory.study]!.color.withOpacity(0.10),
+                        borderRadius: BorderRadius.circular(8),
+                      ),
+                      child: Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          Icon(categoryInfo[EventCategory.study]!.icon, size: 13, color: categoryInfo[EventCategory.study]!.color),
+                          const SizedBox(width: 5),
+                          Text(
+                            categoryInfo[EventCategory.study]!.label,
+                            style: TextStyle(
+                              color: categoryInfo[EventCategory.study]!.color,
+                              fontSize: 12,
+                              fontWeight: FontWeight.w700,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                    const Spacer(),
+                    GestureDetector(
+                      onTap: _dismissPreview,
+                      child: Container(
+                        width: 30,
+                        height: 30,
+                        decoration: const BoxDecoration(
+                          color: UniverseColors.bgPage,
+                          shape: BoxShape.circle,
+                        ),
+                        child: const Icon(
+                          Icons.close_rounded,
+                          size: 16,
+                          color: UniverseColors.textMuted,
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 12),
+                ClipRRect(
+                  borderRadius: BorderRadius.circular(18),
+                  child: Image.network(
+                    spot.imageUrl,
+                    width: double.infinity,
+                    height: 200,
+                    fit: BoxFit.cover,
+                    errorBuilder: (_, __, ___) => Container(
+                      height: 200,
+                      color: categoryInfo[EventCategory.study]!.color.withOpacity(0.1),
+                      child: Icon(categoryInfo[EventCategory.study]!.icon, size: 60, color: categoryInfo[EventCategory.study]!.color),
+                    ),
+                  ),
+                ),
+                const SizedBox(height: 16),
+                Text(
+                  spot.title,
+                  style: const TextStyle(
+                    color: UniverseColors.textPrimary,
+                    fontSize: 22,
+                    fontWeight: FontWeight.w800,
+                  ),
+                ),
+                const SizedBox(height: 8),
+                _DetailRow(
+                  icon: Icons.location_on_rounded,
+                  label: spot.location,
+                  iconColor: UniverseColors.accentBlue,
+                ),
+                const SizedBox(height: 24),
+                const SizedBox(height: 120),
+              ],
+            ),
+          ),
+        ),
+      ],
+    );
+  }
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -750,6 +974,36 @@ class _FlatPin extends StatelessWidget {
         ],
       ),
       child: Icon(icon, color: Colors.white, size: isSelected ? 22 : 17),
+    );
+  }
+}
+
+/// Study spot pin — distinct visual (book icon)
+class _StudyPin extends StatelessWidget {
+  final Color color;
+  final bool isSelected;
+
+  const _StudyPin({required this.color, this.isSelected = false});
+
+  @override
+  Widget build(BuildContext context) {
+    final size = isSelected ? 46.0 : 38.0;
+    return Container(
+      width: size,
+      height: size,
+      decoration: BoxDecoration(
+        color: color,
+        shape: BoxShape.circle,
+        border: Border.all(color: Colors.white, width: isSelected ? 3 : 2),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withOpacity(0.12),
+            blurRadius: 6,
+            offset: const Offset(0, 2),
+          ),
+        ],
+      ),
+      child: Icon(Icons.book_rounded, color: Colors.white, size: isSelected ? 22 : 17),
     );
   }
 }
