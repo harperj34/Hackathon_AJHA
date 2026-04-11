@@ -15,7 +15,7 @@ class DiscoverTab extends StatelessWidget {
             child: Padding(
               padding: const EdgeInsets.fromLTRB(20, 16, 20, 0),
               child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
+                crossAxisAlignment: CrossAxisAlignment.center,
                 children: [
                   const Text(
                     'Discover',

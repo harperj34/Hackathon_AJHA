@@ -12,8 +12,9 @@ class ActivityTab extends StatelessWidget {
         children: [
           Padding(
             padding: const EdgeInsets.fromLTRB(20, 16, 20, 0),
+            child: Center(
             child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
+              crossAxisAlignment: CrossAxisAlignment.center,
               children: [
                 const Text(
                   'Activity',
@@ -33,6 +34,7 @@ class ActivityTab extends StatelessWidget {
                 ),
               ],
             ),
+          ),
           ),
           const SizedBox(height: 20),
           Expanded(
