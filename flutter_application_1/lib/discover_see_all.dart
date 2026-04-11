@@ -30,10 +30,10 @@ class DiscoverSeeAll extends StatelessWidget {
           ),
         ),
         title: const Text(
-          '🔥 Trending',
+          'Trending',
           style: TextStyle(
             color: UniverseColors.textPrimary,
-            fontSize: 30,
+            fontSize: 18,
             fontWeight: FontWeight.w700,
           ),
         ),

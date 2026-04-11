@@ -34,6 +34,7 @@ class _MapTabState extends State<MapTab> {
   bool _showTransport = false;
   bool _showHeatmap = false;
   double _currentZoom = 15.5;
+  bool _headerCollapsed = false;
   StreamSubscription<MapEvent>? _mapEventSub;
 
   static const double _kCollapsed = 0.20;
@@ -44,8 +45,11 @@ class _MapTabState extends State<MapTab> {
   void initState() {
     super.initState();
     WidgetsBinding.instance.addPostFrameCallback((_) {
-      _mapEventSub = _mapController.mapEventStream.listen((_) {
+      _mapEventSub = _mapController.mapEventStream.listen((event) {
         if (!mounted) return;
+        if (event is MapEventMoveStart || event is MapEventScrollWheelZoom) {
+          if (!_headerCollapsed) setState(() => _headerCollapsed = true);
+        }
         final z = _mapController.camera.zoom;
         if ((z - _currentZoom).abs() > 0.08) {
           setState(() => _currentZoom = z);
@@ -151,17 +155,14 @@ class _MapTabState extends State<MapTab> {
       child: GestureDetector(
         onTap: () => setState(() => _showTransport = !_showTransport),
         child: AnimatedContainer(
-          duration: const Duration(milliseconds: 180),
-          padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 5),
+          duration: const Duration(milliseconds: 160),
+          padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 6),
           decoration: BoxDecoration(
             color: _showTransport ? teal : Colors.white,
             borderRadius: BorderRadius.circular(20),
-            border: Border.all(
-              color: _showTransport ? teal : UniverseColors.borderColor,
-            ),
             boxShadow: const [
               BoxShadow(
-                color: Color(0x0A000000),
+                color: Color(0x14000000),
                 blurRadius: 6,
                 offset: Offset(0, 1),
               ),
@@ -183,7 +184,7 @@ class _MapTabState extends State<MapTab> {
                       ? Colors.white
                       : UniverseColors.textPrimary,
                   fontSize: 13,
-                  fontWeight: FontWeight.w600,
+                  fontWeight: FontWeight.w500,
                 ),
               ),
             ],
@@ -362,70 +363,190 @@ class _MapTabState extends State<MapTab> {
           ],
         ),
 
-        // ── Search Bar + Filter Chips ──────────────────────
-        SafeArea(
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Padding(
-                padding: const EdgeInsets.fromLTRB(16, 10, 16, 0),
-                child: Container(
-                  decoration: BoxDecoration(
-                    color: Colors.white,
-                    borderRadius: BorderRadius.circular(22),
-                    boxShadow: const [
-                      BoxShadow(
-                        color: Color(0x14000000),
-                        blurRadius: 16,
-                        offset: Offset(0, 2),
-                      ),
-                    ],
-                  ),
-                  child: TextField(
-                    controller: _searchController,
-                    onChanged: (v) => setState(() => _searchQuery = v),
-                    style: const TextStyle(
-                      color: UniverseColors.textPrimary,
-                      fontSize: 15,
-                    ),
-                    decoration: InputDecoration(
-                      hintText: 'Search buildings, events, clubs...',
-                      hintStyle: const TextStyle(
-                        color: UniverseColors.textSecondary,
-                        fontSize: 15,
-                      ),
-                      prefixIcon: const Icon(
-                        Icons.search_rounded,
-                        color: UniverseColors.textSecondary,
-                      ),
-                      suffixIcon: _searchQuery.isNotEmpty
-                          ? IconButton(
-                              icon: const Icon(
-                                Icons.close_rounded,
-                                color: UniverseColors.textLight,
-                              ),
-                              onPressed: () {
-                                _searchController.clear();
-                                setState(() => _searchQuery = '');
-                              },
-                            )
-                          : null,
-                      border: InputBorder.none,
-                      contentPadding: const EdgeInsets.symmetric(
-                        horizontal: 16,
-                        vertical: 14,
-                      ),
-                    ),
-                  ),
-                ),
+        // ── Search Bar + Filter Chips (opaque underlay, top-pinned) ────────
+        Positioned(
+          top: 0,
+          left: 0,
+          right: 0,
+          child: Container(
+            decoration: const BoxDecoration(
+              color: Color(0xFFF5F6FA),
+              border: Border(
+                bottom: BorderSide(color: Color(0x18000000), width: 0.5),
               ),
-              const SizedBox(height: 8),
+            ),
+            child: SafeArea(
+              bottom: false,
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                mainAxisSize: MainAxisSize.min,
+                children: [
+              // ── Collapsible: title + search bar ────────────────────────────
+              AnimatedSize(
+                duration: const Duration(milliseconds: 220),
+                curve: Curves.easeInOut,
+                alignment: Alignment.topCenter,
+                child: _headerCollapsed
+                    ? const SizedBox.shrink()
+                    : Column(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          // Page title row
+                          Padding(
+                            padding: const EdgeInsets.fromLTRB(20, 12, 16, 6),
+                            child: Row(
+                              crossAxisAlignment: CrossAxisAlignment.center,
+                              children: [
+                                Text(
+                                  'Live Campus Map',
+                                  style: UniverseTextStyles.displayLarge.copyWith(
+                                    fontSize: 26,
+                                  ),
+                                ),
+                                const Spacer(),
+                                GestureDetector(
+                                  onTap: () {},
+                                  child: Container(
+                                    width: 38,
+                                    height: 38,
+                                    decoration: const BoxDecoration(
+                                      color: Colors.white,
+                                      shape: BoxShape.circle,
+                                      boxShadow: [
+                                        BoxShadow(
+                                          color: Color(0x14000000),
+                                          blurRadius: 8,
+                                          offset: Offset(0, 2),
+                                        ),
+                                      ],
+                                    ),
+                                    child: const Icon(
+                                      Icons.tune_rounded,
+                                      size: 18,
+                                      color: UniverseColors.textPrimary,
+                                    ),
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                          // iOS-style search bar
+                          Padding(
+                            padding: const EdgeInsets.fromLTRB(16, 0, 16, 0),
+                            child: Container(
+                              height: 36,
+                              decoration: const BoxDecoration(
+                                color: Colors.white,
+                                borderRadius: BorderRadius.all(Radius.circular(14)),
+                                boxShadow: [
+                                  BoxShadow(
+                                    color: Color(0x1A000000),
+                                    blurRadius: 12,
+                                    offset: Offset(0, 2),
+                                  ),
+                                ],
+                              ),
+                              child: Row(
+                                crossAxisAlignment: CrossAxisAlignment.center,
+                                children: [
+                                  const SizedBox(width: 10),
+                                  const Icon(
+                                    Icons.search_rounded,
+                                    size: 18,
+                                    color: UniverseColors.iosSysGray,
+                                  ),
+                                  const SizedBox(width: 6),
+                                  Expanded(
+                                    child: TextField(
+                                      controller: _searchController,
+                                      onChanged: (v) => setState(() => _searchQuery = v),
+                                      style: const TextStyle(
+                                        color: UniverseColors.textPrimary,
+                                        fontSize: 15,
+                                        fontWeight: FontWeight.w400,
+                                        height: 1.0,
+                                      ),
+                                      decoration: InputDecoration(
+                                        hintText: 'Search',
+                                        hintStyle: const TextStyle(
+                                          color: UniverseColors.iosSysGray,
+                                          fontSize: 15,
+                                          fontWeight: FontWeight.w400,
+                                          height: 1.0,
+                                        ),
+                                        isDense: true,
+                                        border: InputBorder.none,
+                                        contentPadding: EdgeInsets.zero,
+                                      ),
+                                    ),
+                                  ),
+                                  if (_searchQuery.isNotEmpty)
+                                    GestureDetector(
+                                      onTap: () {
+                                        _searchController.clear();
+                                        setState(() => _searchQuery = '');
+                                      },
+                                      child: Container(
+                                        margin: const EdgeInsets.only(right: 8),
+                                        width: 18,
+                                        height: 18,
+                                        decoration: const BoxDecoration(
+                                          color: UniverseColors.iosSysGray2,
+                                          shape: BoxShape.circle,
+                                        ),
+                                        child: const Icon(
+                                          Icons.close_rounded,
+                                          size: 12,
+                                          color: Colors.white,
+                                        ),
+                                      ),
+                                    ),
+                                ],
+                              ),
+                            ),
+                          ),
+                        ],
+                      ),
+              ),
+
+              // ── iOS-style filter chips ──────────────────────────────────────
+              const SizedBox(height: 10),
               SizedBox(
-                height: 36,
+                height: 34,
                 child: ListView(
                   scrollDirection: Axis.horizontal,
-                  padding: const EdgeInsets.symmetric(horizontal: 12),
+                  padding: const EdgeInsets.symmetric(horizontal: 16),
                   children: [
+                    // When header is collapsed, show a restore search chip
+                    if (_headerCollapsed)
+                      Padding(
+                        padding: const EdgeInsets.only(right: 8),
+                        child: GestureDetector(
+                          onTap: () => setState(() => _headerCollapsed = false),
+                          child: Container(
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: 12,
+                              vertical: 6,
+                            ),
+                            decoration: BoxDecoration(
+                              color: Colors.white,
+                              borderRadius: BorderRadius.circular(20),
+                              boxShadow: const [
+                                BoxShadow(
+                                  color: Color(0x14000000),
+                                  blurRadius: 6,
+                                  offset: Offset(0, 1),
+                                ),
+                              ],
+                            ),
+                            child: const Icon(
+                              Icons.search_rounded,
+                              size: 16,
+                              color: UniverseColors.iosSysGray,
+                            ),
+                          ),
+                        ),
+                      ),
                     ...EventCategory.values.map((cat) {
                       final info = categoryInfo[cat]!;
                       final isActive = _activeFilter == cat;
@@ -434,22 +555,17 @@ class _MapTabState extends State<MapTab> {
                         child: GestureDetector(
                           onTap: () => _onFilterTap(cat),
                           child: AnimatedContainer(
-                            duration: const Duration(milliseconds: 180),
+                            duration: const Duration(milliseconds: 160),
                             padding: const EdgeInsets.symmetric(
                               horizontal: 14,
-                              vertical: 5,
+                              vertical: 6,
                             ),
                             decoration: BoxDecoration(
                               color: isActive ? info.color : Colors.white,
                               borderRadius: BorderRadius.circular(20),
-                              border: Border.all(
-                                color: isActive
-                                    ? info.color
-                                    : UniverseColors.borderColor,
-                              ),
                               boxShadow: const [
                                 BoxShadow(
-                                  color: Color(0x0A000000),
+                                  color: Color(0x14000000),
                                   blurRadius: 6,
                                   offset: Offset(0, 1),
                                 ),
@@ -471,8 +587,7 @@ class _MapTabState extends State<MapTab> {
                                         ? Colors.white
                                         : UniverseColors.textPrimary,
                                     fontSize: 13,
-                                    fontWeight: FontWeight.w600,
-                                    letterSpacing: 0.1,
+                                    fontWeight: FontWeight.w500,
                                   ),
                                 ),
                               ],
@@ -485,7 +600,10 @@ class _MapTabState extends State<MapTab> {
                   ],
                 ),
               ),
-            ],
+              const SizedBox(height: 10),
+                ],
+              ),
+            ),
           ),
         ),
 
@@ -592,7 +710,7 @@ class _MapTabState extends State<MapTab> {
                 ),
               );
               if (result == true && titleController.text.trim().isNotEmpty) {
-                final center = _mapController.camera.center ?? const LatLng(-37.9110, 145.1335);
+                final center = _mapController.camera.center;
                 final id = DateTime.now().millisecondsSinceEpoch.toString();
                 setState(() {
                   sampleStudySpots.add(StudySpot(

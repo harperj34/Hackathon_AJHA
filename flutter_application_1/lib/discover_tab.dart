@@ -19,7 +19,7 @@ class DiscoverTab extends StatelessWidget {
             child: Padding(
               padding: const EdgeInsets.fromLTRB(20, 16, 20, 4),
               child: Column(
-                crossAxisAlignment: CrossAxisAlignment.center,
+                crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   Text('Discover', style: UniverseTextStyles.displayLarge),
                   const SizedBox(height: 4),
@@ -29,7 +29,6 @@ class DiscoverTab extends StatelessWidget {
                       color: UniverseColors.textMuted,
                       fontSize: 15,
                     ),
-                    textAlign: TextAlign.center,
                   ),
                 ],
               ),
@@ -45,8 +44,14 @@ class DiscoverTab extends StatelessWidget {
                 children: [
                   Row(
                     children: [
+                      const Icon(
+                        Icons.auto_awesome_rounded,
+                        size: 18,
+                        color: UniverseColors.accent,
+                      ),
+                      const SizedBox(width: 7),
                       Text(
-                        '✦  Featured Today',
+                        'Featured Today',
                         style: UniverseTextStyles.sectionHeader,
                       ),
                     ],
@@ -216,9 +221,20 @@ class DiscoverTab extends StatelessWidget {
               padding: const EdgeInsets.symmetric(horizontal: 20),
               child: Row(
                 children: [
-                  Text(
-                    '🔥 Trending',
-                    style: UniverseTextStyles.sectionHeader,
+                  Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      const Icon(
+                        Icons.local_fire_department_rounded,
+                        size: 18,
+                        color: Color(0xFFFF6B35),
+                      ),
+                      const SizedBox(width: 7),
+                      Text(
+                        'Trending',
+                        style: UniverseTextStyles.sectionHeader,
+                      ),
+                    ],
                   ),
                   const Spacer(),
                   GestureDetector(

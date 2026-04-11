@@ -26,11 +26,12 @@ class ProfileTab extends StatelessWidget {
               ),
             ),
             child: Column(
+              crossAxisAlignment: CrossAxisAlignment.center,
               children: [
                 // Avatar — white circle on gradient
                 Container(
-                  width: 100,
-                  height: 100,
+                  width: 84,
+                  height: 84,
                   decoration: BoxDecoration(
                     shape: BoxShape.circle,
                     color: Colors.white,
@@ -42,8 +43,10 @@ class ProfileTab extends StatelessWidget {
                       ),
                     ],
                   ),
-                  child: const Center(
-                    child: Text('🧑‍🚀', style: TextStyle(fontSize: 42)),
+                  child: const Icon(
+                    Icons.person_rounded,
+                    size: 44,
+                    color: UniverseColors.accent,
                   ),
                 ),
                 const SizedBox(height: 14),
