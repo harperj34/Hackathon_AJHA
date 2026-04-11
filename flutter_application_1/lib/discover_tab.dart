@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'dart:math' as math;
 import 'theme.dart';
 import 'models.dart';
 import 'event_detail.dart';
@@ -243,27 +244,23 @@ class DiscoverTab extends StatelessWidget {
                       context,
                       PageRouteBuilder(
                         pageBuilder: (_, __, ___) => const DiscoverSeeAll(),
-                        transitionsBuilder: (_, animation, __, child) =>
-                        SlideTransition(
+                        transitionsBuilder: (_, animation, __, child) => SlideTransition(
                           position: Tween<Offset>(
                             begin: const Offset(1.0, 0),
                             end: Offset.zero,
-                          ).animate(CurvedAnimation(
-                            parent: animation, 
-                            curve: Curves.easeOut,
-                            )),
-                            child: child,
-                          ),
-                          ),
-                          ),     
-                  child: const Text(
-                    'See all',
-                    style: TextStyle(
-                      color: UniverseColors.accent,
-                      fontSize: 13,
-                      fontWeight: FontWeight.w600,
+                          ).animate(CurvedAnimation(parent: animation, curve: Curves.easeOut)),
+                          child: child,
+                        ),
+                      ),
                     ),
-                  ),
+                    child: const Text(
+                      'See all',
+                      style: TextStyle(
+                        color: UniverseColors.accent,
+                        fontSize: 13,
+                        fontWeight: FontWeight.w600,
+                      ),
+                    ),
                   ),
                 ],
               ),
@@ -423,64 +420,131 @@ class DiscoverTab extends StatelessWidget {
                 childAspectRatio: 1.7,
               ),
               delegate: SliverChildListDelegate(
-                EventCategory.values.map((cat) {
-                  final info = categoryInfo[cat]!;
-                  return Container(
-                    decoration: BoxDecoration(
-                      borderRadius: BorderRadius.circular(18),
-                      gradient: LinearGradient(
-                        colors: [
-                          info.color.withOpacity(0.2),
-                          info.color.withOpacity(0.05),
-                        ],
-                        begin: Alignment.topLeft,
-                        end: Alignment.bottomRight,
-                      ),
-                      border: Border.all(
-                        color: info.color.withOpacity(0.15),
-                        width: 1,
-                      ),
-                    ),
-                    child: GestureDetector(
-                      onTap: () => Navigator.push(
-                        context,
-                        PageRouteBuilder(
-                          pageBuilder: (_, __, ___) => CategoryEvents(category: cat),
-                          transitionsBuilder: (_, animation, __, child) => SlideTransition(
-                            position: Tween<Offset>(
-                              begin: const Offset(1.0, 0.0),
-                              end: Offset.zero,).animate(CurvedAnimation(parent: animation, curve: Curves.easeOut)),
-                              child: child,
-                            )
-                        ),
-                      ),
-                      child: Padding(
-                        padding: const EdgeInsets.all(16),
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          mainAxisAlignment: MainAxisAlignment.center,
-                          children: [
-                            Icon(info.icon, color: info.color, size: 28),
-                            const SizedBox(height: 8),
-                            Text(
-                              info.label,
-                              style: const TextStyle(
-                                color: UniverseColors.textPrimary,
-                                fontSize: 15,
-                                fontWeight: FontWeight.w700,
-                              ),
-                            ),
-                          ],
-                        ),
-                      ),
-                    ),
-                  );
-                }).toList(),
+                EventCategory.values.map((cat) => _CategoryCard(category: cat)).toList(),
               ),
             ),
           ),
 
           const SliverToBoxAdapter(child: SizedBox(height: 80)),
+        ],
+      ),
+    );
+  }
+}
+
+class _CategoryCard extends StatelessWidget {
+  final EventCategory category;
+
+  const _CategoryCard({required this.category, Key? key}) : super(key: key);
+
+  @override
+  Widget build(BuildContext context) {
+    final info = categoryInfo[category]!;
+    final width = MediaQuery.of(context).size.width;
+    final int maxPhotos = width < 360 ? 2 : (width < 600 ? 3 : 4);
+    final images = sampleEvents.where((e) => e.category == category).map((e) => e.imageUrl).take(maxPhotos).toList();
+
+    return Container(
+      decoration: BoxDecoration(
+        borderRadius: BorderRadius.circular(18),
+        gradient: LinearGradient(
+          colors: [info.color.withOpacity(0.2), info.color.withOpacity(0.05)],
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+        ),
+        border: Border.all(color: info.color.withOpacity(0.15), width: 1),
+      ),
+      child: Material(
+        color: Colors.transparent,
+        child: InkWell(
+          borderRadius: BorderRadius.circular(18),
+          onTap: () {
+            Navigator.push(
+              context,
+              PageRouteBuilder(
+                pageBuilder: (_, __, ___) => CategoryEvents(category: category),
+                transitionsBuilder: (_, animation, __, child) => SlideTransition(
+                  position: Tween<Offset>(begin: const Offset(1.0, 0.0), end: Offset.zero)
+                      .animate(CurvedAnimation(parent: animation, curve: Curves.easeOut)),
+                  child: child,
+                ),
+              ),
+            );
+          },
+          child: ClipRRect(
+            borderRadius: BorderRadius.circular(18),
+            child: SizedBox(
+              height: double.infinity,
+              width: double.infinity,
+              child: Padding(
+                padding: const EdgeInsets.all(16),
+                child: Stack(
+                  clipBehavior: Clip.hardEdge,
+                  children: [
+                    Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: [
+                        Icon(info.icon, color: info.color, size: 28),
+                        const SizedBox(height: 8),
+                        Text(
+                          info.label,
+                          style: const TextStyle(
+                            color: UniverseColors.textPrimary,
+                            fontSize: 15,
+                            fontWeight: FontWeight.w700,
+                          ),
+                        ),
+                      ],
+                    ),
+                    if (images.isNotEmpty)
+                      Positioned(top: 12, right: 12, child: _buildPhotoFan(images, info.color, info.icon, width)),
+                  ],
+                ),
+              ),
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildPhotoFan(List<String> urls, Color color, IconData icon, double deviceWidth) {
+    final double photoSize = deviceWidth < 360 ? 44 : (deviceWidth < 600 ? 54 : 64);
+    final double overlap = photoSize * 0.65;
+    final double fanWidth = photoSize + (urls.length - 1) * overlap;
+
+    return SizedBox(
+      width: fanWidth,
+      height: photoSize,
+      child: Stack(
+        clipBehavior: Clip.none,
+        children: [
+          for (var i = 0; i < urls.length; i++)
+            Positioned(
+              right: i * overlap,
+              child: Transform.rotate(
+                angle: ((i - (urls.length - 1) / 2) * 6) * math.pi / 180,
+                alignment: Alignment.center,
+                child: Container(
+                  width: photoSize,
+                  height: photoSize,
+                  decoration: BoxDecoration(
+                    borderRadius: BorderRadius.circular(8),
+                    boxShadow: const [BoxShadow(color: Color(0x22000000), blurRadius: 6, offset: Offset(0, 2))],
+                    border: Border.all(color: Colors.white, width: 2),
+                  ),
+                  child: ClipRRect(
+                    borderRadius: BorderRadius.circular(6),
+                    child: Image.network(
+                      urls[i],
+                      fit: BoxFit.cover,
+                      errorBuilder: (_, __, ___) => Container(color: color.withOpacity(0.12), child: Icon(icon, color: color)),
+                    ),
+                  ),
+                ),
+              ),
+            ),
         ],
       ),
     );
