@@ -370,9 +370,9 @@ final List<CampusSignal> activeSignals = [];
 class CampusPlace {
   final String id;
   final String name;
-  final String category;   // e.g. 'Mexican', 'Café', 'Grocery'
-  final String hours;      // e.g. 'Open until 9:30 PM'
-  final double rating;     // 0.0 – 5.0
+  final String category; // e.g. 'Mexican', 'Café', 'Grocery'
+  final String hours; // e.g. 'Open until 9:30 PM'
+  final double rating; // 0.0 – 5.0
   final IconData icon;
   final LatLng position;
 

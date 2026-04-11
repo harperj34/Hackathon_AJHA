@@ -840,8 +840,12 @@ class _MapTabState extends State<MapTab> with TickerProviderStateMixin {
       cells.putIfAbsent('$cx,$cy', () => []).add(place);
     }
     return cells.values.map((group) {
-      final lat = group.map((p) => p.position.latitude).reduce((a, b) => a + b) / group.length;
-      final lng = group.map((p) => p.position.longitude).reduce((a, b) => a + b) / group.length;
+      final lat =
+          group.map((p) => p.position.latitude).reduce((a, b) => a + b) /
+          group.length;
+      final lng =
+          group.map((p) => p.position.longitude).reduce((a, b) => a + b) /
+          group.length;
       return _PlaceCluster(center: LatLng(lat, lng), places: group);
     }).toList();
   }
@@ -918,123 +922,126 @@ class _MapTabState extends State<MapTab> with TickerProviderStateMixin {
             if (_showHeatmap && !_showPlaces)
               _HeatmapLayer(points: _heatPoints, zoom: _currentZoom),
             // ── Event pins (primary interactive layer) ─────────────────────
-            if (!_showPlaces) MarkerLayer(
-              markers: _filteredEvents
-                  .where((event) => categoryInfo[event.category] != null)
-                  .map((event) {
-                    final info = categoryInfo[event.category]!;
-                    final isSelected = _selectedEvent?.id == event.id;
-                    final isLive = _isEventLive(event);
-                    final countdown = _getEventCountdown(event);
-                    final hasCountdown = countdown != null;
-                    // Show title label whenever zoomed in enough OR countdown is active
-                    final showLabel = (_currentZoom >= 16.5) && !isLive;
-                    final double pinW = isSelected ? 34.0 : 28.0;
-                    final double pinH = isSelected ? 44.0 : 36.0;
-                    // Extra height: title (18) + countdown (22) when countdown
-                    // is active (title always shows alongside countdown).
-                    final double extraH = hasCountdown
-                        ? 42.0
-                        : (showLabel ? 20.0 : 0.0);
-                    final double markerW = isLive
-                        ? 70.0
-                        : (showLabel || hasCountdown ? 90.0 : pinW);
-                    final double markerH = isLive ? 72.0 : pinH + extraH;
+            if (!_showPlaces)
+              MarkerLayer(
+                markers: _filteredEvents
+                    .where((event) => categoryInfo[event.category] != null)
+                    .map((event) {
+                      final info = categoryInfo[event.category]!;
+                      final isSelected = _selectedEvent?.id == event.id;
+                      final isLive = _isEventLive(event);
+                      final countdown = _getEventCountdown(event);
+                      final hasCountdown = countdown != null;
+                      // Show title label whenever zoomed in enough OR countdown is active
+                      final showLabel = (_currentZoom >= 16.5) && !isLive;
+                      final double pinW = isSelected ? 34.0 : 28.0;
+                      final double pinH = isSelected ? 44.0 : 36.0;
+                      // Extra height: title (18) + countdown (22) when countdown
+                      // is active (title always shows alongside countdown).
+                      final double extraH = hasCountdown
+                          ? 42.0
+                          : (showLabel ? 20.0 : 0.0);
+                      final double markerW = isLive
+                          ? 70.0
+                          : (showLabel || hasCountdown ? 90.0 : pinW);
+                      final double markerH = isLive ? 72.0 : pinH + extraH;
 
-                    Widget pinWidget = _MapPin(
-                      color: info.color,
-                      icon: info.icon,
-                      isSelected: isSelected,
-                      width: pinW,
-                      height: pinH,
-                    );
-                    if (isLive) {
-                      // Pulse ring drawn via Clip.none + Positioned so it never
-                      // affects layout size (prevents the pin from jumping).
-                      pinWidget = AnimatedBuilder(
-                        animation: _signalPulseController!,
-                        builder: (_, child) {
-                          final t = _signalPulseController!.value;
-                          final pulseRadius = pinW * 0.5 + t * (pinW * 0.55);
-                          final pulseOpacity = (1.0 - t) * 0.45;
-                          return SizedBox(
-                            width: pinW,
-                            height: pinH,
-                            child: Stack(
-                              clipBehavior: Clip.none,
-                              alignment: Alignment.topCenter,
-                              children: [
-                                Positioned(
-                                  // Centre the ring on the pin head
-                                  left: pinW / 2 - pulseRadius,
-                                  top: pinH * 0.28 - pulseRadius,
-                                  child: Container(
-                                    width: pulseRadius * 2,
-                                    height: pulseRadius * 2,
-                                    decoration: BoxDecoration(
-                                      shape: BoxShape.circle,
-                                      color: info.color.withOpacity(
-                                        pulseOpacity,
+                      Widget pinWidget = _MapPin(
+                        color: info.color,
+                        icon: info.icon,
+                        isSelected: isSelected,
+                        width: pinW,
+                        height: pinH,
+                      );
+                      if (isLive) {
+                        // Pulse ring drawn via Clip.none + Positioned so it never
+                        // affects layout size (prevents the pin from jumping).
+                        pinWidget = AnimatedBuilder(
+                          animation: _signalPulseController!,
+                          builder: (_, child) {
+                            final t = _signalPulseController!.value;
+                            final pulseRadius = pinW * 0.5 + t * (pinW * 0.55);
+                            final pulseOpacity = (1.0 - t) * 0.45;
+                            return SizedBox(
+                              width: pinW,
+                              height: pinH,
+                              child: Stack(
+                                clipBehavior: Clip.none,
+                                alignment: Alignment.topCenter,
+                                children: [
+                                  Positioned(
+                                    // Centre the ring on the pin head
+                                    left: pinW / 2 - pulseRadius,
+                                    top: pinH * 0.28 - pulseRadius,
+                                    child: Container(
+                                      width: pulseRadius * 2,
+                                      height: pulseRadius * 2,
+                                      decoration: BoxDecoration(
+                                        shape: BoxShape.circle,
+                                        color: info.color.withOpacity(
+                                          pulseOpacity,
+                                        ),
                                       ),
                                     ),
                                   ),
-                                ),
-                                child!,
+                                  child!,
+                                ],
+                              ),
+                            );
+                          },
+                          child: pinWidget,
+                        );
+                      }
+
+                      return Marker(
+                        point: event.position,
+                        width: markerW,
+                        height: markerH,
+                        alignment: Alignment.topCenter,
+                        rotate: true,
+                        child: GestureDetector(
+                          onTap: () => _onPinTap(event),
+                          behavior: HitTestBehavior.opaque,
+                          child: SizedBox(
+                            width: markerW,
+                            height: markerH,
+                            child: Column(
+                              mainAxisAlignment: MainAxisAlignment.end,
+                              crossAxisAlignment: CrossAxisAlignment.center,
+                              children: [
+                                // Title: always show when label is active OR countdown is showing
+                                if (showLabel || hasCountdown)
+                                  Padding(
+                                    padding: const EdgeInsets.only(bottom: 2),
+                                    child: _PinLabel(
+                                      text: event.title,
+                                      color: info.color,
+                                    ),
+                                  ),
+                                // Countdown: below title
+                                if (hasCountdown)
+                                  Padding(
+                                    padding: const EdgeInsets.only(bottom: 3),
+                                    child: _CountdownBadge(
+                                      text: _formatCountdown(countdown!),
+                                      color: info.color,
+                                    ),
+                                  ),
+                                pinWidget,
                               ],
                             ),
-                          );
-                        },
-                        child: pinWidget,
-                      );
-                    }
-
-                    return Marker(
-                      point: event.position,
-                      width: markerW,
-                      height: markerH,
-                      alignment: Alignment.topCenter,
-                      rotate: true,
-                      child: GestureDetector(
-                        onTap: () => _onPinTap(event),
-                        behavior: HitTestBehavior.opaque,
-                        child: SizedBox(
-                          width: markerW,
-                          height: markerH,
-                          child: Column(
-                            mainAxisAlignment: MainAxisAlignment.end,
-                            crossAxisAlignment: CrossAxisAlignment.center,
-                            children: [
-                              // Title: always show when label is active OR countdown is showing
-                              if (showLabel || hasCountdown)
-                                Padding(
-                                  padding: const EdgeInsets.only(bottom: 2),
-                                  child: _PinLabel(
-                                    text: event.title,
-                                    color: info.color,
-                                  ),
-                                ),
-                              // Countdown: below title
-                              if (hasCountdown)
-                                Padding(
-                                  padding: const EdgeInsets.only(bottom: 3),
-                                  child: _CountdownBadge(
-                                    text: _formatCountdown(countdown!),
-                                    color: info.color,
-                                  ),
-                                ),
-                              pinWidget,
-                            ],
                           ),
                         ),
-                      ),
-                    );
-                  })
-                  .toList(),
-            ),
+                      );
+                    })
+                    .toList(),
+              ),
             // ── Place clusters (zoomed out) ────────────────────────────────
             if (_showPlaces && _currentZoom < 15.5)
               MarkerLayer(
-                markers: _computeClusters(campusPlaces, _currentZoom).map((cluster) {
+                markers: _computeClusters(campusPlaces, _currentZoom).map((
+                  cluster,
+                ) {
                   final isSingle = cluster.places.length == 1;
                   return Marker(
                     point: cluster.center,
@@ -1044,7 +1051,10 @@ class _MapTabState extends State<MapTab> with TickerProviderStateMixin {
                     alignment: Alignment.center,
                     child: GestureDetector(
                       onTap: () {
-                        final targetZoom = (_currentZoom + 2.0).clamp(0.0, 18.0);
+                        final targetZoom = (_currentZoom + 2.0).clamp(
+                          0.0,
+                          18.0,
+                        );
                         _animateCameraTo(cluster.center, targetZoom);
                       },
                       child: Container(
@@ -1062,7 +1072,11 @@ class _MapTabState extends State<MapTab> with TickerProviderStateMixin {
                           ],
                         ),
                         child: isSingle
-                            ? Icon(cluster.places.first.icon, size: 20, color: Colors.white)
+                            ? Icon(
+                                cluster.places.first.icon,
+                                size: 20,
+                                color: Colors.white,
+                              )
                             : Center(
                                 child: Text(
                                   '${cluster.places.length}',
@@ -1148,7 +1162,9 @@ class _MapTabState extends State<MapTab> with TickerProviderStateMixin {
                               top: 2,
                               child: Container(
                                 padding: const EdgeInsets.symmetric(
-                                    horizontal: 6, vertical: 3),
+                                  horizontal: 6,
+                                  vertical: 3,
+                                ),
                                 decoration: BoxDecoration(
                                   color: Colors.white,
                                   borderRadius: BorderRadius.circular(8),
@@ -1208,68 +1224,73 @@ class _MapTabState extends State<MapTab> with TickerProviderStateMixin {
                 }).toList(),
               ),
             // Study spot markers — circles, not teardrop pins.
-            if (!_showPlaces) MarkerLayer(
-              markers: _filteredStudySpots.map((spot) {
-                final color = categoryInfo[EventCategory.study]!.color;
-                final bool isSelected = _selectedStudySpot?.id == spot.id;
-                final double size = isSelected ? 36.0 : 28.0;
-                final bool showLabel = _currentZoom >= 16.5;
-                final double markerW = showLabel ? 90.0 : size;
-                final double markerH = showLabel ? size + 18.0 : size;
+            if (!_showPlaces)
+              MarkerLayer(
+                markers: _filteredStudySpots.map((spot) {
+                  final color = categoryInfo[EventCategory.study]!.color;
+                  final bool isSelected = _selectedStudySpot?.id == spot.id;
+                  final double size = isSelected ? 36.0 : 28.0;
+                  final bool showLabel = _currentZoom >= 16.5;
+                  final double markerW = showLabel ? 90.0 : size;
+                  final double markerH = showLabel ? size + 18.0 : size;
 
-                return Marker(
-                  point: spot.position,
-                  width: markerW,
-                  height: markerH,
-                  alignment: Alignment.topCenter,
-                  rotate: true,
-                  child: GestureDetector(
-                    onTap: () => _onStudyPinTap(spot),
-                    behavior: HitTestBehavior.opaque,
-                    child: SizedBox(
-                      width: markerW,
-                      height: markerH,
-                      child: Column(
-                        mainAxisAlignment: MainAxisAlignment.end,
-                        crossAxisAlignment: CrossAxisAlignment.center,
-                        children: [
-                          if (showLabel)
-                            Padding(
-                              padding: const EdgeInsets.only(bottom: 2),
-                              child: _PinLabel(text: spot.title, color: color),
-                            ),
-                          Container(
-                            width: size,
-                            height: size,
-                            decoration: BoxDecoration(
-                              shape: BoxShape.circle,
-                              color: color,
-                              border: Border.all(
-                                color: Colors.white,
-                                width: isSelected ? 3 : 2,
-                              ),
-                              boxShadow: [
-                                BoxShadow(
-                                  color: color.withOpacity(0.40),
-                                  blurRadius: isSelected ? 12 : 6,
-                                  offset: const Offset(0, 2),
+                  return Marker(
+                    point: spot.position,
+                    width: markerW,
+                    height: markerH,
+                    alignment: Alignment.topCenter,
+                    rotate: true,
+                    child: GestureDetector(
+                      onTap: () => _onStudyPinTap(spot),
+                      behavior: HitTestBehavior.opaque,
+                      child: SizedBox(
+                        width: markerW,
+                        height: markerH,
+                        child: Column(
+                          mainAxisAlignment: MainAxisAlignment.end,
+                          crossAxisAlignment: CrossAxisAlignment.center,
+                          children: [
+                            if (showLabel)
+                              Padding(
+                                padding: const EdgeInsets.only(bottom: 2),
+                                child: _PinLabel(
+                                  text: spot.title,
+                                  color: color,
                                 ),
-                              ],
+                              ),
+                            Container(
+                              width: size,
+                              height: size,
+                              decoration: BoxDecoration(
+                                shape: BoxShape.circle,
+                                color: color,
+                                border: Border.all(
+                                  color: Colors.white,
+                                  width: isSelected ? 3 : 2,
+                                ),
+                                boxShadow: [
+                                  BoxShadow(
+                                    color: color.withOpacity(0.40),
+                                    blurRadius: isSelected ? 12 : 6,
+                                    offset: const Offset(0, 2),
+                                  ),
+                                ],
+                              ),
+                              child: Icon(
+                                Icons.menu_book_rounded,
+                                color: Colors.white,
+                                size: isSelected ? 18 : 14,
+                              ),
                             ),
-                            child: Icon(
-                              Icons.menu_book_rounded,
-                              color: Colors.white,
-                              size: isSelected ? 18 : 14,
-                            ),
-                          ),
-                        ],
+                          ],
+                        ),
                       ),
                     ),
-                  ),
-                );
-              }).toList(),
-            ),
-            if (_showTransport && !_showPlaces)
+                  );
+                }).toList(),
+              ),
+            // Bus stops hidden until transport feature is implemented
+            if (false) // ignore: dead_code
               MarkerLayer(
                 markers: sampleBusStops.map((stop) {
                   final showLabel = _currentZoom >= 16.0;
@@ -1568,12 +1589,13 @@ class _MapTabState extends State<MapTab> with TickerProviderStateMixin {
                               );
                             })
                             .toList(),
-                        _buildTransportChip(),
+                        // _buildTransportChip(), // hidden until transport is implemented
                         // ── Restaurants filter chip ────────────────────────
                         Padding(
                           padding: const EdgeInsets.only(right: 8),
                           child: GestureDetector(
-                            onTap: () => setState(() => _showPlaces = !_showPlaces),
+                            onTap: () =>
+                                setState(() => _showPlaces = !_showPlaces),
                             child: AnimatedContainer(
                               duration: const Duration(milliseconds: 160),
                               padding: const EdgeInsets.symmetric(
@@ -1931,10 +1953,20 @@ class _MapTabState extends State<MapTab> with TickerProviderStateMixin {
           left: 16,
           top: addPinTop - 130,
           child: IgnorePointer(
-            ignoring: !_addMenuOpen || _hideFloatingMapControls || _placementMode || _signalPlacementMode,
+            ignoring:
+                !_addMenuOpen ||
+                _hideFloatingMapControls ||
+                _placementMode ||
+                _signalPlacementMode,
             child: AnimatedOpacity(
               duration: const Duration(milliseconds: 180),
-              opacity: (_addMenuOpen && !_hideFloatingMapControls && !_placementMode && !_signalPlacementMode) ? 1.0 : 0.0,
+              opacity:
+                  (_addMenuOpen &&
+                      !_hideFloatingMapControls &&
+                      !_placementMode &&
+                      !_signalPlacementMode)
+                  ? 1.0
+                  : 0.0,
               child: Column(
                 mainAxisSize: MainAxisSize.min,
                 crossAxisAlignment: CrossAxisAlignment.start,
@@ -1949,7 +1981,9 @@ class _MapTabState extends State<MapTab> with TickerProviderStateMixin {
                           ? const Color(0xFFFF7AD9)
                           : UniverseColors.iosSysGray2,
                       onTap: () {
-                        setState(() { _addMenuOpen = false; });
+                        setState(() {
+                          _addMenuOpen = false;
+                        });
                         if (!_canDropSignal) {
                           final rem = _signalCooldownRemaining;
                           ScaffoldMessenger.of(context).showSnackBar(
@@ -2013,12 +2047,24 @@ class _MapTabState extends State<MapTab> with TickerProviderStateMixin {
           left: 16,
           top: addPinTop,
           child: IgnorePointer(
-            ignoring: _hideFloatingMapControls || _placementMode || _signalPlacementMode,
+            ignoring:
+                _hideFloatingMapControls ||
+                _placementMode ||
+                _signalPlacementMode,
             child: AnimatedOpacity(
               duration: const Duration(milliseconds: 180),
-              opacity: (_hideFloatingMapControls || _placementMode || _signalPlacementMode) ? 0 : 1,
+              opacity:
+                  (_hideFloatingMapControls ||
+                      _placementMode ||
+                      _signalPlacementMode)
+                  ? 0
+                  : 1,
               child: GestureDetector(
-                onTap: () { setState(() { _addMenuOpen = !_addMenuOpen; }); },
+                onTap: () {
+                  setState(() {
+                    _addMenuOpen = !_addMenuOpen;
+                  });
+                },
                 child: AnimatedContainer(
                   duration: const Duration(milliseconds: 200),
                   width: 56,
@@ -3311,10 +3357,13 @@ class _MapTabState extends State<MapTab> with TickerProviderStateMixin {
                         final lat = event.position.latitude;
                         final lng = event.position.longitude;
                         final uri = Uri.parse(
-                            'https://www.google.com/maps/dir/?api=1&destination=$lat,$lng');
+                          'https://www.google.com/maps/dir/?api=1&destination=$lat,$lng',
+                        );
                         if (await canLaunchUrl(uri)) {
-                          await launchUrl(uri,
-                              mode: LaunchMode.externalApplication);
+                          await launchUrl(
+                            uri,
+                            mode: LaunchMode.externalApplication,
+                          );
                         }
                       },
                     ),
@@ -3412,7 +3461,10 @@ class _MapTabState extends State<MapTab> with TickerProviderStateMixin {
     );
   }
 
-  Widget _buildPlacePanel(ScrollController scrollController, CampusPlace place) {
+  Widget _buildPlacePanel(
+    ScrollController scrollController,
+    CampusPlace place,
+  ) {
     return CustomScrollView(
       controller: scrollController,
       physics: const ClampingScrollPhysics(),
@@ -3431,7 +3483,9 @@ class _MapTabState extends State<MapTab> with TickerProviderStateMixin {
                     // Category pill
                     Container(
                       padding: const EdgeInsets.symmetric(
-                          horizontal: 10, vertical: 4),
+                        horizontal: 10,
+                        vertical: 4,
+                      ),
                       decoration: BoxDecoration(
                         color: UniverseColors.accent.withOpacity(0.10),
                         borderRadius: BorderRadius.circular(8),
@@ -3439,8 +3493,11 @@ class _MapTabState extends State<MapTab> with TickerProviderStateMixin {
                       child: Row(
                         mainAxisSize: MainAxisSize.min,
                         children: [
-                          Icon(place.icon,
-                              size: 13, color: UniverseColors.accent),
+                          Icon(
+                            place.icon,
+                            size: 13,
+                            color: UniverseColors.accent,
+                          ),
                           const SizedBox(width: 5),
                           Text(
                             place.category,
@@ -3467,8 +3524,11 @@ class _MapTabState extends State<MapTab> with TickerProviderStateMixin {
                           color: UniverseColors.bgPage,
                           shape: BoxShape.circle,
                         ),
-                        child: const Icon(Icons.close,
-                            size: 16, color: UniverseColors.textMuted),
+                        child: const Icon(
+                          Icons.close,
+                          size: 16,
+                          color: UniverseColors.textMuted,
+                        ),
                       ),
                     ),
                   ],
@@ -3490,15 +3550,16 @@ class _MapTabState extends State<MapTab> with TickerProviderStateMixin {
                   children: [
                     ...List.generate(5, (i) {
                       final full = i < place.rating.floor();
-                      final half = !full &&
+                      final half =
+                          !full &&
                           i < place.rating &&
                           (place.rating - i) >= 0.5;
                       return Icon(
                         full
                             ? Icons.star_rounded
                             : half
-                                ? Icons.star_half_rounded
-                                : Icons.star_outline_rounded,
+                            ? Icons.star_half_rounded
+                            : Icons.star_outline_rounded,
                         size: 16,
                         color: const Color(0xFFFFB800),
                       );
@@ -3518,8 +3579,11 @@ class _MapTabState extends State<MapTab> with TickerProviderStateMixin {
                 // ── Hours ──────────────────────────────────────────────────
                 Row(
                   children: [
-                    const Icon(Icons.schedule_rounded,
-                        size: 14, color: UniverseColors.textMuted),
+                    const Icon(
+                      Icons.schedule_rounded,
+                      size: 14,
+                      color: UniverseColors.textMuted,
+                    ),
                     const SizedBox(width: 4),
                     Text(
                       place.hours,
@@ -3540,10 +3604,13 @@ class _MapTabState extends State<MapTab> with TickerProviderStateMixin {
                       final lat = place.position.latitude;
                       final lng = place.position.longitude;
                       final uri = Uri.parse(
-                          'https://www.google.com/maps/dir/?api=1&destination=$lat,$lng');
+                        'https://www.google.com/maps/dir/?api=1&destination=$lat,$lng',
+                      );
                       if (await canLaunchUrl(uri)) {
-                        await launchUrl(uri,
-                            mode: LaunchMode.externalApplication);
+                        await launchUrl(
+                          uri,
+                          mode: LaunchMode.externalApplication,
+                        );
                       }
                     },
                     child: Container(
@@ -3565,8 +3632,11 @@ class _MapTabState extends State<MapTab> with TickerProviderStateMixin {
                       child: const Row(
                         mainAxisAlignment: MainAxisAlignment.center,
                         children: [
-                          Icon(Icons.directions_rounded,
-                              color: Colors.white, size: 20),
+                          Icon(
+                            Icons.directions_rounded,
+                            color: Colors.white,
+                            size: 20,
+                          ),
                           SizedBox(width: 8),
                           Text(
                             'Get Directions',
@@ -4743,7 +4813,11 @@ class _AddMenuOption extends StatelessWidget {
           color: Colors.white,
           borderRadius: BorderRadius.circular(24),
           boxShadow: const [
-            BoxShadow(color: Color(0x22000000), blurRadius: 8, offset: Offset(0, 2)),
+            BoxShadow(
+              color: Color(0x22000000),
+              blurRadius: 8,
+              offset: Offset(0, 2),
+            ),
           ],
         ),
         child: Row(
