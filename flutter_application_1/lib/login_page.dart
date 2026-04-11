@@ -55,6 +55,7 @@ class _LoginPageState extends State<LoginPage> {
         await Future.delayed(const Duration(milliseconds: 800));
         final prefs = await SharedPreferences.getInstance();
         await prefs.setString('logged_in_email', email);
+        await prefs.setBool('needs_onboarding', true);
         if (mounted) {
           Navigator.of(context).pushReplacement(
             MaterialPageRoute(

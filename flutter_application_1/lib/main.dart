@@ -57,6 +57,22 @@ class _UniverseShellState extends State<UniverseShell> {
   void initState() {
     super.initState();
     _showOnboarding = widget.showOnboarding;
+    _checkOnboarding();
+  }
+
+  Future<void> _checkOnboarding() async {
+    final prefs = await SharedPreferences.getInstance();
+    final needs = prefs.getBool('needs_onboarding') ?? false;
+    if (needs && mounted) {
+      setState(() => _showOnboarding = true);
+    }
+  }
+
+  // update onComplete to also clear the flag
+  void _completeOnboarding() async {
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.remove('needs_onboarding'); // clear the flag
+    setState(() => _showOnboarding = false);
   }
 
   @override
@@ -69,11 +85,9 @@ class _UniverseShellState extends State<UniverseShell> {
           IndexedStack(index: _currentIndex, children: _tabs),
 
           // Onboarding overlay shown on top if new user
-          if (_showOnboarding)
+                    if (_showOnboarding)
             OnboardingOverlay(
-              onComplete: () {
-                setState(() => _showOnboarding = false);
-              },
+              onComplete: _completeOnboarding,
             ),
         ],
       ),
