@@ -884,10 +884,7 @@ class _MapTabState extends State<MapTab> with TickerProviderStateMixin {
             ),
             // ── Heatmap blobs (above base map, below pins) ─────────────────
             if (_showHeatmap)
-              _HeatmapLayer(
-                points: _heatPoints,
-                zoom: _currentZoom,
-              ),
+              _HeatmapLayer(points: _heatPoints, zoom: _currentZoom),
             // ── Event pins (primary interactive layer) ─────────────────────
             MarkerLayer(
               markers: _filteredEvents
@@ -902,10 +899,11 @@ class _MapTabState extends State<MapTab> with TickerProviderStateMixin {
                     final showLabel = (_currentZoom >= 16.5) && !isLive;
                     final double pinW = isSelected ? 34.0 : 28.0;
                     final double pinH = isSelected ? 44.0 : 36.0;
-                    // Extra height: title (18) + countdown (20) when both show
-                    final double extraH = showLabel && hasCountdown
-                        ? 40.0
-                        : (showLabel || hasCountdown ? 20.0 : 0.0);
+                    // Extra height: title (18) + countdown (22) when countdown
+                    // is active (title always shows alongside countdown).
+                    final double extraH = hasCountdown
+                        ? 42.0
+                        : (showLabel ? 20.0 : 0.0);
                     final double markerW = isLive
                         ? 70.0
                         : (showLabel || hasCountdown ? 90.0 : pinW);
@@ -3832,9 +3830,9 @@ class _HeatmapPainter extends CustomPainter {
         const Color(0xFFFF2200),
         pt.intensity,
       )!;
-      const midColor   = Color(0xFFFF8C00); // orange
+      const midColor = Color(0xFFFF8C00); // orange
       const outerColor = Color(0xFF34C759); // green
-      const haloColor  = Color(0xFF00C7BE); // turquoise
+      const haloColor = Color(0xFF00C7BE); // turquoise
 
       final coreOpacity = (0.62 + pt.intensity * 0.33).clamp(0.0, 1.0);
 
