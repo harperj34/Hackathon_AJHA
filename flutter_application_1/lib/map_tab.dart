@@ -383,12 +383,12 @@ class _MapTabState extends State<MapTab> with TickerProviderStateMixin {
           options: MapOptions(
             initialCenter: const LatLng(-37.9110, 145.13398),
             initialZoom: 16.2,
-            minZoom: 15.6,
+            minZoom: 14.5,
             maxZoom: 19.0,
             cameraConstraint: CameraConstraint.containCenter(
               bounds: LatLngBounds(
-                const LatLng(-37.91142, 145.13266),
-                const LatLng(-37.91048, 145.13468),
+                const LatLng(-37.922, 145.120),
+                const LatLng(-37.900, 145.148),
               ),
             ),
             onTap: (_, __) {
