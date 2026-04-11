@@ -121,16 +121,10 @@ class _UniverseShellState extends State<UniverseShell> {
                         onTap: () => setState(() => _currentIndex = 1),
                       ),
                       _NavItem(
-                        icon: Icons.notifications_none,
-                        label: 'Activity',
-                        isActive: _currentIndex == 2,
-                        onTap: () => setState(() => _currentIndex = 2),
-                      ),
-                      _NavItem(
                         icon: Icons.person_outline,
                         label: 'Profile',
-                        isActive: _currentIndex == 3,
-                        onTap: () => setState(() => _currentIndex = 3),
+                        isActive: _currentIndex == 2,
+                        onTap: () => setState(() => _currentIndex = 2),
                       ),
                     ],
                   ),
