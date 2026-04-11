@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'theme.dart';
 import 'models.dart';
 import 'event_detail.dart';
+import 'discover_see_all.dart';
 
 class DiscoverTab extends StatelessWidget {
   const DiscoverTab({super.key});
@@ -54,13 +55,32 @@ class DiscoverTab extends StatelessWidget {
                     ),
                   ),
                   const Spacer(),
-                  const Text(
+                  GestureDetector(
+                    onTap: () => Navigator.push(
+                      context,
+                      PageRouteBuilder(
+                        pageBuilder: (_, __, ___) => const DiscoverSeeAll(),
+                        transitionsBuilder: (_, animation, __, child) =>
+                        SlideTransition(
+                          position: Tween<Offset>(
+                            begin: const Offset(1.0, 0),
+                            end: Offset.zero,
+                          ).animate(CurvedAnimation(
+                            parent: animation, 
+                            curve: Curves.easeOut,
+                            )),
+                            child: child,
+                          ),
+                          ),
+                          ),     
+                  child: const Text(
                     'See all',
                     style: TextStyle(
                       color: UniverseColors.accent,
                       fontSize: 13,
                       fontWeight: FontWeight.w600,
                     ),
+                  ),
                   ),
                 ],
               ),
