@@ -72,7 +72,7 @@ class _LoginPageState extends State<LoginPage> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: const Color.fromARGB(255, 213, 90, 235),
+      backgroundColor: const Color(0xFFA374F5),
       body: SafeArea(
         child: Padding(
           padding: const EdgeInsets.symmetric(horizontal: 28),
@@ -95,7 +95,7 @@ class _LoginPageState extends State<LoginPage> {
               RichText(
                 text: TextSpan(
                   style: const TextStyle(
-                    color: UniverseColors.textMuted,
+                    color: const Color(0xFF12121B),
                     fontSize: 15,
                   ),
                   children: [
@@ -124,7 +124,7 @@ class _LoginPageState extends State<LoginPage> {
               const Text(
                 'Enter your email to get started',
                 style: TextStyle(
-                  color: UniverseColors.textMuted,
+                  color: const Color(0xFF12121B),
                   fontSize: 15,
                 ),
               ),
