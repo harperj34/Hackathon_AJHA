@@ -6,6 +6,12 @@ import 'package:latlong2/latlong.dart';
 import 'theme.dart';
 import 'models.dart';
 
+class HeatPoint {
+  final LatLng position;
+  final double intensity; // 0.0 – 1.0
+  const HeatPoint(this.position, this.intensity);
+}
+
 class MapTab extends StatefulWidget {
   const MapTab({super.key});
 
@@ -22,9 +28,11 @@ class _MapTabState extends State<MapTab> {
 
   EventCategory? _activeFilter;
   CampusEvent? _selectedEvent;
+  StudySpot? _selectedStudySpot;
   bool _isGoing = false;
   String _searchQuery = '';
   bool _showTransport = false;
+  bool _showHeatmap = false;
   double _currentZoom = 15.5;
   StreamSubscription<MapEvent>? _mapEventSub;
 
@@ -59,10 +67,19 @@ class _MapTabState extends State<MapTab> {
     }).toList();
   }
 
+  List<StudySpot> get _filteredStudySpots {
+    return sampleStudySpots.where((s) {
+      final matchesFilter = _activeFilter == null || _activeFilter == EventCategory.study;
+      final matchesSearch = _searchQuery.isEmpty || s.title.toLowerCase().contains(_searchQuery.toLowerCase()) || s.location.toLowerCase().contains(_searchQuery.toLowerCase());
+      return matchesFilter && matchesSearch;
+    }).toList();
+  }
+
   void _onFilterTap(EventCategory cat) {
     setState(() {
       _activeFilter = _activeFilter == cat ? null : cat;
       _selectedEvent = null;
+      _selectedStudySpot = null;
     });
     _sheetController.animateTo(
       _kCollapsed,
@@ -74,6 +91,7 @@ class _MapTabState extends State<MapTab> {
   void _onPinTap(CampusEvent event) {
     setState(() {
       _selectedEvent = event;
+      _selectedStudySpot = null;
       _isGoing = false;
     });
     _mapController.move(event.position, 17.0);
@@ -84,8 +102,25 @@ class _MapTabState extends State<MapTab> {
     );
   }
 
+  void _onStudyPinTap(StudySpot spot) {
+    setState(() {
+      _selectedStudySpot = spot;
+      _selectedEvent = null;
+      _isGoing = false;
+    });
+    _mapController.move(spot.position, 17.0);
+    _sheetController.animateTo(
+      _kPreview,
+      duration: const Duration(milliseconds: 350),
+      curve: Curves.easeOut,
+    );
+  }
+
   void _dismissPreview() {
-    setState(() => _selectedEvent = null);
+    setState(() {
+      _selectedEvent = null;
+      _selectedStudySpot = null;
+    });
     _sheetController.animateTo(
       _kCollapsed,
       duration: const Duration(milliseconds: 300),
@@ -158,6 +193,32 @@ class _MapTabState extends State<MapTab> {
     );
   }
 
+  // ── Heatmap helpers ────────────────────────────────────────────────────────
+
+  List<HeatPoint> get _heatPoints {
+    final pts = <HeatPoint>[];
+    for (final e in sampleEvents) {
+      final intensity = (e.attendees / 200.0).clamp(0.0, 1.0);
+      pts.add(HeatPoint(e.position, intensity));
+    }
+    return pts;
+  }
+
+  Color _heatColor(double intensity) {
+    if (intensity < 0.4) {
+      return Color.lerp(
+        const Color(0x556C63FF),
+        const Color(0x88A855F7),
+        intensity / 0.4,
+      )!;
+    }
+    return Color.lerp(
+      const Color(0x88A855F7),
+      const Color(0xAAFF7AD9),
+      (intensity - 0.4) / 0.6,
+    )!;
+  }
+
   @override
   Widget build(BuildContext context) {
     return Stack(
@@ -187,6 +248,26 @@ class _MapTabState extends State<MapTab> {
               subdomains: const ['a', 'b', 'c', 'd'],
               userAgentPackageName: 'com.universe.app',
             ),
+            // ── Heatmap blobs (above base map, below pins) ─────────────────
+            if (_showHeatmap)
+              MarkerLayer(
+                markers: _heatPoints.map((pt) {
+                  final radius = 60.0 + pt.intensity * 40.0;
+                  return Marker(
+                    point: pt.position,
+                    width: radius * 2,
+                    height: radius * 2,
+                    child: CustomPaint(
+                      size: Size(radius * 2, radius * 2),
+                      painter: _HeatBlobPainter(
+                        color: _heatColor(pt.intensity),
+                        intensity: pt.intensity,
+                      ),
+                    ),
+                  );
+                }).toList(),
+              ),
+            // ── Event pins (primary interactive layer) ─────────────────────
             MarkerLayer(
               markers: _filteredEvents.map((event) {
                 final info = categoryInfo[event.category]!;
@@ -220,6 +301,44 @@ class _MapTabState extends State<MapTab> {
                           isSelected: isSelected,
                           width: pinW,
                           height: pinH,
+                        ),
+                      ],
+                    ),
+                  ),
+                );
+              }).toList(),
+            ),
+            // Study spot markers
+            MarkerLayer(
+              markers: _filteredStudySpots.map((spot) {
+                final info = categoryInfo[EventCategory.study]!;
+                final showLabel = _currentZoom >= 16.5;
+                return Marker(
+                  point: spot.position,
+                  width: showLabel ? 90.0 : 28.0,
+                  height: showLabel ? 56.0 : 36.0,
+                  alignment: Alignment.bottomCenter,
+                  child: GestureDetector(
+                    onTap: () => _onStudyPinTap(spot),
+                    behavior: HitTestBehavior.opaque,
+                    child: Column(
+                      mainAxisSize: MainAxisSize.min,
+                      crossAxisAlignment: CrossAxisAlignment.center,
+                      children: [
+                        if (showLabel)
+                          Padding(
+                            padding: const EdgeInsets.only(bottom: 2),
+                            child: _PinLabel(
+                              text: spot.title,
+                              color: info.color,
+                            ),
+                          ),
+                        _MapPin(
+                          color: info.color,
+                          icon: info.icon,
+                          isSelected: _selectedStudySpot?.id == spot.id,
+                          width: 28.0,
+                          height: 36.0,
                         ),
                       ],
                     ),
@@ -308,59 +427,59 @@ class _MapTabState extends State<MapTab> {
                   padding: const EdgeInsets.symmetric(horizontal: 12),
                   children: [
                     ...EventCategory.values.map((cat) {
-                    final info = categoryInfo[cat]!;
-                    final isActive = _activeFilter == cat;
-                    return Padding(
-                      padding: const EdgeInsets.only(right: 8),
-                      child: GestureDetector(
-                        onTap: () => _onFilterTap(cat),
-                        child: AnimatedContainer(
-                          duration: const Duration(milliseconds: 180),
-                          padding: const EdgeInsets.symmetric(
-                            horizontal: 14,
-                            vertical: 5,
-                          ),
-                          decoration: BoxDecoration(
-                            color: isActive ? info.color : Colors.white,
-                            borderRadius: BorderRadius.circular(20),
-                            border: Border.all(
-                              color: isActive
-                                  ? info.color
-                                  : UniverseColors.borderColor,
+                      final info = categoryInfo[cat]!;
+                      final isActive = _activeFilter == cat;
+                      return Padding(
+                        padding: const EdgeInsets.only(right: 8),
+                        child: GestureDetector(
+                          onTap: () => _onFilterTap(cat),
+                          child: AnimatedContainer(
+                            duration: const Duration(milliseconds: 180),
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: 14,
+                              vertical: 5,
                             ),
-                            boxShadow: const [
-                              BoxShadow(
-                                color: Color(0x0A000000),
-                                blurRadius: 6,
-                                offset: Offset(0, 1),
+                            decoration: BoxDecoration(
+                              color: isActive ? info.color : Colors.white,
+                              borderRadius: BorderRadius.circular(20),
+                              border: Border.all(
+                                color: isActive
+                                    ? info.color
+                                    : UniverseColors.borderColor,
                               ),
-                            ],
-                          ),
-                          child: Row(
-                            mainAxisSize: MainAxisSize.min,
-                            children: [
-                              Icon(
-                                info.icon,
-                                size: 13,
-                                color: isActive ? Colors.white : info.color,
-                              ),
-                              const SizedBox(width: 5),
-                              Text(
-                                info.label,
-                                style: TextStyle(
-                                  color: isActive
-                                      ? Colors.white
-                                      : UniverseColors.textPrimary,
-                                  fontSize: 13,
-                                  fontWeight: FontWeight.w600,
+                              boxShadow: const [
+                                BoxShadow(
+                                  color: Color(0x0A000000),
+                                  blurRadius: 6,
+                                  offset: Offset(0, 1),
                                 ),
-                              ),
-                            ],
+                              ],
+                            ),
+                            child: Row(
+                              mainAxisSize: MainAxisSize.min,
+                              children: [
+                                Icon(
+                                  info.icon,
+                                  size: 13,
+                                  color: isActive ? Colors.white : info.color,
+                                ),
+                                const SizedBox(width: 5),
+                                Text(
+                                  info.label,
+                                  style: TextStyle(
+                                    color: isActive
+                                        ? Colors.white
+                                        : UniverseColors.textPrimary,
+                                    fontSize: 13,
+                                    fontWeight: FontWeight.w600,
+                                  ),
+                                ),
+                              ],
+                            ),
                           ),
                         ),
-                      ),
-                    );
-                  }).toList(),
+                      );
+                    }).toList(),
                     _buildTransportChip(),
                   ],
                 ),
@@ -390,11 +509,104 @@ class _MapTabState extends State<MapTab> {
                   ),
                 ],
               ),
-              child: _selectedEvent == null
-                  ? _buildHappeningNow(scrollController)
-                  : _buildEventPanel(scrollController, _selectedEvent!),
+              child: _selectedStudySpot != null
+                  ? _buildStudySpotPanel(scrollController, _selectedStudySpot!)
+                  : _selectedEvent == null
+                      ? _buildHappeningNow(scrollController)
+                      : _buildEventPanel(scrollController, _selectedEvent!),
             );
           },
+        ),
+
+        // ── Map controls (bottom-right) ─────────────────────────────────────
+        Positioned(
+          right: 16,
+          bottom: MediaQuery.of(context).size.height * _kCollapsed + 16,
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              // Heatmap toggle
+              _MapControlButton(
+                onTap: () => setState(() => _showHeatmap = !_showHeatmap),
+                active: _showHeatmap,
+                activeColor: UniverseColors.accentPink,
+                child: const Icon(Icons.whatshot_rounded, size: 20),
+              ),
+              const SizedBox(height: 8),
+              // Zoom in
+              _MapControlButton(
+                onTap: () => _mapController.move(
+                  _mapController.camera.center,
+                  (_mapController.camera.zoom + 1).clamp(13.5, 19.0),
+                ),
+                child: const Icon(Icons.add_rounded, size: 20),
+              ),
+              const SizedBox(height: 4),
+              // Zoom out
+              _MapControlButton(
+                onTap: () => _mapController.move(
+                  _mapController.camera.center,
+                  (_mapController.camera.zoom - 1).clamp(13.5, 19.0),
+                ),
+                child: const Icon(Icons.remove_rounded, size: 20),
+              ),
+            ],
+          ),
+        ),
+        // Floating button to add a study spot (on top of the pullup bar)
+        Positioned(
+          right: 16,
+          bottom: MediaQuery.of(context).size.height * _kCollapsed - 40 < 16
+              ? 16
+              : MediaQuery.of(context).size.height * _kCollapsed - 40,
+          child: FloatingActionButton(
+            onPressed: () async {
+              final titleController = TextEditingController();
+              final locController = TextEditingController();
+              final result = await showDialog<bool>(
+                context: context,
+                builder: (ctx) => AlertDialog(
+                  title: const Text('Add Study Spot'),
+                  content: Column(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      TextField(
+                        controller: titleController,
+                        decoration: const InputDecoration(labelText: 'Title'),
+                      ),
+                      TextField(
+                        controller: locController,
+                        decoration: const InputDecoration(labelText: 'Location'),
+                      ),
+                    ],
+                  ),
+                  actions: [
+                    TextButton(
+                        onPressed: () => Navigator.of(ctx).pop(false),
+                        child: const Text('Cancel')),
+                    ElevatedButton(
+                        onPressed: () => Navigator.of(ctx).pop(true),
+                        child: const Text('Add')),
+                  ],
+                ),
+              );
+              if (result == true && titleController.text.trim().isNotEmpty) {
+                final center = _mapController.camera.center ?? const LatLng(-37.9110, 145.1335);
+                final id = DateTime.now().millisecondsSinceEpoch.toString();
+                setState(() {
+                  sampleStudySpots.add(StudySpot(
+                    id: id,
+                    title: titleController.text.trim(),
+                    location: locController.text.trim().isEmpty
+                        ? 'Campus'
+                        : locController.text.trim(),
+                    position: center,
+                  ));
+                });
+              }
+            },
+            child: const Icon(Icons.add_rounded),
+          ),
         ),
       ],
     );
@@ -802,6 +1014,93 @@ class _MapTabState extends State<MapTab> {
       ],
     );
   }
+
+  Widget _buildStudySpotPanel(ScrollController scrollController, StudySpot spot) {
+    final info = categoryInfo[EventCategory.study]!;
+    return CustomScrollView(
+      controller: scrollController,
+      physics: const ClampingScrollPhysics(),
+      slivers: [
+        SliverToBoxAdapter(
+          child: Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 16),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                const _DragHandle(),
+                Row(
+                  children: [
+                    Container(
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 10,
+                        vertical: 4,
+                      ),
+                      decoration: BoxDecoration(
+                        color: info.color.withOpacity(0.10),
+                        borderRadius: BorderRadius.circular(8),
+                      ),
+                      child: Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          Icon(info.icon, size: 13, color: info.color),
+                          const SizedBox(width: 5),
+                          Text(
+                            info.label,
+                            style: TextStyle(
+                              color: info.color,
+                              fontSize: 12,
+                              fontWeight: FontWeight.w700,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                    const Spacer(),
+                    GestureDetector(
+                      onTap: () {
+                        setState(() => _selectedStudySpot = null);
+                        _dismissPreview();
+                      },
+                      child: Container(
+                        width: 30,
+                        height: 30,
+                        decoration: const BoxDecoration(
+                          color: UniverseColors.bgPage,
+                          shape: BoxShape.circle,
+                        ),
+                        child: const Icon(
+                          Icons.close_rounded,
+                          size: 16,
+                          color: UniverseColors.textMuted,
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 12),
+                Text(
+                  spot.title,
+                  style: const TextStyle(
+                    color: UniverseColors.textPrimary,
+                    fontSize: 22,
+                    fontWeight: FontWeight.w800,
+                  ),
+                ),
+                const SizedBox(height: 8),
+                _MiniRow(icon: Icons.location_on_rounded, label: spot.location),
+                const SizedBox(height: 20),
+                const Text(
+                  'This study spot does not expire and has no attendance controls.',
+                  style: TextStyle(color: UniverseColors.textLight, fontSize: 12),
+                ),
+                const SizedBox(height: 220),
+              ],
+            ),
+          ),
+        ),
+      ],
+    );
+  }
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -891,23 +1190,11 @@ class _MapPinPainter extends CustomPainter {
       )
       ..quadraticBezierTo(cx + w * 0.12, h * 0.86, cx, tipY)
       ..quadraticBezierTo(cx - w * 0.12, h * 0.86, cx - w * 0.26, shoulderY)
-      ..cubicTo(
-        sideInset * 0.3,
-        h * 0.42,
-        sideInset,
-        topInset,
-        cx,
-        topInset,
-      )
+      ..cubicTo(sideInset * 0.3, h * 0.42, sideInset, topInset, cx, topInset)
       ..close();
 
     // Shadow
-    canvas.drawShadow(
-      path,
-      const Color(0x55000000),
-      isSelected ? 5 : 3,
-      false,
-    );
+    canvas.drawShadow(path, const Color(0x55000000), isSelected ? 5 : 3, false);
 
     // Fill
     canvas.drawPath(
@@ -1355,6 +1642,80 @@ class _BusStopPin extends StatelessWidget {
           ),
         ),
       ],
+    );
+  }
+}
+
+/// Soft radial gradient blob rendered for the heatmap layer.
+class _HeatBlobPainter extends CustomPainter {
+  final Color color;
+  final double intensity;
+
+  const _HeatBlobPainter({required this.color, required this.intensity});
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    final center = Offset(size.width / 2, size.height / 2);
+    final radius = size.width / 2;
+    final paint = Paint()
+      ..shader = ui.Gradient.radial(
+        center,
+        radius,
+        [color, color.withOpacity(0.0)],
+        [0.0, 1.0],
+      );
+    canvas.drawCircle(center, radius, paint);
+  }
+
+  @override
+  bool shouldRepaint(_HeatBlobPainter old) =>
+      old.color != color || old.intensity != intensity;
+}
+
+/// Reusable circular map control button (zoom +/-, heatmap toggle, etc.)
+class _MapControlButton extends StatelessWidget {
+  final VoidCallback onTap;
+  final Widget child;
+  final bool active;
+  final Color activeColor;
+
+  const _MapControlButton({
+    required this.onTap,
+    required this.child,
+    this.active = false,
+    this.activeColor = UniverseColors.accent,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return GestureDetector(
+      onTap: onTap,
+      child: AnimatedContainer(
+        duration: const Duration(milliseconds: 180),
+        width: 44,
+        height: 44,
+        decoration: BoxDecoration(
+          color: Colors.white,
+          shape: BoxShape.circle,
+          border: Border.all(
+            color: active ? activeColor : UniverseColors.borderColor,
+            width: 1.5,
+          ),
+          boxShadow: const [
+            BoxShadow(
+              color: Color(0x1A000000),
+              blurRadius: 8,
+              offset: Offset(0, 2),
+            ),
+          ],
+        ),
+        child: IconTheme(
+          data: IconThemeData(
+            color: active ? activeColor : UniverseColors.textMuted,
+          ),
+          child: Center(child: child),
+        ),
+      ),
     );
   }
 }

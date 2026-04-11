@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:latlong2/latlong.dart';
 
-enum EventCategory { clubs, food, events, social }
+enum EventCategory { clubs, food, events, social, study }
 
 class EventCategoryInfo {
   final String label;
@@ -36,6 +36,11 @@ final Map<EventCategory, EventCategoryInfo> categoryInfo = {
     icon: Icons.emoji_people_rounded,
     color: Color(0xFFFF7AD9),
   ),
+  EventCategory.study: const EventCategoryInfo(
+    label: 'Study Spots',
+    icon: Icons.menu_book_rounded,
+    color: Color(0xFF00B894),
+  ),
 };
 
 class CampusEvent {
@@ -59,6 +64,20 @@ class CampusEvent {
     required this.category,
     required this.position,
     this.attendees = 0,
+  });
+}
+
+class StudySpot {
+  final String id;
+  final String title;
+  final String location;
+  final LatLng position;
+
+  StudySpot({
+    required this.id,
+    required this.title,
+    required this.location,
+    required this.position,
   });
 }
 
@@ -207,5 +226,21 @@ final List<BusStop> sampleBusStops = [
     routes: ['601'],
     nextArrival: '14 min',
     position: LatLng(-37.9148, 145.1348),
+  ),
+];
+
+// Persistent study spots (no expiry, no going/not-going state)
+List<StudySpot> sampleStudySpots = [
+  StudySpot(
+    id: 's1',
+    title: 'Quiet Study Area',
+    location: 'Matheson Library — Level 2',
+    position: LatLng(-37.9113, 145.1325),
+  ),
+  StudySpot(
+    id: 's2',
+    title: 'Group Study Room',
+    location: 'Learning & Teaching Building — G12',
+    position: LatLng(-37.9128, 145.1310),
   ),
 ];
