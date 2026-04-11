@@ -111,7 +111,7 @@ class _LoginPageState extends State<LoginPage> {
                       ),
                       recognizer: TapGestureRecognizer()
                         ..onTap = () async {
-                          final url = Uri.parse('https://www.boonwurrung.org');
+                          final url = Uri.parse('https://www.monash.edu/indigenous-students/about-us/recognition-of-traditional-owners');
                           if (await canLaunchUrl(url)) {
                             await launchUrl(url, mode: LaunchMode.externalApplication);
                           }
