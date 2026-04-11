@@ -20,7 +20,7 @@ class MapTab extends StatefulWidget {
 }
 
 class _MapTabState extends State<MapTab> {
-  final MapController _mapController = MapController();
+  late final MapController _mapController;
   final DraggableScrollableController _sheetController =
       DraggableScrollableController();
   final TextEditingController _searchController = TextEditingController();
@@ -43,6 +43,7 @@ class _MapTabState extends State<MapTab> {
   @override
   void initState() {
     super.initState();
+    _mapController = MapController();
     WidgetsBinding.instance.addPostFrameCallback((_) {
       _mapEventSub = _mapController.mapEventStream.listen((_) {
         if (!mounted) return;
@@ -269,7 +270,8 @@ class _MapTabState extends State<MapTab> {
               ),
             // ── Event pins (primary interactive layer) ─────────────────────
             MarkerLayer(
-              markers: _filteredEvents.map((event) {
+              markers: _filteredEvents.where((event) => categoryInfo[event.category] != null)
+              .map((event) {
                 final info = categoryInfo[event.category]!;
                 final isSelected = _selectedEvent?.id == event.id;
                 final showLabel = _currentZoom >= 16.5;
@@ -310,7 +312,8 @@ class _MapTabState extends State<MapTab> {
             ),
             // Study spot markers
             MarkerLayer(
-              markers: _filteredStudySpots.map((spot) {
+              markers: _filteredStudySpots.where((_) => categoryInfo[EventCategory.study] != null)
+              .map((spot) {
                 final info = categoryInfo[EventCategory.study]!;
                 final showLabel = _currentZoom >= 16.5;
                 return Marker(
@@ -591,7 +594,12 @@ class _MapTabState extends State<MapTab> {
                 ),
               );
               if (result == true && titleController.text.trim().isNotEmpty) {
-                final center = _mapController.camera.center ?? const LatLng(-37.9110, 145.1335);
+                LatLng center;
+                try {
+                  center = _mapController.camera.center;
+                } catch (_) {
+                  center = const LatLng(-37.9110, 145.1335);
+                }
                 final id = DateTime.now().millisecondsSinceEpoch.toString();
                 setState(() {
                   sampleStudySpots.add(StudySpot(
