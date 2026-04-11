@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'theme.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'login_page.dart';
+import 'activity_tab.dart';
 
 class ProfileTab extends StatelessWidget {
   const ProfileTab({super.key});
@@ -28,43 +29,74 @@ class ProfileTab extends StatelessWidget {
               ),
             ),
             child: Column(
-              crossAxisAlignment: CrossAxisAlignment.center,
+              crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                // Avatar — white circle on gradient
-                Container(
-                  width: 84,
-                  height: 84,
-                  decoration: BoxDecoration(
-                    shape: BoxShape.circle,
-                    color: Colors.white,
-                    boxShadow: const [
-                      BoxShadow(
-                        color: Color(0x33000000),
-                        blurRadius: 24,
-                        offset: Offset(0, 6),
+                // Activity button in top left
+                GestureDetector(
+                  onTap: () {
+                    Navigator.of(context).push(
+                      MaterialPageRoute(
+                        builder: (context) => const ActivityTab(),
                       ),
+                    );
+                  },
+                  child: Container(
+                    width: 44,
+                    height: 44,
+                    decoration: BoxDecoration(
+                      shape: BoxShape.circle,
+                      color: Colors.white.withOpacity(0.2),
+                    ),
+                    child: const Icon(
+                      Icons.notifications_none,
+                      size: 22,
+                      color: Colors.white,
+                    ),
+                  ),
+                ),
+                const SizedBox(height: 16),
+                Center(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.center,
+                    children: [
+                    // Avatar — white circle on gradient
+                    Container(
+                      width: 84,
+                      height: 84,
+                      decoration: BoxDecoration(
+                        shape: BoxShape.circle,
+                        color: Colors.white,
+                        boxShadow: const [
+                          BoxShadow(
+                            color: Color(0x33000000),
+                            blurRadius: 24,
+                            offset: Offset(0, 6),
+                          ),
+                        ],
+                      ),
+                      child: const Icon(
+                        Icons.person_rounded,
+                        size: 44,
+                        color: UniverseColors.accent,
+                      ),
+                    ),
+                    const SizedBox(height: 14),
+                    Text(
+                      'Explorer',
+                      style: UniverseTextStyles.displayMedium.copyWith(
+                        color: Colors.white,
+                      ),
+                    ),
+                    const SizedBox(height: 4),
+                    Text(
+                      '@universe_explorer',
+                      style: TextStyle(
+                        color: Colors.white.withOpacity(0.82),
+                        fontSize: 14,
+                        fontWeight: FontWeight.w400,
+                      ),
+                    ),
                     ],
-                  ),
-                  child: const Icon(
-                    Icons.person_rounded,
-                    size: 44,
-                    color: UniverseColors.accent,
-                  ),
-                ),
-                const SizedBox(height: 14),
-                Text(
-                  'Explorer',
-                  style: UniverseTextStyles.displayMedium.copyWith(
-                    color: Colors.white,
-                  ),
-                ),
-                const SizedBox(height: 4),
-                Text(
-                  '@universe_explorer',
-                  style: TextStyle(
-                    color: Colors.white.withOpacity(0.82),
-                    fontSize: 14,
-                    fontWeight: FontWeight.w400,
                   ),
                 ),
               ],
