@@ -35,6 +35,8 @@ class _MapTabState extends State<MapTab> {
   bool _showHeatmap = false;
   double _currentZoom = 15.5;
   StreamSubscription<MapEvent>? _mapEventSub;
+  final Map<String, DateTime> _tempExpiry = {};
+  final List<Timer> _expiryTimers = [];
 
   static const double _kCollapsed = 0.20;
   static const double _kPreview = 0.38;
@@ -56,9 +58,18 @@ class _MapTabState extends State<MapTab> {
   }
 
   List<CampusEvent> get _filteredEvents {
+    // Remove expired temporary events first
+    final now = DateTime.now();
+    final expired = _tempExpiry.entries.where((e) => e.value.isBefore(now)).map((e) => e.key).toList();
+    if (expired.isNotEmpty) {
+      for (final id in expired) {
+        sampleEvents.removeWhere((ev) => ev.id == id);
+        _tempExpiry.remove(id);
+      }
+    }
+
     return sampleEvents.where((e) {
-      final matchesFilter =
-          _activeFilter == null || e.category == _activeFilter;
+      final matchesFilter = _activeFilter == null || e.category == _activeFilter;
       final matchesSearch =
           _searchQuery.isEmpty ||
           e.title.toLowerCase().contains(_searchQuery.toLowerCase()) ||
@@ -135,6 +146,38 @@ class _MapTabState extends State<MapTab> {
     }
   }
 
+  void _scheduleExpiry(String id, Duration duration) {
+    final timer = Timer(duration, () {
+      if (!mounted) return;
+      setState(() {
+        sampleEvents.removeWhere((e) => e.id == id);
+        _tempExpiry.remove(id);
+      });
+    });
+    _expiryTimers.add(timer);
+  }
+
+  void _addTemporaryEvent(EventCategory category, String title, String location) {
+    final center = _mapController.camera.center ?? const LatLng(-37.9110, 145.1335);
+    final id = 't${DateTime.now().millisecondsSinceEpoch}';
+    final ev = CampusEvent(
+      id: id,
+      title: title,
+      subtitle: 'User',
+      location: location.isEmpty ? 'Campus' : location,
+      time: 'Now',
+      imageUrl: '',
+      category: category,
+      position: center,
+      attendees: 0,
+    );
+    setState(() {
+      sampleEvents.add(ev);
+      _tempExpiry[id] = DateTime.now().add(const Duration(hours: 2));
+    });
+    _scheduleExpiry(id, const Duration(hours: 2));
+  }
+
   @override
   void dispose() {
     _mapEventSub?.cancel();
@@ -142,6 +185,9 @@ class _MapTabState extends State<MapTab> {
     _sheetController.dispose();
     _searchController.dispose();
     _pageController.dispose();
+    for (final t in _expiryTimers) {
+      t.cancel();
+    }
     super.dispose();
   }
 
@@ -594,35 +640,37 @@ class _MapTabState extends State<MapTab> {
           child: FloatingActionButton(
             backgroundColor: UniverseColors.accent,
             onPressed: () async {
-              final titleController = TextEditingController();
-              final locController = TextEditingController();
-              final result = await showDialog<bool>(
+              // Present a creation menu
+              final choice = await showModalBottomSheet<String?>(
                 context: context,
-                builder: (ctx) => AlertDialog(
-                  title: const Text('Add Study Spot'),
-                  content: Column(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      TextField(
-                        controller: titleController,
-                        decoration: const InputDecoration(labelText: 'Title'),
-                      ),
-                      TextField(
-                        controller: locController,
-                        decoration: const InputDecoration(labelText: 'Location'),
-                      ),
-                    ],
-                  ),
-                  actions: [
-                    TextButton(
-                        onPressed: () => Navigator.of(ctx).pop(false),
-                        child: const Text('Cancel')),
-                    ElevatedButton(
-                        onPressed: () => Navigator.of(ctx).pop(true),
-                        child: const Text('Add')),
+                builder: (ctx) => Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    ListTile(
+                      leading: const Icon(Icons.menu_book_rounded),
+                      title: const Text('Study Spot'),
+                      onTap: () => Navigator.of(ctx).pop('study'),
+                    ),
+                    ListTile(
+                      leading: const Icon(Icons.restaurant_rounded),
+                      title: const Text('Food (timed)'),
+                      onTap: () => Navigator.of(ctx).pop('food'),
+                    ),
+                    ListTile(
+                      leading: const Icon(Icons.card_giftcard_rounded),
+                      title: const Text('Free Stuff (timed)'),
+                      onTap: () => Navigator.of(ctx).pop('free'),
+                    ),
+                    ListTile(
+                      leading: const Icon(Icons.security_rounded),
+                      title: const Text('Myki Inspectors (timed)'),
+                      onTap: () => Navigator.of(ctx).pop('myki'),
+                    ),
+                    const SizedBox(height: 8),
                   ],
                 ),
               );
+<<<<<<< HEAD
               if (result == true && titleController.text.trim().isNotEmpty) {
                 LatLng center;
                 try {
@@ -641,6 +689,77 @@ class _MapTabState extends State<MapTab> {
                     position: center,
                   ));
                 });
+=======
+
+              if (choice == null) return;
+              if (choice == 'study') {
+                final titleController = TextEditingController();
+                final locController = TextEditingController();
+                final result = await showDialog<bool>(
+                  context: context,
+                  builder: (ctx) => AlertDialog(
+                    title: const Text('Add Study Spot'),
+                    content: Column(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        TextField(
+                          controller: titleController,
+                          decoration: const InputDecoration(labelText: 'Title'),
+                        ),
+                        TextField(
+                          controller: locController,
+                          decoration: const InputDecoration(labelText: 'Location'),
+                        ),
+                      ],
+                    ),
+                    actions: [
+                      TextButton(onPressed: () => Navigator.of(ctx).pop(false), child: const Text('Cancel')),
+                      ElevatedButton(onPressed: () => Navigator.of(ctx).pop(true), child: const Text('Add')),
+                    ],
+                  ),
+                );
+                if (result == true && titleController.text.trim().isNotEmpty) {
+                  final center = _mapController.camera.center ?? const LatLng(-37.9110, 145.1335);
+                  final id = DateTime.now().millisecondsSinceEpoch.toString();
+                  setState(() {
+                    sampleStudySpots.add(StudySpot(
+                      id: id,
+                      title: titleController.text.trim(),
+                      location: locController.text.trim().isEmpty ? 'Campus' : locController.text.trim(),
+                      position: center,
+                    ));
+                  });
+                }
+              } else {
+                // Timed event types
+                final titleController = TextEditingController();
+                final locController = TextEditingController();
+                final category = choice == 'food'
+                    ? EventCategory.food
+                    : choice == 'free'
+                        ? EventCategory.freeStuff
+                        : EventCategory.myki;
+                final result = await showDialog<bool>(
+                  context: context,
+                  builder: (ctx) => AlertDialog(
+                    title: Text('Add ${categoryInfo[category]!.label}'),
+                    content: Column(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        TextField(controller: titleController, decoration: const InputDecoration(labelText: 'Title')),
+                        TextField(controller: locController, decoration: const InputDecoration(labelText: 'Location')),
+                      ],
+                    ),
+                    actions: [
+                      TextButton(onPressed: () => Navigator.of(ctx).pop(false), child: const Text('Cancel')),
+                      ElevatedButton(onPressed: () => Navigator.of(ctx).pop(true), child: const Text('Add')),
+                    ],
+                  ),
+                );
+                if (result == true && titleController.text.trim().isNotEmpty) {
+                  _addTemporaryEvent(category, titleController.text.trim(), locController.text.trim());
+                }
+>>>>>>> events_creation
               }
             },
             child: const Icon(Icons.add_rounded),
