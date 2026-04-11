@@ -32,10 +32,10 @@ class DiscoverSeeAll extends StatelessWidget {
           ),
         ),
         title: const Text(
-          'Trending',
+          '🔥 Trending',
           style: TextStyle(
             color: UniverseColors.textPrimary,
-            fontSize: 18,
+            fontSize: 22,
             fontWeight: FontWeight.w700,
           ),
         ),
@@ -71,12 +71,12 @@ class DiscoverSeeAll extends StatelessWidget {
                     borderRadius: BorderRadius.circular(12),
                     child: Image.network(
                       event.imageUrl,
-                      width: 150,
-                      height: 150,
+                      width: 75,
+                      height: 75,
                       fit: BoxFit.cover,
                       errorBuilder: (_, __, ___) => Container(
-                        width: 150,
-                        height: 150,
+                        width: 75,
+                        height: 75,
                         decoration: BoxDecoration(
                           color: info.color.withOpacity(0.12),
                           borderRadius: BorderRadius.circular(12),
@@ -95,7 +95,7 @@ class DiscoverSeeAll extends StatelessWidget {
                           event.title,
                           style: const TextStyle(
                             color: UniverseColors.textPrimary,
-                            fontSize: 21,
+                            fontSize: 17,
                             fontWeight: FontWeight.w600,
                           ),
                           maxLines: 1,
@@ -106,7 +106,7 @@ class DiscoverSeeAll extends StatelessWidget {
                           event.location,
                           style: const TextStyle(
                             color: UniverseColors.textLight,
-                            fontSize: 15,
+                            fontSize: 12,
                           ),
                           maxLines: 1,
                           overflow: TextOverflow.ellipsis,
@@ -126,7 +126,7 @@ class DiscoverSeeAll extends StatelessWidget {
                       '${event.attendees} going',
                       style: TextStyle(
                         color: info.color,
-                        fontSize: 14,
+                        fontSize: 11,
                         fontWeight: FontWeight.w600,
                       ),
                     ),
