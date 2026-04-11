@@ -234,7 +234,7 @@ class _InfoRow extends StatelessWidget {
     return Container(
       padding: const EdgeInsets.all(14),
       decoration: BoxDecoration(
-          color: Colors.white,
+        color: Colors.white,
         borderRadius: BorderRadius.circular(14),
         border: Border.all(color: UniverseColors.borderColor),
       ),

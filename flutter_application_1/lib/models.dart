@@ -157,3 +157,55 @@ final List<CampusEvent> sampleEvents = [
     attendees: 28,
   ),
 ];
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Public transport layer (PTV-style bus stop data — static placeholders;
+// replace with live PTV API calls when API key is available).
+// ─────────────────────────────────────────────────────────────────────────────
+
+class BusStop {
+  final String id;
+  final String name;
+  final List<String> routes;
+  final String nextArrival;
+  final LatLng position;
+
+  const BusStop({
+    required this.id,
+    required this.name,
+    required this.routes,
+    required this.nextArrival,
+    required this.position,
+  });
+}
+
+final List<BusStop> sampleBusStops = [
+  BusStop(
+    id: 'b1',
+    name: 'Monash Uni Interchange',
+    routes: ['630', '631', '900'],
+    nextArrival: '3 min',
+    position: LatLng(-37.9108, 145.1292),
+  ),
+  BusStop(
+    id: 'b2',
+    name: 'Campus Centre Stop',
+    routes: ['631', '732'],
+    nextArrival: '7 min',
+    position: LatLng(-37.9122, 145.1318),
+  ),
+  BusStop(
+    id: 'b3',
+    name: 'Princes Hwy / Research Way',
+    routes: ['900', '902'],
+    nextArrival: '11 min',
+    position: LatLng(-37.9075, 145.1382),
+  ),
+  BusStop(
+    id: 'b4',
+    name: 'Wellington Rd / Scenic Blvd',
+    routes: ['601'],
+    nextArrival: '14 min',
+    position: LatLng(-37.9148, 145.1348),
+  ),
+];

@@ -56,9 +56,7 @@ class _UniverseShellState extends State<UniverseShell> {
       bottomNavigationBar: Container(
         decoration: const BoxDecoration(
           color: Colors.white,
-          border: Border(
-            top: BorderSide(color: UniverseColors.divider),
-          ),
+          border: Border(top: BorderSide(color: UniverseColors.divider)),
         ),
         child: SafeArea(
           child: Padding(
@@ -124,9 +122,7 @@ class _NavItem extends StatelessWidget {
           children: [
             Icon(
               icon,
-              color: isActive
-                  ? UniverseColors.accent
-                  : const Color(0xFFABABC7),
+              color: isActive ? UniverseColors.accent : const Color(0xFFABABC7),
               size: 26,
             ),
             const SizedBox(height: 3),

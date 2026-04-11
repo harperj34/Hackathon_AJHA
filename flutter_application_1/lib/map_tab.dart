@@ -1,3 +1,5 @@
+import 'dart:async';
+import 'dart:ui' as ui;
 import 'package:flutter/material.dart';
 import 'package:flutter_map/flutter_map.dart';
 import 'package:latlong2/latlong.dart';
@@ -22,10 +24,27 @@ class _MapTabState extends State<MapTab> {
   CampusEvent? _selectedEvent;
   bool _isGoing = false;
   String _searchQuery = '';
+  bool _showTransport = false;
+  double _currentZoom = 15.5;
+  StreamSubscription<MapEvent>? _mapEventSub;
 
   static const double _kCollapsed = 0.20;
   static const double _kPreview = 0.38;
   static const double _kExpanded = 0.85;
+
+  @override
+  void initState() {
+    super.initState();
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      _mapEventSub = _mapController.mapEventStream.listen((_) {
+        if (!mounted) return;
+        final z = _mapController.camera.zoom;
+        if ((z - _currentZoom).abs() > 0.08) {
+          setState(() => _currentZoom = z);
+        }
+      });
+    });
+  }
 
   List<CampusEvent> get _filteredEvents {
     return sampleEvents.where((e) {
@@ -82,11 +101,61 @@ class _MapTabState extends State<MapTab> {
 
   @override
   void dispose() {
+    _mapEventSub?.cancel();
     _mapController.dispose();
     _sheetController.dispose();
     _searchController.dispose();
     _pageController.dispose();
     super.dispose();
+  }
+
+  Widget _buildTransportChip() {
+    const teal = Color(0xFF009688);
+    return Padding(
+      padding: const EdgeInsets.only(right: 8),
+      child: GestureDetector(
+        onTap: () => setState(() => _showTransport = !_showTransport),
+        child: AnimatedContainer(
+          duration: const Duration(milliseconds: 180),
+          padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 5),
+          decoration: BoxDecoration(
+            color: _showTransport ? teal : Colors.white,
+            borderRadius: BorderRadius.circular(20),
+            border: Border.all(
+              color: _showTransport ? teal : UniverseColors.borderColor,
+            ),
+            boxShadow: const [
+              BoxShadow(
+                color: Color(0x0A000000),
+                blurRadius: 6,
+                offset: Offset(0, 1),
+              ),
+            ],
+          ),
+          child: Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Icon(
+                Icons.directions_bus_rounded,
+                size: 13,
+                color: _showTransport ? Colors.white : teal,
+              ),
+              const SizedBox(width: 5),
+              Text(
+                'Bus',
+                style: TextStyle(
+                  color: _showTransport
+                      ? Colors.white
+                      : UniverseColors.textPrimary,
+                  fontSize: 13,
+                  fontWeight: FontWeight.w600,
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
   }
 
   @override
@@ -97,8 +166,16 @@ class _MapTabState extends State<MapTab> {
         FlutterMap(
           mapController: _mapController,
           options: MapOptions(
-            initialCenter: LatLng(-37.9110, 145.1335),
+            initialCenter: const LatLng(-37.9110, 145.1335),
             initialZoom: 15.5,
+            minZoom: 13.5,
+            maxZoom: 19.0,
+            cameraConstraint: CameraConstraint.containCenter(
+              bounds: LatLngBounds(
+                const LatLng(-37.895, 145.115),
+                const LatLng(-37.932, 145.156),
+              ),
+            ),
             onTap: (_, __) {
               if (_selectedEvent != null) _dismissPreview();
             },
@@ -106,7 +183,7 @@ class _MapTabState extends State<MapTab> {
           children: [
             TileLayer(
               urlTemplate:
-                  'https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}@2x.png',
+                  'https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}@2x.png',
               subdomains: const ['a', 'b', 'c', 'd'],
               userAgentPackageName: 'com.universe.app',
             ),
@@ -114,21 +191,55 @@ class _MapTabState extends State<MapTab> {
               markers: _filteredEvents.map((event) {
                 final info = categoryInfo[event.category]!;
                 final isSelected = _selectedEvent?.id == event.id;
+                final showLabel = _currentZoom >= 16.5;
+                final double pinW = isSelected ? 34.0 : 28.0;
+                final double pinH = isSelected ? 44.0 : 36.0;
                 return Marker(
                   point: event.position,
-                  width: isSelected ? 52 : 44,
-                  height: isSelected ? 52 : 44,
+                  width: showLabel ? 90.0 : pinW,
+                  height: showLabel ? pinH + 20.0 : pinH,
+                  alignment: Alignment.bottomCenter,
                   child: GestureDetector(
                     onTap: () => _onPinTap(event),
-                    child: _FlatPin(
-                      color: info.color,
-                      icon: info.icon,
-                      isSelected: isSelected,
+                    behavior: HitTestBehavior.opaque,
+                    child: Column(
+                      mainAxisSize: MainAxisSize.min,
+                      crossAxisAlignment: CrossAxisAlignment.center,
+                      children: [
+                        if (showLabel)
+                          Padding(
+                            padding: const EdgeInsets.only(bottom: 2),
+                            child: _PinLabel(
+                              text: event.title,
+                              color: info.color,
+                            ),
+                          ),
+                        _MapPin(
+                          color: info.color,
+                          icon: info.icon,
+                          isSelected: isSelected,
+                          width: pinW,
+                          height: pinH,
+                        ),
+                      ],
                     ),
                   ),
                 );
               }).toList(),
             ),
+            if (_showTransport)
+              MarkerLayer(
+                markers: sampleBusStops.map((stop) {
+                  final showLabel = _currentZoom >= 16.0;
+                  return Marker(
+                    point: stop.position,
+                    width: showLabel ? 80.0 : 36.0,
+                    height: showLabel ? 54.0 : 36.0,
+                    alignment: Alignment.bottomCenter,
+                    child: _BusStopPin(stop: stop, showLabel: showLabel),
+                  );
+                }).toList(),
+              ),
           ],
         ),
 
@@ -195,7 +306,8 @@ class _MapTabState extends State<MapTab> {
                 child: ListView(
                   scrollDirection: Axis.horizontal,
                   padding: const EdgeInsets.symmetric(horizontal: 12),
-                  children: EventCategory.values.map((cat) {
+                  children: [
+                    ...EventCategory.values.map((cat) {
                     final info = categoryInfo[cat]!;
                     final isActive = _activeFilter == cat;
                     return Padding(
@@ -249,6 +361,8 @@ class _MapTabState extends State<MapTab> {
                       ),
                     );
                   }).toList(),
+                    _buildTransportChip(),
+                  ],
                 ),
               ),
             ],
@@ -470,11 +584,7 @@ class _MapTabState extends State<MapTab> {
                             width: 108,
                             height: 108,
                             color: info.color.withOpacity(0.1),
-                            child: Icon(
-                              info.icon,
-                              color: info.color,
-                              size: 36,
-                            ),
+                            child: Icon(info.icon, color: info.color, size: 36),
                           ),
                         ),
                       ),
@@ -719,39 +829,121 @@ class _DragHandle extends StatelessWidget {
   }
 }
 
-/// Flat circular map pin — no glow, no gradient.
-class _FlatPin extends StatelessWidget {
+/// Google Maps-style teardrop pin drawn with CustomPaint.
+class _MapPin extends StatelessWidget {
   final Color color;
   final IconData icon;
   final bool isSelected;
+  final double width;
+  final double height;
 
-  const _FlatPin({
+  const _MapPin({
     required this.color,
     required this.icon,
+    required this.width,
+    required this.height,
     this.isSelected = false,
   });
 
   @override
   Widget build(BuildContext context) {
-    final size = isSelected ? 46.0 : 38.0;
-    return Container(
-      width: size,
-      height: size,
-      decoration: BoxDecoration(
-        color: color,
-        shape: BoxShape.circle,
-        border: Border.all(color: Colors.white, width: isSelected ? 3 : 2),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withOpacity(0.15),
-            blurRadius: 6,
-            offset: const Offset(0, 2),
-          ),
-        ],
+    return CustomPaint(
+      size: Size(width, height),
+      painter: _MapPinPainter(color: color, isSelected: isSelected),
+      child: SizedBox(
+        width: width,
+        height: height,
+        child: Align(
+          alignment: const Alignment(0, -0.18),
+          child: Icon(icon, color: Colors.white, size: width * 0.44),
+        ),
       ),
-      child: Icon(icon, color: Colors.white, size: isSelected ? 22 : 17),
     );
   }
+}
+
+class _MapPinPainter extends CustomPainter {
+  final Color color;
+  final bool isSelected;
+
+  const _MapPinPainter({required this.color, this.isSelected = false});
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    final w = size.width;
+    final h = size.height;
+    final cx = w / 2;
+    final tipY = h - 1;
+    final shoulderY = h * 0.68;
+    final topInset = w * 0.07;
+    final sideInset = w * 0.08;
+
+    // Smooth teardrop with a rounded head and a centered pointed tail.
+    final path = ui.Path()
+      ..moveTo(cx, topInset)
+      ..cubicTo(
+        w - sideInset,
+        topInset,
+        w - sideInset * 0.3,
+        h * 0.42,
+        cx + w * 0.26,
+        shoulderY,
+      )
+      ..quadraticBezierTo(cx + w * 0.12, h * 0.86, cx, tipY)
+      ..quadraticBezierTo(cx - w * 0.12, h * 0.86, cx - w * 0.26, shoulderY)
+      ..cubicTo(
+        sideInset * 0.3,
+        h * 0.42,
+        sideInset,
+        topInset,
+        cx,
+        topInset,
+      )
+      ..close();
+
+    // Shadow
+    canvas.drawShadow(
+      path,
+      const Color(0x55000000),
+      isSelected ? 5 : 3,
+      false,
+    );
+
+    // Fill
+    canvas.drawPath(
+      path,
+      Paint()
+        ..color = color
+        ..style = PaintingStyle.fill,
+    );
+
+    // Subtle top highlight to keep the pin looking crisp without changing the palette.
+    canvas.drawOval(
+      Rect.fromCenter(
+        center: Offset(cx, h * 0.27),
+        width: w * 0.58,
+        height: h * 0.34,
+      ),
+      Paint()
+        ..color = Colors.white.withOpacity(isSelected ? 0.16 : 0.10)
+        ..style = PaintingStyle.fill,
+    );
+
+    // White ring when selected
+    if (isSelected) {
+      canvas.drawPath(
+        path,
+        Paint()
+          ..color = Colors.white
+          ..strokeWidth = 2.5
+          ..style = PaintingStyle.stroke,
+      );
+    }
+  }
+
+  @override
+  bool shouldRepaint(_MapPinPainter old) =>
+      old.color != color || old.isSelected != isSelected;
 }
 
 /// Compact card shown in the "Happening Now" horizontal carousel.
@@ -835,10 +1027,7 @@ class _HappeningCard extends StatelessWidget {
             Padding(
               padding: const EdgeInsets.only(right: 14),
               child: Container(
-                padding: const EdgeInsets.symmetric(
-                  horizontal: 8,
-                  vertical: 4,
-                ),
+                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
                 decoration: BoxDecoration(
                   color: info.color.withOpacity(0.10),
                   borderRadius: BorderRadius.circular(8),
@@ -1057,9 +1246,112 @@ class _FriendAvatar extends StatelessWidget {
         const SizedBox(height: 4),
         Text(
           name,
-          style: const TextStyle(
-            color: UniverseColors.textMuted,
-            fontSize: 10,
+          style: const TextStyle(color: UniverseColors.textMuted, fontSize: 10),
+        ),
+      ],
+    );
+  }
+}
+
+/// Small label shown above a pin when zoom ≥ 16.5.
+class _PinLabel extends StatelessWidget {
+  final String text;
+  final Color color;
+
+  const _PinLabel({required this.text, required this.color});
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      constraints: const BoxConstraints(maxWidth: 86),
+      padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 2),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(6),
+        border: Border.all(color: UniverseColors.borderColor, width: 0.5),
+        boxShadow: const [
+          BoxShadow(
+            color: Color(0x22000000),
+            blurRadius: 4,
+            offset: Offset(0, 1),
+          ),
+        ],
+      ),
+      child: Text(
+        text,
+        style: TextStyle(
+          color: color,
+          fontSize: 9.5,
+          fontWeight: FontWeight.w700,
+          height: 1.2,
+        ),
+        maxLines: 1,
+        overflow: TextOverflow.ellipsis,
+        textAlign: TextAlign.center,
+      ),
+    );
+  }
+}
+
+/// Bus stop pin for the public transport layer.
+class _BusStopPin extends StatelessWidget {
+  final BusStop stop;
+  final bool showLabel;
+
+  const _BusStopPin({required this.stop, this.showLabel = false});
+
+  @override
+  Widget build(BuildContext context) {
+    const teal = Color(0xFF009688);
+    return Column(
+      mainAxisSize: MainAxisSize.min,
+      crossAxisAlignment: CrossAxisAlignment.center,
+      children: [
+        if (showLabel)
+          Padding(
+            padding: const EdgeInsets.only(bottom: 2),
+            child: Container(
+              padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 2),
+              decoration: BoxDecoration(
+                color: teal,
+                borderRadius: BorderRadius.circular(6),
+                boxShadow: const [
+                  BoxShadow(
+                    color: Color(0x22000000),
+                    blurRadius: 3,
+                    offset: Offset(0, 1),
+                  ),
+                ],
+              ),
+              child: Text(
+                stop.nextArrival,
+                style: const TextStyle(
+                  color: Colors.white,
+                  fontSize: 9,
+                  fontWeight: FontWeight.w700,
+                ),
+              ),
+            ),
+          ),
+        Container(
+          width: 34,
+          height: 34,
+          decoration: BoxDecoration(
+            color: teal,
+            shape: BoxShape.circle,
+            border: Border.all(color: Colors.white, width: 2),
+            boxShadow: const [
+              BoxShadow(
+                color: Color(0x33000000),
+                blurRadius: 4,
+                offset: Offset(0, 2),
+              ),
+            ],
+          ),
+          child: const Icon(
+            Icons.directions_bus_rounded,
+            color: Colors.white,
+            size: 18,
           ),
         ),
       ],

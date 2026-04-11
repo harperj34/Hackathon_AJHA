@@ -13,10 +13,10 @@ class UniverseColors {
   static const blushPink = Color(0xFFFFD1D1);
 
   // Light palette
-  static const accent = Color(0xFF6C63FF);        // primary purple
-  static const accentBlue = Color(0xFF3D8BFF);    // secondary blue
-  static const accentOrange = Color(0xFFFF9F43);  // food/orange
-  static const accentPink = Color(0xFFFF7AD9);    // social/pink
+  static const accent = Color(0xFF6C63FF); // primary purple
+  static const accentBlue = Color(0xFF3D8BFF); // secondary blue
+  static const accentOrange = Color(0xFFFF9F43); // food/orange
+  static const accentPink = Color(0xFFFF7AD9); // social/pink
   static const textPrimary = Color(0xFF0E0F1A);
   static const textMuted = Color(0xFF9094A5);
   static const textLight = Color(0xFFABAFC7);
