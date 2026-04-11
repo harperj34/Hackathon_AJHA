@@ -424,23 +424,31 @@ class DiscoverTab extends StatelessWidget {
                         width: 1,
                       ),
                     ),
-                    child: Padding(
-                      padding: const EdgeInsets.all(16),
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        mainAxisAlignment: MainAxisAlignment.center,
-                        children: [
-                          Icon(info.icon, color: info.color, size: 28),
-                          const SizedBox(height: 8),
-                          Text(
-                            info.label,
-                            style: const TextStyle(
-                              color: UniverseColors.textPrimary,
-                              fontSize: 15,
-                              fontWeight: FontWeight.w700,
+                    child: GestureDetector(
+                      onTap: () => Navigator.push(
+                        context,
+                        MaterialPageRoute(
+                          builder: (_) => CategoryListPage(category: cat),
+                        ),
+                      ),
+                      child: Padding(
+                        padding: const EdgeInsets.all(16),
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          mainAxisAlignment: MainAxisAlignment.center,
+                          children: [
+                            Icon(info.icon, color: info.color, size: 28),
+                            const SizedBox(height: 8),
+                            Text(
+                              info.label,
+                              style: const TextStyle(
+                                color: UniverseColors.textPrimary,
+                                fontSize: 15,
+                                fontWeight: FontWeight.w700,
+                              ),
                             ),
-                          ),
-                        ],
+                          ],
+                        ),
                       ),
                     ),
                   );
@@ -451,6 +459,72 @@ class DiscoverTab extends StatelessWidget {
 
           const SliverToBoxAdapter(child: SizedBox(height: 80)),
         ],
+      ),
+    );
+  }
+}
+
+class CategoryListPage extends StatelessWidget {
+  final EventCategory category;
+
+  const CategoryListPage({required this.category, super.key});
+
+  @override
+  Widget build(BuildContext context) {
+    final info = categoryInfo[category]!;
+    final isStudy = category == EventCategory.study;
+    final items = isStudy ? sampleStudySpots : sampleEvents.where((e) => e.category == category).toList();
+    return Scaffold(
+      appBar: AppBar(title: Text(info.label), backgroundColor: Colors.white, foregroundColor: UniverseColors.textPrimary, elevation: 1),
+      body: ListView.separated(
+        padding: const EdgeInsets.all(16),
+        itemBuilder: (ctx, i) {
+          if (isStudy) {
+            final s = items[i] as dynamic;
+            return ListTile(
+              leading: Container(width: 56, height: 56, decoration: BoxDecoration(color: info.color.withOpacity(0.12), borderRadius: BorderRadius.circular(10)), child: Icon(info.icon, color: info.color)),
+              title: Text(s.title, style: const TextStyle(color: UniverseColors.textPrimary, fontWeight: FontWeight.w700)),
+              subtitle: Text(s.location, style: const TextStyle(color: UniverseColors.textLight)),
+              onTap: () => Navigator.push(context, MaterialPageRoute(builder: (_) => StudySpotDetailPage(spot: s))),
+            );
+          } else {
+            final e = items[i] as CampusEvent;
+            return ListTile(
+              leading: ClipRRect(borderRadius: BorderRadius.circular(10), child: Image.network(e.imageUrl, width: 56, height: 56, fit: BoxFit.cover, errorBuilder: (_,__,___)=> Container(width:56, height:56, color: info.color.withOpacity(0.12), child: Icon(info.icon, color: info.color)))),
+              title: Text(e.title, style: const TextStyle(color: UniverseColors.textPrimary, fontWeight: FontWeight.w700)),
+              subtitle: Text('${e.location} · ${e.time}', style: const TextStyle(color: UniverseColors.textLight)),
+              onTap: () => Navigator.push(context, MaterialPageRoute(builder: (_) => EventDetailPage(event: e))),
+            );
+          }
+        },
+        separatorBuilder: (_, __) => const Divider(height: 16),
+        itemCount: items.length,
+      ),
+    );
+  }
+}
+
+class StudySpotDetailPage extends StatelessWidget {
+  final StudySpot spot;
+
+  const StudySpotDetailPage({required this.spot, super.key});
+
+  @override
+  Widget build(BuildContext context) {
+    final info = categoryInfo[EventCategory.study]!;
+    return Scaffold(
+      appBar: AppBar(title: const Text('Study Spot'), backgroundColor: Colors.white, foregroundColor: UniverseColors.textPrimary, elevation: 1),
+      body: Padding(
+        padding: const EdgeInsets.all(16),
+        child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+          Container(height: 180, decoration: BoxDecoration(color: info.color.withOpacity(0.12), borderRadius: BorderRadius.circular(14)), child: Center(child: Icon(info.icon, size: 48, color: info.color))),
+          const SizedBox(height: 16),
+          Text(spot.title, style: const TextStyle(fontSize: 20, fontWeight: FontWeight.w800, color: UniverseColors.textPrimary)),
+          const SizedBox(height: 8),
+          Text(spot.location, style: const TextStyle(color: UniverseColors.textLight)),
+          const SizedBox(height: 20),
+          const Text('This study spot is permanent and has no attendance controls.', style: TextStyle(color: UniverseColors.textLight)),
+        ]),
       ),
     );
   }
