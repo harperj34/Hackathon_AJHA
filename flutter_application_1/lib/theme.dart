@@ -15,21 +15,21 @@ class UniverseColors {
 
   // ── Modern minimal palette (Linear / Stripe vibe) ──────────────────
   // Accent used sparingly — pins, active states, small highlights
-  static const accent = Color(0xFF6C63FF);       // Universe Purple
-  static const accentBlue = Color(0xFF3D8BFF);   // Cosmic Blue
+  static const accent = Color(0xFF6C63FF); // Universe Purple
+  static const accentBlue = Color(0xFF3D8BFF); // Cosmic Blue
   static const accentOrange = Color(0xFFFF9F43); // food/orange
-  static const accentPink = Color(0xFFFF7AD9);   // social/pink
+  static const accentPink = Color(0xFFFF7AD9); // social/pink
 
   // Neutral-forward text hierarchy
-  static const textPrimary = Color(0xFF0F172A);   // near-black, editorial
+  static const textPrimary = Color(0xFF0F172A); // near-black, editorial
   static const textSecondary = Color(0xFF6B7280); // cool grey
-  static const textMuted = Color(0xFF9CA3AF);     // light meta text
-  static const textLight = Color(0xFFB0B7C3);     // placeholder / hint
+  static const textMuted = Color(0xFF9CA3AF); // light meta text
+  static const textLight = Color(0xFFB0B7C3); // placeholder / hint
 
   // Surfaces
-  static const bgPage = Color(0xFFF5F6F8);        // soft neutral grey
+  static const bgPage = Color(0xFFF5F6F8); // soft neutral grey
   static const bgCard = Colors.white;
-  static const borderColor = Color(0xFFE5E7EB);   // subtle border
+  static const borderColor = Color(0xFFE5E7EB); // subtle border
   static const divider = Color(0xFFF0F1F3);
 
   // iOS system greys (still useful)
@@ -38,9 +38,9 @@ class UniverseColors {
   static const iosSysGray6 = Color(0xFFF2F2F7);
 
   // Glass constants  — used for floating panels & overlays
-  static const glassWhite = Color(0xBFFFFFFF);         // 75% white
-  static const glassBorder = Color(0x66FFFFFF);        // 40% white
-  static const glassShadow = Color(0x0F000000);        // ~6% black
+  static const glassWhite = Color(0xBFFFFFFF); // 75% white
+  static const glassBorder = Color(0x66FFFFFF); // 40% white
+  static const glassShadow = Color(0x0F000000); // ~6% black
 
   static const primaryGradient = LinearGradient(
     colors: [accent, accentBlue],
@@ -65,7 +65,12 @@ class UniverseTheme {
       secondary: UniverseColors.accentBlue,
       surface: Colors.white,
     ),
-    fontFamilyFallback: const ['SF Pro Text', 'Helvetica Neue', 'Arial', 'sans-serif'],
+    fontFamilyFallback: const [
+      'SF Pro Text',
+      'Helvetica Neue',
+      'Arial',
+      'sans-serif',
+    ],
     textSelectionTheme: const TextSelectionThemeData(
       cursorColor: UniverseColors.accent,
       selectionColor: Color(0x446C63FF),

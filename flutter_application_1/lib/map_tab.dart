@@ -1,4 +1,4 @@
-import 'dart:async';
+﻿import 'dart:async';
 import 'dart:convert';
 import 'dart:math' show pow;
 import 'dart:ui' as ui;
@@ -10,18 +10,19 @@ import 'package:latlong2/latlong.dart';
 import 'package:url_launcher/url_launcher.dart';
 import 'theme.dart';
 import 'models.dart';
-
-class HeatPoint {
-  final LatLng position;
-  final double intensity; // 0.0 – 1.0
-  const HeatPoint(this.position, this.intensity);
-}
-
-class _PlaceCluster {
-  final LatLng center;
-  final List<CampusPlace> places;
-  const _PlaceCluster({required this.center, required this.places});
-}
+import 'map/services/event_service.dart';
+import 'map/services/geo_service.dart';
+import 'map/widgets/map_markers.dart';
+import 'map/widgets/heatmap_layer.dart';
+import 'map/widgets/map_controls.dart';
+import 'map/widgets/sheet_widgets.dart';
+import 'map/panels/signal_panel.dart';
+import 'map/panels/happening_now_panel.dart';
+import 'map/panels/event_detail_panel.dart';
+import 'map/panels/place_panel.dart';
+import 'map/panels/study_spot_panel.dart';
+import 'map/sheets/signal_customization_sheet.dart';
+import 'map/sheets/pin_customization_sheet.dart';
 
 class MapTab extends StatefulWidget {
   const MapTab({super.key});
@@ -60,7 +61,7 @@ class _MapTabState extends State<MapTab> with TickerProviderStateMixin {
   final Map<String, DateTime> _tempExpiry = {};
   final List<Timer> _expiryTimers = [];
 
-  // ── Signal state ────────────────────────────────────────────────────────
+  // â”€â”€ Signal state â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
   CampusSignal? _selectedSignal;
   CampusPlace? _selectedPlace;
   bool _addMenuOpen = false;
@@ -300,9 +301,9 @@ class _MapTabState extends State<MapTab> with TickerProviderStateMixin {
     _scheduleExpiry(id, const Duration(hours: 2));
   }
 
-  // ═══════════════════════════════════════════════════
+  // â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
   // DROP A SIGNAL
-  // ═══════════════════════════════════════════════════
+  // â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
 
   bool get _canDropSignal {
     if (_lastSignalDropTime == null) return true;
@@ -395,462 +396,6 @@ class _MapTabState extends State<MapTab> with TickerProviderStateMixin {
     );
   }
 
-  void _showSignalCustomizationSheet(LatLng position) {
-    SignalCategory selectedCategory = SignalCategory.freeFood;
-    final msgCtrl = TextEditingController();
-    final locationCtrl = TextEditingController(text: _pendingPinAddress);
-    final notesCtrl = TextEditingController();
-    final imageUrlCtrl = TextEditingController();
-
-    showModalBottomSheet<void>(
-      context: context,
-      isScrollControlled: true,
-      backgroundColor: Colors.transparent,
-      builder: (ctx) => StatefulBuilder(
-        builder: (ctx, setSheet) => DraggableScrollableSheet(
-          initialChildSize: 0.82,
-          minChildSize: 0.5,
-          maxChildSize: 0.95,
-          expand: false,
-          builder: (_, sc) => Container(
-            decoration: const BoxDecoration(
-              color: Colors.white,
-              borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
-            ),
-            child: Column(
-              children: [
-                Container(
-                  margin: const EdgeInsets.symmetric(vertical: 10),
-                  width: 36,
-                  height: 4,
-                  decoration: BoxDecoration(
-                    color: UniverseColors.borderColor,
-                    borderRadius: BorderRadius.circular(2),
-                  ),
-                ),
-                Padding(
-                  padding: const EdgeInsets.fromLTRB(20, 0, 20, 12),
-                  child: Row(
-                    children: [
-                      Container(
-                        width: 36,
-                        height: 36,
-                        decoration: BoxDecoration(
-                          gradient: const LinearGradient(
-                            colors: [Color(0xFF6C63FF), Color(0xFFFF7AD9)],
-                            begin: Alignment.topLeft,
-                            end: Alignment.bottomRight,
-                          ),
-                          borderRadius: BorderRadius.circular(10),
-                        ),
-                        child: const Icon(
-                          Icons.sensors_rounded,
-                          color: Colors.white,
-                          size: 20,
-                        ),
-                      ),
-                      const SizedBox(width: 12),
-                      Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          const Text(
-                            'Drop a Signal',
-                            style: TextStyle(
-                              fontSize: 17,
-                              fontWeight: FontWeight.w700,
-                              color: UniverseColors.textPrimary,
-                            ),
-                          ),
-                          Text(
-                            'Broadcasts for 30 minutes',
-                            style: TextStyle(
-                              fontSize: 12,
-                              color: UniverseColors.textMuted,
-                            ),
-                          ),
-                        ],
-                      ),
-                      const Spacer(),
-                      GestureDetector(
-                        onTap: () => Navigator.of(ctx).pop(),
-                        child: Container(
-                          width: 30,
-                          height: 30,
-                          decoration: const BoxDecoration(
-                            color: UniverseColors.bgPage,
-                            shape: BoxShape.circle,
-                          ),
-                          child: const Icon(
-                            Icons.close_rounded,
-                            size: 16,
-                            color: UniverseColors.textMuted,
-                          ),
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-                Expanded(
-                  child: ListView(
-                    controller: sc,
-                    padding: const EdgeInsets.fromLTRB(20, 0, 20, 40),
-                    children: [
-                      // ── Category row
-                      const Text(
-                        'Category',
-                        style: TextStyle(
-                          color: UniverseColors.textPrimary,
-                          fontSize: 13,
-                          fontWeight: FontWeight.w600,
-                        ),
-                      ),
-                      const SizedBox(height: 10),
-                      SingleChildScrollView(
-                        scrollDirection: Axis.horizontal,
-                        child: Row(
-                          children: SignalCategory.values
-                              .where(
-                                (cat) => signalCategoryMeta.containsKey(cat),
-                              )
-                              .where((cat) => cat != SignalCategory.study)
-                              .map((cat) {
-                                final meta = signalCategoryMeta[cat]!;
-                                final sel = selectedCategory == cat;
-                                return Padding(
-                                  padding: const EdgeInsets.only(right: 8),
-                                  child: GestureDetector(
-                                    onTap: () =>
-                                        setSheet(() => selectedCategory = cat),
-                                    child: AnimatedContainer(
-                                      duration: const Duration(
-                                        milliseconds: 150,
-                                      ),
-                                      padding: const EdgeInsets.symmetric(
-                                        horizontal: 14,
-                                        vertical: 8,
-                                      ),
-                                      decoration: BoxDecoration(
-                                        color: sel
-                                            ? meta.color
-                                            : meta.color.withOpacity(0.10),
-                                        borderRadius: BorderRadius.circular(20),
-                                        border: Border.all(
-                                          color: sel
-                                              ? meta.color
-                                              : Colors.transparent,
-                                          width: 1.5,
-                                        ),
-                                      ),
-                                      child: Row(
-                                        mainAxisSize: MainAxisSize.min,
-                                        children: [
-                                          Icon(
-                                            meta.icon,
-                                            size: 14,
-                                            color: sel
-                                                ? Colors.white
-                                                : meta.color,
-                                          ),
-                                          const SizedBox(width: 6),
-                                          Text(
-                                            meta.label,
-                                            style: TextStyle(
-                                              color: sel
-                                                  ? Colors.white
-                                                  : meta.color,
-                                              fontSize: 13,
-                                              fontWeight: FontWeight.w600,
-                                            ),
-                                          ),
-                                        ],
-                                      ),
-                                    ),
-                                  ),
-                                );
-                              })
-                              .toList(),
-                        ),
-                      ),
-                      const SizedBox(height: 20),
-                      // ── Message
-                      const Text(
-                        'Message',
-                        style: TextStyle(
-                          color: UniverseColors.textPrimary,
-                          fontSize: 13,
-                          fontWeight: FontWeight.w600,
-                        ),
-                      ),
-                      const SizedBox(height: 8),
-                      Container(
-                        decoration: BoxDecoration(
-                          color: UniverseColors.bgPage,
-                          borderRadius: BorderRadius.circular(14),
-                          border: Border.all(color: UniverseColors.borderColor),
-                        ),
-                        child: TextField(
-                          controller: msgCtrl,
-                          maxLength: 80,
-                          maxLines: 3,
-                          minLines: 2,
-                          textInputAction: TextInputAction.done,
-                          style: const TextStyle(
-                            fontSize: 15,
-                            color: UniverseColors.textPrimary,
-                          ),
-                          decoration: const InputDecoration(
-                            hintText: "What's happening here?",
-                            hintStyle: TextStyle(
-                              color: UniverseColors.textMuted,
-                              fontSize: 15,
-                            ),
-                            border: InputBorder.none,
-                            contentPadding: EdgeInsets.all(14),
-                            counterStyle: TextStyle(
-                              color: UniverseColors.textMuted,
-                              fontSize: 11,
-                            ),
-                          ),
-                        ),
-                      ),
-                      const SizedBox(height: 14),
-                      // ── Location
-                      const Text(
-                        'Location',
-                        style: TextStyle(
-                          color: UniverseColors.textPrimary,
-                          fontSize: 13,
-                          fontWeight: FontWeight.w600,
-                        ),
-                      ),
-                      const SizedBox(height: 8),
-                      _SheetTextField(
-                        controller: locationCtrl,
-                        hint: 'Building, room or area',
-                        icon: Icons.location_on_rounded,
-                      ),
-                      const SizedBox(height: 14),
-                      // ── Notes (optional)
-                      const Text(
-                        'Notes (optional)',
-                        style: TextStyle(
-                          color: UniverseColors.textPrimary,
-                          fontSize: 13,
-                          fontWeight: FontWeight.w600,
-                        ),
-                      ),
-                      const SizedBox(height: 8),
-                      Container(
-                        decoration: BoxDecoration(
-                          color: UniverseColors.bgPage,
-                          borderRadius: BorderRadius.circular(14),
-                          border: Border.all(color: UniverseColors.borderColor),
-                        ),
-                        child: TextField(
-                          controller: notesCtrl,
-                          maxLines: 3,
-                          minLines: 2,
-                          style: const TextStyle(
-                            fontSize: 14,
-                            color: UniverseColors.textPrimary,
-                          ),
-                          decoration: const InputDecoration(
-                            hintText: 'Any extra details...',
-                            hintStyle: TextStyle(
-                              color: UniverseColors.textMuted,
-                              fontSize: 14,
-                            ),
-                            border: InputBorder.none,
-                            contentPadding: EdgeInsets.all(14),
-                          ),
-                        ),
-                      ),
-                      const SizedBox(height: 14),
-                      // ── Photo URL (optional)
-                      const Text(
-                        'Photo URL (optional)',
-                        style: TextStyle(
-                          color: UniverseColors.textPrimary,
-                          fontSize: 13,
-                          fontWeight: FontWeight.w600,
-                        ),
-                      ),
-                      const SizedBox(height: 8),
-                      _SheetTextField(
-                        controller: imageUrlCtrl,
-                        hint: 'https://...',
-                        icon: Icons.image_rounded,
-                      ),
-                      const SizedBox(height: 24),
-                      // ── Send Signal button
-                      GestureDetector(
-                        onTap: () {
-                          final msg = msgCtrl.text.trim();
-                          if (msg.isEmpty) return;
-                          final imageUrl = imageUrlCtrl.text.trim();
-                          final notes = notesCtrl.text.trim();
-                          Navigator.of(ctx).pop();
-                          _dropSignal(
-                            msg,
-                            selectedCategory,
-                            position,
-                            imageUrl: imageUrl.isNotEmpty ? imageUrl : null,
-                            notes: notes.isNotEmpty ? notes : null,
-                          );
-                        },
-                        child: Container(
-                          height: 52,
-                          decoration: BoxDecoration(
-                            gradient: const LinearGradient(
-                              colors: [Color(0xFF6C63FF), Color(0xFFFF7AD9)],
-                              begin: Alignment.centerLeft,
-                              end: Alignment.centerRight,
-                            ),
-                            borderRadius: BorderRadius.circular(14),
-                            boxShadow: const [
-                              BoxShadow(
-                                color: Color(0x446C63FF),
-                                blurRadius: 16,
-                                offset: Offset(0, 4),
-                              ),
-                            ],
-                          ),
-                          child: const Center(
-                            child: Row(
-                              mainAxisSize: MainAxisSize.min,
-                              children: [
-                                Icon(
-                                  Icons.sensors_rounded,
-                                  color: Colors.white,
-                                  size: 18,
-                                ),
-                                SizedBox(width: 8),
-                                Text(
-                                  'Send Signal',
-                                  style: TextStyle(
-                                    color: Colors.white,
-                                    fontWeight: FontWeight.w700,
-                                    fontSize: 16,
-                                  ),
-                                ),
-                              ],
-                            ),
-                          ),
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-              ],
-            ),
-          ),
-        ),
-      ),
-    );
-  }
-
-  Widget _buildTransportChip() {
-    const teal = Color(0xFF009688);
-    return Padding(
-      padding: const EdgeInsets.only(right: 8),
-      child: GestureDetector(
-        onTap: () => setState(() => _showTransport = !_showTransport),
-        child: AnimatedContainer(
-          duration: const Duration(milliseconds: 160),
-          padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 6),
-          decoration: BoxDecoration(
-            color: _showTransport ? teal : Colors.white,
-            borderRadius: BorderRadius.circular(20),
-            boxShadow: const [
-              BoxShadow(
-                color: Color(0x14000000),
-                blurRadius: 6,
-                offset: Offset(0, 1),
-              ),
-            ],
-          ),
-          child: Row(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              Icon(
-                Icons.directions_bus_rounded,
-                size: 13,
-                color: _showTransport ? Colors.white : teal,
-              ),
-              const SizedBox(width: 5),
-              Text(
-                'Bus',
-                style: TextStyle(
-                  color: _showTransport
-                      ? Colors.white
-                      : UniverseColors.textPrimary,
-                  fontSize: 13,
-                  fontWeight: FontWeight.w500,
-                ),
-              ),
-            ],
-          ),
-        ),
-      ),
-    );
-  }
-
-  // ── Heatmap helpers ────────────────────────────────────────────────────────
-
-  List<HeatPoint> get _heatPoints {
-    final pts = <HeatPoint>[];
-
-    // Events — attendance-weighted, live events get a bonus
-    for (final e in sampleEvents) {
-      final attendeeScore = (e.attendees / 150.0).clamp(0.0, 1.0);
-      final liveBonus = _isEventLive(e) ? 0.25 : 0.0;
-      final intensity = (attendeeScore * 0.85 + 0.15 + liveBonus).clamp(
-        0.0,
-        1.0,
-      );
-      pts.add(HeatPoint(e.position, intensity));
-    }
-
-    // Signals — moderate heat
-    for (final s in activeSignals) {
-      pts.add(HeatPoint(s.position, 0.45));
-    }
-
-    // Study spots — very low heat, never dominates
-    for (final sp in sampleStudySpots) {
-      pts.add(HeatPoint(sp.position, 0.12));
-    }
-
-    return pts;
-  }
-
-  /// Returns the hotspot intensity bucket (0.0–1.0) passed straight to the
-  /// painter which drives its own full-spectrum Snap Map–style gradient.
-  /// Kept as a pass-through so the MarkerLayer call site stays unchanged.
-  double _heatIntensity(double intensity) => intensity;
-
-  /// Groups [places] into geographic clusters for zoom levels below the
-  /// individual-pin threshold. Grid cell size scales with zoom so clusters
-  /// naturally break apart as the user zooms in.
-  List<_PlaceCluster> _computeClusters(List<CampusPlace> places, double zoom) {
-    final cellSize = 0.005 * pow(2.0, (15.5 - zoom).clamp(0.0, 6.0));
-    final Map<String, List<CampusPlace>> cells = {};
-    for (final place in places) {
-      final cx = (place.position.longitude / cellSize).floor();
-      final cy = (place.position.latitude / cellSize).floor();
-      cells.putIfAbsent('$cx,$cy', () => []).add(place);
-    }
-    return cells.values.map((group) {
-      final lat =
-          group.map((p) => p.position.latitude).reduce((a, b) => a + b) /
-          group.length;
-      final lng =
-          group.map((p) => p.position.longitude).reduce((a, b) => a + b) /
-          group.length;
-      return _PlaceCluster(center: LatLng(lat, lng), places: group);
-    }).toList();
-  }
-
   @override
   void dispose() {
     _countdownTimer?.cancel();
@@ -873,7 +418,7 @@ class _MapTabState extends State<MapTab> with TickerProviderStateMixin {
     const controlsGap = 16.0;
     const fabHeight = 56.0; // standard FloatingActionButton size
     // Both widgets use (sheetTop - controlsGap - ownHeight) so their bottom edges
-    // sit at the same y-position — identical gap from the panel.
+    // sit at the same y-position â€” identical gap from the panel.
     final mapControlsTop = _placementMode
         ? (screenHeight -
                   safeBottom -
@@ -886,7 +431,7 @@ class _MapTabState extends State<MapTab> with TickerProviderStateMixin {
             screenHeight,
           );
     final addPinTop = _placementMode
-        ? screenHeight // off screen — hidden
+        ? screenHeight // off screen â€” hidden
         : (sheetTop - controlsGap - fabHeight).clamp(
             safeTop + 12,
             screenHeight,
@@ -894,7 +439,7 @@ class _MapTabState extends State<MapTab> with TickerProviderStateMixin {
 
     return Stack(
       children: [
-        // ── Light Map ──────────────────────────────────────
+        // â”€â”€ Light Map â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
         FlutterMap(
           mapController: _mapController,
           options: MapOptions(
@@ -929,10 +474,18 @@ class _MapTabState extends State<MapTab> with TickerProviderStateMixin {
                 child: tileWidget,
               ),
             ),
-            // ── Heatmap blobs (above base map, below pins) ─────────────────
+            // â”€â”€ Heatmap blobs (above base map, below pins) â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
             if (_showHeatmap && !_showPlaces)
-              _HeatmapLayer(points: _heatPoints, zoom: _currentZoom),
-            // ── Event pins (primary interactive layer) ─────────────────────
+              HeatmapLayer(
+                points: GeoService.buildHeatPoints(
+                  events: sampleEvents,
+                  signals: activeSignals,
+                  studySpots: sampleStudySpots,
+                  isEventLive: EventService.isEventLive,
+                ),
+                zoom: _currentZoom,
+              ),
+            // â”€â”€ Event pins (primary interactive layer) â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
             if (!_showPlaces)
               MarkerLayer(
                 markers: _filteredEvents
@@ -940,8 +493,8 @@ class _MapTabState extends State<MapTab> with TickerProviderStateMixin {
                     .map((event) {
                       final info = categoryInfo[event.category]!;
                       final isSelected = _selectedEvent?.id == event.id;
-                      final isLive = _isEventLive(event);
-                      final countdown = _getEventCountdown(event);
+                      final isLive = EventService.isEventLive(event);
+                      final countdown = EventService.getCountdown(event);
                       final hasCountdown = countdown != null;
                       // Show title label whenever zoomed in enough OR countdown is active
                       final showLabel = (_currentZoom >= 16.5) && !isLive;
@@ -957,7 +510,7 @@ class _MapTabState extends State<MapTab> with TickerProviderStateMixin {
                           : (showLabel || hasCountdown ? 90.0 : pinW);
                       final double markerH = isLive ? 72.0 : pinH + extraH;
 
-                      Widget pinWidget = _MapPin(
+                      Widget pinWidget = MapEventPin(
                         color: info.color,
                         icon: info.icon,
                         isSelected: isSelected,
@@ -1024,7 +577,7 @@ class _MapTabState extends State<MapTab> with TickerProviderStateMixin {
                                 if (showLabel || hasCountdown)
                                   Padding(
                                     padding: const EdgeInsets.only(bottom: 2),
-                                    child: _PinLabel(
+                                    child: PinLabel(
                                       text: event.title,
                                       color: info.color,
                                     ),
@@ -1033,8 +586,8 @@ class _MapTabState extends State<MapTab> with TickerProviderStateMixin {
                                 if (hasCountdown)
                                   Padding(
                                     padding: const EdgeInsets.only(bottom: 3),
-                                    child: _CountdownBadge(
-                                      text: _formatCountdown(countdown!),
+                                    child: CountdownBadge(
+                                      text: EventService.formatCountdown(countdown!),
                                       color: info.color,
                                     ),
                                   ),
@@ -1047,10 +600,10 @@ class _MapTabState extends State<MapTab> with TickerProviderStateMixin {
                     })
                     .toList(),
               ),
-            // ── Place clusters (zoomed out) ────────────────────────────────
+            // â”€â”€ Place clusters (zoomed out) â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
             if (_showPlaces && _currentZoom < 15.5)
               MarkerLayer(
-                markers: _computeClusters(campusPlaces, _currentZoom).map((
+                markers: GeoService.computeClusters(campusPlaces, _currentZoom).map((
                   cluster,
                 ) {
                   final isSingle = cluster.places.length == 1;
@@ -1104,7 +657,7 @@ class _MapTabState extends State<MapTab> with TickerProviderStateMixin {
                   );
                 }).toList(),
               ),
-            // ── Permanent places layer (zoomed in) ────────────────────────
+            // â”€â”€ Permanent places layer (zoomed in) â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
             if (_currentZoom >= 15.5 && _showPlaces)
               MarkerLayer(
                 markers: campusPlaces.map((place) {
@@ -1134,7 +687,7 @@ class _MapTabState extends State<MapTab> with TickerProviderStateMixin {
                       child: Stack(
                         clipBehavior: Clip.none,
                         children: [
-                          // Circle icon — anchored at the lat/lng point
+                          // Circle icon â€” anchored at the lat/lng point
                           AnimatedContainer(
                             duration: const Duration(milliseconds: 160),
                             width: 34,
@@ -1166,7 +719,7 @@ class _MapTabState extends State<MapTab> with TickerProviderStateMixin {
                                   : const Color(0xFF888888),
                             ),
                           ),
-                          // Label bubble — shown for selected place or when zoomed in
+                          // Label bubble â€” shown for selected place or when zoomed in
                           if (showLabel)
                             Positioned(
                               left: 38,
@@ -1234,7 +787,7 @@ class _MapTabState extends State<MapTab> with TickerProviderStateMixin {
                   );
                 }).toList(),
               ),
-            // Study spot markers — circles, not teardrop pins.
+            // Study spot markers â€” circles, not teardrop pins.
             if (!_showPlaces)
               MarkerLayer(
                 markers: _filteredStudySpots.map((spot) {
@@ -1264,7 +817,7 @@ class _MapTabState extends State<MapTab> with TickerProviderStateMixin {
                             if (showLabel)
                               Padding(
                                 padding: const EdgeInsets.only(bottom: 2),
-                                child: _PinLabel(
+                                child: PinLabel(
                                   text: spot.title,
                                   color: color,
                                 ),
@@ -1311,11 +864,11 @@ class _MapTabState extends State<MapTab> with TickerProviderStateMixin {
                     height: showLabel ? 54.0 : 36.0,
                     alignment: Alignment.topCenter,
                     rotate: true,
-                    child: _BusStopPin(stop: stop, showLabel: showLabel),
+                    child: BusStopPin(stop: stop, showLabel: showLabel),
                   );
                 }).toList(),
               ),
-            // ── Signal pins layer ────────────────────────────────────────────
+            // â”€â”€ Signal pins layer â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
             if (activeSignals.isNotEmpty && !_showPlaces)
               MarkerLayer(
                 markers: activeSignals.map((signal) {
@@ -1330,7 +883,7 @@ class _MapTabState extends State<MapTab> with TickerProviderStateMixin {
                     child: GestureDetector(
                       onTap: () => _onSignalPinTap(signal),
                       behavior: HitTestBehavior.opaque,
-                      child: _SignalPin(
+                      child: SignalPin(
                         color: meta.color,
                         icon: meta.icon,
                         isSelected: isSelected,
@@ -1344,7 +897,7 @@ class _MapTabState extends State<MapTab> with TickerProviderStateMixin {
           ],
         ),
 
-        // ── Search Bar + Filter Chips (glass header, top-pinned) ─────────
+        // â”€â”€ Search Bar + Filter Chips (glass header, top-pinned) â”€â”€â”€â”€â”€â”€â”€â”€â”€
         Positioned(
           top: 0,
           left: 0,
@@ -1365,7 +918,7 @@ class _MapTabState extends State<MapTab> with TickerProviderStateMixin {
                 crossAxisAlignment: CrossAxisAlignment.start,
                 mainAxisSize: MainAxisSize.min,
                 children: [
-                  // ── Collapsible: title + search bar ────────────────────────────
+                  // â”€â”€ Collapsible: title + search bar â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
                   AnimatedSize(
                     duration: const Duration(milliseconds: 220),
                     curve: Curves.easeInOut,
@@ -1414,7 +967,7 @@ class _MapTabState extends State<MapTab> with TickerProviderStateMixin {
                                   ],
                                 ),
                               ),
-                              // Search bar — glass pill
+                              // Search bar â€” glass pill
                               Padding(
                                 padding: const EdgeInsets.fromLTRB(
                                   16,
@@ -1501,7 +1054,7 @@ class _MapTabState extends State<MapTab> with TickerProviderStateMixin {
                           ),
                   ),
 
-                  // ── iOS-style filter chips ──────────────────────────────────────
+                  // â”€â”€ iOS-style filter chips â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
                   const SizedBox(height: 10),
                   SizedBox(
                     height: 34,
@@ -1595,7 +1148,7 @@ class _MapTabState extends State<MapTab> with TickerProviderStateMixin {
                             })
                             .toList(),
                         // _buildTransportChip(), // hidden until transport is implemented
-                        // ── Restaurants filter chip ────────────────────────
+                        // â”€â”€ Restaurants filter chip â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
                         Padding(
                           padding: const EdgeInsets.only(right: 8),
                           child: GestureDetector(
@@ -1659,7 +1212,7 @@ class _MapTabState extends State<MapTab> with TickerProviderStateMixin {
           ),
         ),
 
-        // ── Bottom Draggable Panel ─────────────────────────
+        // â”€â”€ Bottom Draggable Panel â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
         DraggableScrollableSheet(
           controller: _sheetController,
           initialChildSize: _kCollapsed,
@@ -1689,21 +1242,91 @@ class _MapTabState extends State<MapTab> with TickerProviderStateMixin {
                     ],
                   ),
                   child: _selectedSignal != null
-                  ? _buildSignalPanel(scrollController, _selectedSignal!)
-                  : _selectedPlace != null
-                  ? _buildPlacePanel(scrollController, _selectedPlace!)
-                  : _selectedStudySpot != null
-                  ? _buildStudySpotPanel(scrollController, _selectedStudySpot!)
-                  : _selectedEvent == null
-                  ? _buildHappeningNow(scrollController)
-                  : _buildEventPanel(scrollController, _selectedEvent!),
+                      ? SignalPanel(
+                          scrollController: scrollController,
+                          signal: _selectedSignal!,
+                          onDragHandleTap: _onDragHandleTap,
+                          onDismiss: _dismissPreview,
+                          onRemoveSignal: () {
+                            final sigId = _selectedSignal!.id;
+                            setState(() {
+                              activeSignals.removeWhere((s) => s.id == sigId);
+                            });
+                            _dismissPreview();
+                          },
+                        )
+                      : _selectedPlace != null
+                      ? PlacePanel(
+                          scrollController: scrollController,
+                          place: _selectedPlace!,
+                          onDragHandleTap: _onDragHandleTap,
+                          onDismiss: () {
+                            setState(() => _selectedPlace = null);
+                            _dismissPreview();
+                          },
+                        )
+                      : _selectedStudySpot != null
+                      ? StudySpotPanel(
+                          scrollController: scrollController,
+                          spot: _selectedStudySpot!,
+                          onDragHandleTap: _onDragHandleTap,
+                          onDismiss: () {
+                            setState(() => _selectedStudySpot = null);
+                            _dismissPreview();
+                          },
+                        )
+                      : _selectedEvent == null
+                      ? HappeningNowPanel(
+                          scrollController: scrollController,
+                          events: _filteredEvents,
+                          pageController: _pageController,
+                          onEventTap: _onPinTap,
+                          onPageChanged: _onPageChanged,
+                          onDragHandleTap: _onDragHandleTap,
+                        )
+                      : EventDetailPanel(
+                          scrollController: scrollController,
+                          event: _selectedEvent!,
+                          isGoing: _isGoing,
+                          isLiked: _likedItems.contains(_selectedEvent!.id),
+                          isSaved: _savedItems.contains(_selectedEvent!.id),
+                          isCommunityPin: _tempExpiry.containsKey(_selectedEvent!.id),
+                          confirmCount: _confirmations[_selectedEvent!.id] ?? 0,
+                          outdatedCount: _outdatedVotes[_selectedEvent!.id] ?? 0,
+                          onDragHandleTap: _onDragHandleTap,
+                          onDismiss: _dismissPreview,
+                          onGoingChanged: (v) => setState(() => _isGoing = v),
+                          onLikeToggle: () => setState(() {
+                            if (_likedItems.contains(_selectedEvent!.id)) {
+                              _likedItems.remove(_selectedEvent!.id);
+                            } else {
+                              _likedItems.add(_selectedEvent!.id);
+                              _dislikedItems.remove(_selectedEvent!.id);
+                            }
+                          }),
+                          onSaveToggle: () => setState(() {
+                            if (_savedItems.contains(_selectedEvent!.id)) {
+                              _savedItems.remove(_selectedEvent!.id);
+                            } else {
+                              _savedItems.add(_selectedEvent!.id);
+                            }
+                          }),
+                          onConfirm: () => setState(
+                            () => _confirmations[_selectedEvent!.id] =
+                                (_confirmations[_selectedEvent!.id] ?? 0) + 1,
+                          ),
+                          onOutdated: () => setState(
+                            () => _outdatedVotes[_selectedEvent!.id] =
+                                (_outdatedVotes[_selectedEvent!.id] ?? 0) + 1,
+                          ),
+                        ),
                 ),
               ),
             );
           },
         ),
 
-        // ── Map controls (right side) — heatmap + zoom
+        // â”€â”€ Map controls (right side) â€” heatmap + zoom
         Positioned(
           right: 16,
           top: mapControlsTop,
@@ -1715,14 +1338,14 @@ class _MapTabState extends State<MapTab> with TickerProviderStateMixin {
               child: Column(
                 mainAxisSize: MainAxisSize.min,
                 children: [
-                  _MapControlButton(
+                  MapControlButton(
                     onTap: () => setState(() => _showHeatmap = !_showHeatmap),
                     active: _showHeatmap,
                     activeColor: UniverseColors.accentPink,
                     child: const Icon(Icons.whatshot_rounded, size: 20),
                   ),
                   const SizedBox(height: 8),
-                  _MapControlButton(
+                  MapControlButton(
                     onTap: () => _animateCameraTo(
                       _mapController.camera.center,
                       (_mapController.camera.zoom + 1).clamp(15.6, 19.0),
@@ -1730,7 +1353,7 @@ class _MapTabState extends State<MapTab> with TickerProviderStateMixin {
                     child: const Icon(Icons.add_rounded, size: 20),
                   ),
                   const SizedBox(height: 4),
-                  _MapControlButton(
+                  MapControlButton(
                     onTap: () => _animateCameraTo(
                       _mapController.camera.center,
                       (_mapController.camera.zoom - 1).clamp(15.6, 19.0),
@@ -1743,7 +1366,7 @@ class _MapTabState extends State<MapTab> with TickerProviderStateMixin {
           ),
         ),
 
-        // ── Pin placement mode overlay ──────────────────────────────────────
+        // â”€â”€ Pin placement mode overlay â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
         if (_placementMode) ...[
           const IgnorePointer(
             child: ColoredBox(
@@ -1755,10 +1378,10 @@ class _MapTabState extends State<MapTab> with TickerProviderStateMixin {
             top: MediaQuery.of(context).padding.top + 70,
             left: 24,
             right: 24,
-            child: IgnorePointer(child: Center(child: _PlacementBanner())),
+            child: IgnorePointer(child: Center(child: PlacementBanner())),
           ),
           IgnorePointer(
-            child: Center(child: _PlacementPin(lifted: _pinLifted)),
+            child: Center(child: PlacementPin(lifted: _pinLifted)),
           ),
           Positioned(
             bottom: confirmBarBottom,
@@ -1810,7 +1433,12 @@ class _MapTabState extends State<MapTab> with TickerProviderStateMixin {
                           _placementMode = false;
                           _pinLifted = false;
                         });
-                        _showPinCustomizationSheet();
+                        PinCustomizationSheet.show(
+                          context,
+                          center: _mapController.camera.center,
+                          pendingAddress: _pendingPinAddress,
+                          onCreate: _createPin,
+                        );
                       },
                       child: Container(
                         height: 50,
@@ -1848,7 +1476,7 @@ class _MapTabState extends State<MapTab> with TickerProviderStateMixin {
           ),
         ],
 
-        // ── Signal placement mode overlay ───────────────────────────────────
+        // â”€â”€ Signal placement mode overlay â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
         if (_signalPlacementMode) ...[
           const IgnorePointer(
             child: ColoredBox(
@@ -1862,7 +1490,7 @@ class _MapTabState extends State<MapTab> with TickerProviderStateMixin {
             right: 24,
             child: IgnorePointer(
               child: Center(
-                child: _PlacementBanner(
+                child: PlacementBanner(
                   text: 'Move the map to position your signal',
                 ),
               ),
@@ -1870,7 +1498,7 @@ class _MapTabState extends State<MapTab> with TickerProviderStateMixin {
           ),
           IgnorePointer(
             child: Center(
-              child: _PlacementPin(
+              child: PlacementPin(
                 lifted: _pinLifted,
                 color: const Color(0xFFFF7AD9),
                 icon: Icons.sensors_rounded,
@@ -1928,7 +1556,12 @@ class _MapTabState extends State<MapTab> with TickerProviderStateMixin {
                           _signalPlacementMode = false;
                           _pinLifted = false;
                         });
-                        _showSignalCustomizationSheet(pos);
+                        SignalCustomizationSheet.show(
+                          context,
+                          position: pos,
+                          pendingAddress: _pendingPinAddress,
+                          onDrop: _dropSignal,
+                        );
                       },
                       child: Container(
                         height: 50,
@@ -1966,7 +1599,7 @@ class _MapTabState extends State<MapTab> with TickerProviderStateMixin {
           ),
         ],
 
-        // ── Add menu items — anchored above the + button ────────────────────
+        // â”€â”€ Add menu items â€” anchored above the + button â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
         Positioned(
           left: 16,
           top: addPinTop - 130,
@@ -1989,10 +1622,10 @@ class _MapTabState extends State<MapTab> with TickerProviderStateMixin {
                 mainAxisSize: MainAxisSize.min,
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  // ── Quick Signal option ──────────────────────────────────
+                  // â”€â”€ Quick Signal option â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
                   Padding(
                     padding: const EdgeInsets.only(bottom: 10),
-                    child: _AddMenuOption(
+                    child: AddMenuOption(
                       label: 'Quick Signal',
                       icon: Icons.sensors_rounded,
                       color: _canDropSignal
@@ -2033,10 +1666,10 @@ class _MapTabState extends State<MapTab> with TickerProviderStateMixin {
                       },
                     ),
                   ),
-                  // ── Create Event option ──────────────────────────────────
+                  // â”€â”€ Create Event option â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
                   Padding(
                     padding: const EdgeInsets.only(bottom: 10),
-                    child: _AddMenuOption(
+                    child: AddMenuOption(
                       label: 'Create Event',
                       icon: Icons.add_location_alt_rounded,
                       color: UniverseColors.accent,
@@ -2060,7 +1693,7 @@ class _MapTabState extends State<MapTab> with TickerProviderStateMixin {
           ),
         ),
 
-        // ── + / × button — always at addPinTop, never shifts ────────────────
+        // â”€â”€ + / Ã— button â€” always at addPinTop, never shifts â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
         Positioned(
           left: 16,
           top: addPinTop,
@@ -2118,499 +1751,14 @@ class _MapTabState extends State<MapTab> with TickerProviderStateMixin {
     );
   }
 
-  // ═══════════════════════════════════════════════════
-  // LIVE EVENT DETECTION
-  // ═══════════════════════════════════════════════════
-
-  bool _isEventLive(CampusEvent event) {
-    if (event.time == 'Now') return true;
-    if (!event.time.startsWith('Today')) return false;
-    try {
-      final timePart = event.time.replaceFirst('Today, ', '');
-      final parts = timePart.split(' ');
-      final hhmm = parts[0].split(':');
-      var hour = int.parse(hhmm[0]);
-      final minute = int.parse(hhmm[1]);
-      final isPm = parts[1].toUpperCase() == 'PM';
-      if (isPm && hour != 12) hour += 12;
-      if (!isPm && hour == 12) hour = 0;
-      final now = DateTime.now();
-      final eventTime = DateTime(now.year, now.month, now.day, hour, minute);
-      final diff = now.difference(eventTime);
-      return diff.inMinutes >= 0 && diff.inMinutes < 90;
-    } catch (_) {
-      return false;
-    }
-  }
-
-  /// Returns remaining duration until the event starts if it's within 12 hours.
-  /// Handles 'Today, H:MM AM/PM', 'Tomorrow, H:MM AM/PM', and day-name formats.
-  Duration? _getEventCountdown(CampusEvent event) {
-    if (event.time == 'Now') return null;
-    final now = DateTime.now();
-    try {
-      DateTime? eventDt;
-      if (event.time.startsWith('Today, ')) {
-        final timePart = event.time.replaceFirst('Today, ', '');
-        eventDt = _parseTimePartToday(timePart, now);
-      } else if (event.time.startsWith('Tomorrow, ')) {
-        final timePart = event.time.replaceFirst('Tomorrow, ', '');
-        final base = _parseTimePartToday(timePart, now);
-        if (base != null) eventDt = base.add(const Duration(days: 1));
-      } else {
-        // Try parsing 'DayName, H:MM AM/PM' — treat as today if time is in future
-        final comma = event.time.indexOf(', ');
-        if (comma >= 0) {
-          final timePart = event.time.substring(comma + 2);
-          final base = _parseTimePartToday(timePart, now);
-          if (base != null && base.isAfter(now)) eventDt = base;
-        }
-      }
-      if (eventDt == null) return null;
-      final diff = eventDt.difference(now);
-      if (diff.inSeconds <= 0) return null;
-      if (diff.inHours >= 12) return null; // only show within 12h
-      return diff;
-    } catch (_) {
-      return null;
-    }
-  }
-
-  DateTime? _parseTimePartToday(String timePart, DateTime base) {
-    try {
-      final parts = timePart.trim().split(' ');
-      final hhmm = parts[0].split(':');
-      var hour = int.parse(hhmm[0]);
-      final minute = int.parse(hhmm[1]);
-      final isPm = parts[1].toUpperCase() == 'PM';
-      if (isPm && hour != 12) hour += 12;
-      if (!isPm && hour == 12) hour = 0;
-      return DateTime(base.year, base.month, base.day, hour, minute);
-    } catch (_) {
-      return null;
-    }
-  }
-
-  String _formatCountdown(Duration d) {
-    final h = d.inHours;
-    final m = d.inMinutes.remainder(60);
-    if (h > 0) return '${h}h ${m}m';
-    if (m > 0) return '${m}m';
-    return '< 1m';
-  }
 
   // ═══════════════════════════════════════════════════
   // REVERSE GEOCODING
   // ═══════════════════════════════════════════════════
 
   Future<void> _reverseGeocode(LatLng pos) async {
-    try {
-      final uri = Uri.parse(
-        'https://nominatim.openstreetmap.org/reverse'
-        '?lat=${pos.latitude}&lon=${pos.longitude}&format=json&zoom=18&addressdetails=1',
-      );
-      final response = await http.get(
-        uri,
-        headers: {'User-Agent': 'UniverseMonashApp/1.0'},
-      );
-      if (!mounted) return;
-      if (response.statusCode == 200) {
-        final data = jsonDecode(response.body) as Map<String, dynamic>;
-        final addr = data['address'] as Map<String, dynamic>?;
-        String label;
-        if (addr != null) {
-          final road = addr['road'] as String?;
-          final number = addr['house_number'] as String?;
-          final suburb =
-              (addr['suburb'] ?? addr['city_district'] ?? addr['neighbourhood'])
-                  as String?;
-          if (road != null && number != null) {
-            label = '$number $road';
-          } else if (road != null) {
-            label = suburb != null ? '$road, $suburb' : road;
-          } else if (suburb != null) {
-            label = suburb;
-          } else {
-            label =
-                (data['display_name'] as String?)?.split(',').first.trim() ??
-                'Monash Clayton Campus';
-          }
-        } else {
-          label =
-              (data['display_name'] as String?)?.split(',').first.trim() ??
-              'Monash Clayton Campus';
-        }
-        setState(() => _pendingPinAddress = label);
-      }
-    } catch (_) {
-      // keep existing label on network error
-    }
-  }
-
-  // ═══════════════════════════════════════════════════
-  // PIN CREATION — place + customise flow
-  // ═══════════════════════════════════════════════════
-
-  void _showPinCustomizationSheet() {
-    final center = _mapController.camera.center;
-    EventCategory? selectedCategory;
-    final titleCtrl = TextEditingController();
-    final locationCtrl = TextEditingController(text: _pendingPinAddress);
-    final imageUrlCtrl = TextEditingController();
-    final Set<String> amenities = {};
-    String busyLevel = 'Quiet';
-
-    showModalBottomSheet<void>(
-      context: context,
-      isScrollControlled: true,
-      backgroundColor: Colors.transparent,
-      builder: (ctx) => StatefulBuilder(
-        builder: (ctx, setSheet) => DraggableScrollableSheet(
-          initialChildSize: 0.78,
-          minChildSize: 0.5,
-          maxChildSize: 0.95,
-          expand: false,
-          builder: (_, sc) => Container(
-            decoration: const BoxDecoration(
-              color: Colors.white,
-              borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
-            ),
-            child: Column(
-              children: [
-                Container(
-                  margin: const EdgeInsets.symmetric(vertical: 10),
-                  width: 36,
-                  height: 4,
-                  decoration: BoxDecoration(
-                    color: UniverseColors.borderColor,
-                    borderRadius: BorderRadius.circular(2),
-                  ),
-                ),
-                Padding(
-                  padding: const EdgeInsets.fromLTRB(20, 0, 20, 12),
-                  child: Row(
-                    children: [
-                      Text(
-                        'Drop a Pin',
-                        style: UniverseTextStyles.sectionHeader,
-                      ),
-                      const Spacer(),
-                      GestureDetector(
-                        onTap: () => Navigator.of(ctx).pop(),
-                        child: Container(
-                          width: 30,
-                          height: 30,
-                          decoration: const BoxDecoration(
-                            color: UniverseColors.bgPage,
-                            shape: BoxShape.circle,
-                          ),
-                          child: const Icon(
-                            Icons.close_rounded,
-                            size: 16,
-                            color: UniverseColors.textMuted,
-                          ),
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-                Expanded(
-                  child: ListView(
-                    controller: sc,
-                    padding: const EdgeInsets.fromLTRB(20, 0, 20, 40),
-                    children: [
-                      // ── Category picker
-                      const Text(
-                        'Category',
-                        style: TextStyle(
-                          color: UniverseColors.textPrimary,
-                          fontSize: 13,
-                          fontWeight: FontWeight.w600,
-                        ),
-                      ),
-                      const SizedBox(height: 10),
-                      Wrap(
-                        spacing: 8,
-                        runSpacing: 8,
-                        children:
-                            const [
-                              EventCategory.food,
-                              EventCategory.events,
-                              EventCategory.study,
-                              EventCategory.deals,
-                            ].where((cat) => categoryInfo.containsKey(cat)).map(
-                              (cat) {
-                                final info = categoryInfo[cat]!;
-                                final sel = selectedCategory == cat;
-                                return GestureDetector(
-                                  onTap: () =>
-                                      setSheet(() => selectedCategory = cat),
-                                  child: AnimatedContainer(
-                                    duration: const Duration(milliseconds: 140),
-                                    padding: const EdgeInsets.symmetric(
-                                      horizontal: 14,
-                                      vertical: 8,
-                                    ),
-                                    decoration: BoxDecoration(
-                                      color: sel
-                                          ? info.color
-                                          : info.color.withOpacity(0.09),
-                                      borderRadius: BorderRadius.circular(12),
-                                      border: Border.all(
-                                        color: sel
-                                            ? info.color
-                                            : Colors.transparent,
-                                        width: 1.5,
-                                      ),
-                                    ),
-                                    child: Row(
-                                      mainAxisSize: MainAxisSize.min,
-                                      children: [
-                                        Icon(
-                                          info.icon,
-                                          size: 14,
-                                          color: sel
-                                              ? Colors.white
-                                              : info.color,
-                                        ),
-                                        const SizedBox(width: 6),
-                                        Text(
-                                          info.label,
-                                          style: TextStyle(
-                                            color: sel
-                                                ? Colors.white
-                                                : info.color,
-                                            fontSize: 13,
-                                            fontWeight: FontWeight.w600,
-                                          ),
-                                        ),
-                                      ],
-                                    ),
-                                  ),
-                                );
-                              },
-                            ).toList(),
-                      ),
-                      const SizedBox(height: 20),
-                      // ── Title
-                      const Text(
-                        'Title',
-                        style: TextStyle(
-                          color: UniverseColors.textPrimary,
-                          fontSize: 13,
-                          fontWeight: FontWeight.w600,
-                        ),
-                      ),
-                      const SizedBox(height: 8),
-                      _SheetTextField(
-                        controller: titleCtrl,
-                        hint: selectedCategory == null
-                            ? "What's happening here?"
-                            : categoryInfo[selectedCategory]?.label ??
-                                  "What's happening here?",
-                        icon: Icons.title_rounded,
-                      ),
-                      const SizedBox(height: 14),
-                      // ── Location
-                      const Text(
-                        'Location',
-                        style: TextStyle(
-                          color: UniverseColors.textPrimary,
-                          fontSize: 13,
-                          fontWeight: FontWeight.w600,
-                        ),
-                      ),
-                      const SizedBox(height: 8),
-                      _SheetTextField(
-                        controller: locationCtrl,
-                        hint: 'Building, room or area',
-                        icon: Icons.location_on_rounded,
-                      ),
-                      const SizedBox(height: 14),
-                      // ── Photo URL (optional)
-                      const Text(
-                        'Photo URL (optional)',
-                        style: TextStyle(
-                          color: UniverseColors.textPrimary,
-                          fontSize: 13,
-                          fontWeight: FontWeight.w600,
-                        ),
-                      ),
-                      const SizedBox(height: 8),
-                      _SheetTextField(
-                        controller: imageUrlCtrl,
-                        hint: 'https://...',
-                        icon: Icons.image_rounded,
-                      ),
-                      // ── Study-spot extras
-                      if (selectedCategory == EventCategory.study) ...[
-                        const SizedBox(height: 20),
-                        const Text(
-                          'Amenities',
-                          style: TextStyle(
-                            color: UniverseColors.textPrimary,
-                            fontSize: 13,
-                            fontWeight: FontWeight.w600,
-                          ),
-                        ),
-                        const SizedBox(height: 8),
-                        Wrap(
-                          spacing: 8,
-                          runSpacing: 8,
-                          children: [
-                            for (final a in [
-                              'Power Outlets',
-                              'Whiteboard',
-                              'Quiet',
-                              'Aircon',
-                              'Natural Light',
-                            ])
-                              GestureDetector(
-                                onTap: () => setSheet(() {
-                                  if (amenities.contains(a)) {
-                                    amenities.remove(a);
-                                  } else {
-                                    amenities.add(a);
-                                  }
-                                }),
-                                child: AnimatedContainer(
-                                  duration: const Duration(milliseconds: 130),
-                                  padding: const EdgeInsets.symmetric(
-                                    horizontal: 12,
-                                    vertical: 6,
-                                  ),
-                                  decoration: BoxDecoration(
-                                    color: amenities.contains(a)
-                                        ? UniverseColors.accent
-                                        : UniverseColors.bgPage,
-                                    borderRadius: BorderRadius.circular(20),
-                                  ),
-                                  child: Text(
-                                    a,
-                                    style: TextStyle(
-                                      color: amenities.contains(a)
-                                          ? Colors.white
-                                          : UniverseColors.textSecondary,
-                                      fontSize: 13,
-                                      fontWeight: FontWeight.w500,
-                                    ),
-                                  ),
-                                ),
-                              ),
-                          ],
-                        ),
-                        const SizedBox(height: 14),
-                        const Text(
-                          'Busyness',
-                          style: TextStyle(
-                            color: UniverseColors.textPrimary,
-                            fontSize: 13,
-                            fontWeight: FontWeight.w600,
-                          ),
-                        ),
-                        const SizedBox(height: 8),
-                        Row(
-                          children: [
-                            for (final level in ['Quiet', 'Moderate', 'Busy'])
-                              Expanded(
-                                child: GestureDetector(
-                                  onTap: () =>
-                                      setSheet(() => busyLevel = level),
-                                  child: AnimatedContainer(
-                                    duration: const Duration(milliseconds: 130),
-                                    margin: EdgeInsets.only(
-                                      right: level != 'Busy' ? 8 : 0,
-                                    ),
-                                    height: 40,
-                                    decoration: BoxDecoration(
-                                      color: busyLevel == level
-                                          ? UniverseColors.accent
-                                          : UniverseColors.bgPage,
-                                      borderRadius: BorderRadius.circular(10),
-                                    ),
-                                    child: Center(
-                                      child: Text(
-                                        level,
-                                        style: TextStyle(
-                                          color: busyLevel == level
-                                              ? Colors.white
-                                              : UniverseColors.textSecondary,
-                                          fontSize: 13,
-                                          fontWeight: FontWeight.w600,
-                                        ),
-                                      ),
-                                    ),
-                                  ),
-                                ),
-                              ),
-                          ],
-                        ),
-                      ],
-                      const SizedBox(height: 24),
-                      // ── Drop Pin button
-                      GestureDetector(
-                        onTap: () {
-                          final cat = selectedCategory;
-                          final title = titleCtrl.text.trim();
-                          if (cat == null || title.isEmpty) return;
-                          Navigator.of(ctx).pop();
-                          _createPin(
-                            cat,
-                            title,
-                            locationCtrl.text.trim(),
-                            center,
-                            imageUrl: imageUrlCtrl.text.trim(),
-                          );
-                        },
-                        child: Container(
-                          height: 52,
-                          decoration: BoxDecoration(
-                            gradient: const LinearGradient(
-                              colors: [Color(0xFF6C63FF), Color(0xFF3D8BFF)],
-                              begin: Alignment.centerLeft,
-                              end: Alignment.centerRight,
-                            ),
-                            borderRadius: BorderRadius.circular(14),
-                            boxShadow: const [
-                              BoxShadow(
-                                color: Color(0x446C63FF),
-                                blurRadius: 16,
-                                offset: Offset(0, 4),
-                              ),
-                            ],
-                          ),
-                          child: const Center(
-                            child: Row(
-                              mainAxisSize: MainAxisSize.min,
-                              children: [
-                                Icon(
-                                  Icons.add_location_alt_rounded,
-                                  color: Colors.white,
-                                  size: 18,
-                                ),
-                                SizedBox(width: 8),
-                                Text(
-                                  'Drop Pin',
-                                  style: TextStyle(
-                                    color: Colors.white,
-                                    fontWeight: FontWeight.w700,
-                                    fontSize: 16,
-                                  ),
-                                ),
-                              ],
-                            ),
-                          ),
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-              ],
-            ),
-          ),
-        ),
-      ),
-    );
+    final label = await GeoService.reverseGeocode(pos);
+    if (mounted) setState(() => _pendingPinAddress = label);
   }
 
   void _createPin(
@@ -2683,2280 +1831,5 @@ class _MapTabState extends State<MapTab> with TickerProviderStateMixin {
       ),
     );
   }
-
-  // ═══════════════════════════════════════════════════
-  // PANEL S — Signal preview
-  // ═══════════════════════════════════════════════════
-  Widget _buildSignalPanel(
-    ScrollController scrollController,
-    CampusSignal signal,
-  ) {
-    final meta = signalCategoryMeta[signal.category]!;
-    return CustomScrollView(
-      controller: scrollController,
-      physics: const ClampingScrollPhysics(),
-      slivers: [
-        SliverToBoxAdapter(
-          child: Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 16),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                _DragHandle(onTap: _onDragHandleTap),
-                // Header row
-                Row(
-                  children: [
-                    Container(
-                      padding: const EdgeInsets.symmetric(
-                        horizontal: 10,
-                        vertical: 4,
-                      ),
-                      decoration: BoxDecoration(
-                        color: meta.color.withOpacity(0.12),
-                        borderRadius: BorderRadius.circular(8),
-                      ),
-                      child: Row(
-                        mainAxisSize: MainAxisSize.min,
-                        children: [
-                          Icon(
-                            Icons.sensors_rounded,
-                            size: 13,
-                            color: meta.color,
-                          ),
-                          const SizedBox(width: 4),
-                          Text(
-                            'Signal · ${meta.label}',
-                            style: TextStyle(
-                              color: meta.color,
-                              fontSize: 12,
-                              fontWeight: FontWeight.w700,
-                            ),
-                          ),
-                        ],
-                      ),
-                    ),
-                    const Spacer(),
-                    GestureDetector(
-                      onTap: _dismissPreview,
-                      child: Container(
-                        width: 30,
-                        height: 30,
-                        decoration: const BoxDecoration(
-                          color: UniverseColors.bgPage,
-                          shape: BoxShape.circle,
-                        ),
-                        child: const Icon(
-                          Icons.close_rounded,
-                          size: 16,
-                          color: UniverseColors.textMuted,
-                        ),
-                      ),
-                    ),
-                  ],
-                ),
-                const SizedBox(height: 14),
-                // Message
-                Container(
-                  width: double.infinity,
-                  padding: const EdgeInsets.all(14),
-                  decoration: BoxDecoration(
-                    color: meta.color.withOpacity(0.07),
-                    borderRadius: BorderRadius.circular(14),
-                    border: Border.all(color: meta.color.withOpacity(0.18)),
-                  ),
-                  child: Row(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Icon(meta.icon, color: meta.color, size: 20),
-                      const SizedBox(width: 10),
-                      Expanded(
-                        child: Text(
-                          signal.message,
-                          style: const TextStyle(
-                            fontSize: 16,
-                            fontWeight: FontWeight.w600,
-                            color: UniverseColors.textPrimary,
-                            height: 1.35,
-                          ),
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-                const SizedBox(height: 12),
-                // Meta row — time + expiry
-                Row(
-                  children: [
-                    Icon(
-                      Icons.access_time_rounded,
-                      size: 13,
-                      color: UniverseColors.textMuted,
-                    ),
-                    const SizedBox(width: 4),
-                    Text(
-                      signal.timeAgoLabel,
-                      style: const TextStyle(
-                        fontSize: 13,
-                        color: UniverseColors.textMuted,
-                      ),
-                    ),
-                    const SizedBox(width: 16),
-                    Icon(
-                      Icons.timer_outlined,
-                      size: 13,
-                      color: UniverseColors.textMuted,
-                    ),
-                    const SizedBox(width: 4),
-                    _SignalCountdown(signal: signal),
-                  ],
-                ),
-                const SizedBox(height: 20),
-                // Dismiss button
-                SizedBox(
-                  width: double.infinity,
-                  height: 48,
-                  child: GestureDetector(
-                    onTap: _dismissPreview,
-                    child: Container(
-                      decoration: BoxDecoration(
-                        color: UniverseColors.bgPage,
-                        borderRadius: BorderRadius.circular(14),
-                        border: Border.all(color: UniverseColors.borderColor),
-                      ),
-                      child: const Center(
-                        child: Text(
-                          'Dismiss',
-                          style: TextStyle(
-                            color: UniverseColors.textSecondary,
-                            fontWeight: FontWeight.w600,
-                            fontSize: 15,
-                          ),
-                        ),
-                      ),
-                    ),
-                  ),
-                ),
-                const SizedBox(height: 8),
-                // Remove Signal button
-                SizedBox(
-                  width: double.infinity,
-                  height: 48,
-                  child: GestureDetector(
-                    onTap: () {
-                      final sigId = signal.id;
-                      setState(() {
-                        activeSignals.removeWhere((s) => s.id == sigId);
-                      });
-                      _dismissPreview();
-                    },
-                    child: Container(
-                      decoration: BoxDecoration(
-                        color: const Color(0xFFFFEEEE),
-                        borderRadius: BorderRadius.circular(14),
-                        border: Border.all(color: const Color(0xFFFFCCCC)),
-                      ),
-                      child: const Center(
-                        child: Row(
-                          mainAxisSize: MainAxisSize.min,
-                          children: [
-                            Icon(
-                              Icons.delete_outline_rounded,
-                              color: Color(0xFFEF5350),
-                              size: 18,
-                            ),
-                            SizedBox(width: 8),
-                            Text(
-                              'Remove Signal',
-                              style: TextStyle(
-                                color: Color(0xFFEF5350),
-                                fontWeight: FontWeight.w600,
-                                fontSize: 15,
-                              ),
-                            ),
-                          ],
-                        ),
-                      ),
-                    ),
-                  ),
-                ),
-                const SizedBox(height: 24),
-              ],
-            ),
-          ),
-        ),
-      ],
-    );
-  }
-
-  // ═══════════════════════════════════════════════════
-  // PANEL A — "Happening Now" (default, no pin selected)
-  // ═══════════════════════════════════════════════════
-  Widget _buildHappeningNow(ScrollController scrollController) {
-    return CustomScrollView(
-      controller: scrollController,
-      physics: const ClampingScrollPhysics(),
-      slivers: [
-        SliverToBoxAdapter(
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              _DragHandle(onTap: _onDragHandleTap),
-              Padding(
-                padding: const EdgeInsets.fromLTRB(20, 0, 20, 12),
-                child: Row(
-                  children: [
-                    Text(
-                      'Happening Now',
-                      style: UniverseTextStyles.sectionHeader,
-                    ),
-                    const Spacer(),
-                    Text(
-                      '${_filteredEvents.length} events',
-                      style: const TextStyle(
-                        color: UniverseColors.textLight,
-                        fontSize: 13,
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-              SizedBox(
-                height: 118,
-                child: PageView.builder(
-                  controller: _pageController,
-                  onPageChanged: _onPageChanged,
-                  itemCount: _filteredEvents.length,
-                  itemBuilder: (context, i) => _HappeningCard(
-                    event: _filteredEvents[i],
-                    onTap: () => _onPinTap(_filteredEvents[i]),
-                  ),
-                ),
-              ),
-              const SizedBox(height: 20),
-              const Divider(
-                height: 1,
-                thickness: 1,
-                color: UniverseColors.divider,
-              ),
-              const SizedBox(height: 14),
-              Padding(
-                padding: const EdgeInsets.symmetric(horizontal: 20),
-                child: Text(
-                  'All Events',
-                  style: UniverseTextStyles.sectionHeader.copyWith(
-                    fontSize: 16,
-                  ),
-                ),
-              ),
-              const SizedBox(height: 8),
-            ],
-          ),
-        ),
-        SliverList(
-          delegate: SliverChildBuilderDelegate(
-            (ctx, i) => _EventRow(
-              event: _filteredEvents[i],
-              onTap: () => _onPinTap(_filteredEvents[i]),
-            ),
-            childCount: _filteredEvents.length,
-          ),
-        ),
-        const SliverToBoxAdapter(child: SizedBox(height: 120)),
-      ],
-    );
-  }
-
-  // ═══════════════════════════════════════════════════
-  // PANEL B — Event preview + full details on swipe up
-  // ═══════════════════════════════════════════════════
-  Widget _buildEventPanel(
-    ScrollController scrollController,
-    CampusEvent event,
-  ) {
-    final info = categoryInfo[event.category]!;
-    return CustomScrollView(
-      controller: scrollController,
-      physics: const ClampingScrollPhysics(),
-      slivers: [
-        SliverToBoxAdapter(
-          child: Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 16),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                _DragHandle(onTap: _onDragHandleTap),
-
-                // Category pill + close button
-                Row(
-                  children: [
-                    Container(
-                      padding: const EdgeInsets.symmetric(
-                        horizontal: 10,
-                        vertical: 4,
-                      ),
-                      decoration: BoxDecoration(
-                        color: info.color.withOpacity(0.08),
-                        borderRadius: BorderRadius.circular(6),
-                        border: Border.all(
-                          color: info.color.withOpacity(0.15),
-                          width: 0.5,
-                        ),
-                      ),
-                      child: Row(
-                        mainAxisSize: MainAxisSize.min,
-                        children: [
-                          Icon(info.icon, size: 13, color: info.color),
-                          const SizedBox(width: 5),
-                          Text(
-                            info.label,
-                            style: TextStyle(
-                              color: info.color,
-                              fontSize: 12,
-                              fontWeight: FontWeight.w600,
-                            ),
-                          ),
-                        ],
-                      ),
-                    ),
-                    const Spacer(),
-                    GestureDetector(
-                      onTap: _dismissPreview,
-                      child: Container(
-                        width: 30,
-                        height: 30,
-                        decoration: const BoxDecoration(
-                          color: UniverseColors.bgPage,
-                          shape: BoxShape.circle,
-                        ),
-                        child: const Icon(
-                          Icons.close_rounded,
-                          size: 16,
-                          color: UniverseColors.textMuted,
-                        ),
-                      ),
-                    ),
-                  ],
-                ),
-
-                const SizedBox(height: 12),
-
-                // ── Preview card with accent bar ─────────────────
-                Container(
-                  height: 108,
-                  clipBehavior: Clip.antiAlias,
-                  decoration: BoxDecoration(
-                    color: Colors.white,
-                    borderRadius: BorderRadius.circular(16),
-                    border: Border.all(color: UniverseColors.borderColor, width: 0.5),
-                    boxShadow: const [
-                      BoxShadow(
-                        color: Color(0x08000000),
-                        blurRadius: 16,
-                        offset: Offset(0, 4),
-                      ),
-                    ],
-                  ),
-                  child: IntrinsicHeight(
-                    child: Row(
-                      crossAxisAlignment: CrossAxisAlignment.stretch,
-                      children: [
-                        Container(
-                          width: 4,
-                          decoration: BoxDecoration(
-                            gradient: LinearGradient(
-                              colors: [info.color, info.color.withOpacity(0.3)],
-                              begin: Alignment.topCenter,
-                              end: Alignment.bottomCenter,
-                            ),
-                          ),
-                        ),
-                        ClipRRect(
-                          borderRadius: BorderRadius.zero,
-                          child: Image.network(
-                            event.imageUrl,
-                            width: 104,
-                            height: 108,
-                            fit: BoxFit.cover,
-                            errorBuilder: (_, __, ___) => Container(
-                              width: 104,
-                              height: 108,
-                              color: info.color.withOpacity(0.06),
-                              child: Icon(info.icon, color: info.color.withOpacity(0.3), size: 32),
-                            ),
-                          ),
-                        ),
-                        Expanded(
-                          child: Padding(
-                            padding: const EdgeInsets.all(14),
-                            child: Column(
-                              crossAxisAlignment: CrossAxisAlignment.start,
-                              mainAxisAlignment: MainAxisAlignment.center,
-                              children: [
-                                Text(
-                                  event.title,
-                                  style: const TextStyle(
-                                    color: UniverseColors.textPrimary,
-                                    fontSize: 15,
-                                    fontWeight: FontWeight.w600,
-                                    letterSpacing: -0.2,
-                                  ),
-                                  maxLines: 2,
-                                  overflow: TextOverflow.ellipsis,
-                                ),
-                                const SizedBox(height: 6),
-                                Text(
-                                  '${event.location}  ·  ${event.time}',
-                                  style: const TextStyle(
-                                    color: UniverseColors.textMuted,
-                                    fontSize: 12,
-                                    fontWeight: FontWeight.w400,
-                                  ),
-                                  maxLines: 1,
-                                  overflow: TextOverflow.ellipsis,
-                                ),
-                              ],
-                            ),
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
-                ),
-
-                const SizedBox(height: 10),
-                const Center(
-                  child: Text(
-                    '↑  Swipe up for full details',
-                    style: TextStyle(
-                      color: UniverseColors.textLight,
-                      fontSize: 12,
-                    ),
-                  ),
-                ),
-                const SizedBox(height: 20),
-                const Divider(
-                  height: 1,
-                  thickness: 1,
-                  color: UniverseColors.divider,
-                ),
-                const SizedBox(height: 20),
-
-                // ── Full details (visible on swipe up) ───
-                ClipRRect(
-                  borderRadius: BorderRadius.circular(18),
-                  child: Image.network(
-                    event.imageUrl,
-                    width: double.infinity,
-                    height: 200,
-                    fit: BoxFit.cover,
-                    errorBuilder: (_, __, ___) => Container(
-                      height: 200,
-                      color: info.color.withOpacity(0.1),
-                      child: Icon(info.icon, size: 60, color: info.color),
-                    ),
-                  ),
-                ),
-                const SizedBox(height: 16),
-                Text(
-                  event.title,
-                  style: const TextStyle(
-                    color: UniverseColors.textPrimary,
-                    fontSize: 22,
-                    fontWeight: FontWeight.w800,
-                    letterSpacing: -0.2,
-                  ),
-                ),
-                const SizedBox(height: 4),
-                Text(
-                  'Hosted by ${event.subtitle}',
-                  style: const TextStyle(
-                    color: UniverseColors.textLight,
-                    fontSize: 14,
-                  ),
-                ),
-                const SizedBox(height: 20),
-                _DetailRow(
-                  icon: Icons.access_time_rounded,
-                  label: event.time,
-                  iconColor: UniverseColors.accent,
-                ),
-                const SizedBox(height: 10),
-                _DetailRow(
-                  icon: Icons.location_on_rounded,
-                  label: event.location,
-                  iconColor: UniverseColors.accentBlue,
-                ),
-                const SizedBox(height: 10),
-                _DetailRow(
-                  icon: Icons.people_rounded,
-                  label: '${event.attendees} people going',
-                  iconColor: UniverseColors.accentOrange,
-                ),
-                const SizedBox(height: 24),
-                const Text(
-                  'Friends Going',
-                  style: TextStyle(
-                    color: UniverseColors.textPrimary,
-                    fontSize: 15,
-                    fontWeight: FontWeight.w700,
-                  ),
-                ),
-                const SizedBox(height: 12),
-                Row(
-                  children: [
-                    _FriendAvatar(
-                      initials: 'AJ',
-                      name: 'Alex',
-                      color: UniverseColors.accent,
-                    ),
-                    const SizedBox(width: 12),
-                    _FriendAvatar(
-                      initials: 'MK',
-                      name: 'Maya',
-                      color: UniverseColors.accentPink,
-                    ),
-                    const SizedBox(width: 12),
-                    _FriendAvatar(
-                      initials: 'RS',
-                      name: 'Ryan',
-                      color: UniverseColors.accentBlue,
-                    ),
-                    const SizedBox(width: 16),
-                    Text(
-                      '+${event.attendees - 3} more',
-                      style: const TextStyle(
-                        color: UniverseColors.textLight,
-                        fontSize: 12,
-                      ),
-                    ),
-                  ],
-                ),
-                const SizedBox(height: 28),
-
-                // ── Community verification (crowd-reported pins only) ────────
-                if (_tempExpiry.containsKey(event.id)) ...[
-                  Container(
-                    padding: const EdgeInsets.all(14),
-                    decoration: BoxDecoration(
-                      color: const Color(0xFFFFF9F0),
-                      borderRadius: BorderRadius.circular(14),
-                      border: Border.all(
-                        color: const Color(0xFFFFE0A0),
-                        width: 0.5,
-                      ),
-                    ),
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        const Text(
-                          'Is this still accurate?',
-                          style: TextStyle(
-                            color: Color(0xFF8B6000),
-                            fontSize: 13,
-                            fontWeight: FontWeight.w600,
-                          ),
-                        ),
-                        const SizedBox(height: 10),
-                        Row(
-                          children: [
-                            Expanded(
-                              child: GestureDetector(
-                                onTap: () => setState(
-                                  () => _confirmations[event.id] =
-                                      (_confirmations[event.id] ?? 0) + 1,
-                                ),
-                                child: Container(
-                                  height: 38,
-                                  decoration: BoxDecoration(
-                                    color: const Color(
-                                      0xFF22C55E,
-                                    ).withOpacity(0.10),
-                                    borderRadius: BorderRadius.circular(10),
-                                  ),
-                                  child: Row(
-                                    mainAxisAlignment: MainAxisAlignment.center,
-                                    children: [
-                                      const Icon(
-                                        Icons.check_circle_outline_rounded,
-                                        color: Color(0xFF22C55E),
-                                        size: 16,
-                                      ),
-                                      const SizedBox(width: 5),
-                                      Text(
-                                        'Still there (${_confirmations[event.id] ?? 0})',
-                                        style: const TextStyle(
-                                          color: Color(0xFF22C55E),
-                                          fontSize: 12,
-                                          fontWeight: FontWeight.w600,
-                                        ),
-                                      ),
-                                    ],
-                                  ),
-                                ),
-                              ),
-                            ),
-                            const SizedBox(width: 8),
-                            Expanded(
-                              child: GestureDetector(
-                                onTap: () => setState(
-                                  () => _outdatedVotes[event.id] =
-                                      (_outdatedVotes[event.id] ?? 0) + 1,
-                                ),
-                                child: Container(
-                                  height: 38,
-                                  decoration: BoxDecoration(
-                                    color: const Color(
-                                      0xFFEF4444,
-                                    ).withOpacity(0.10),
-                                    borderRadius: BorderRadius.circular(10),
-                                  ),
-                                  child: Row(
-                                    mainAxisAlignment: MainAxisAlignment.center,
-                                    children: [
-                                      const Icon(
-                                        Icons.cancel_outlined,
-                                        color: Color(0xFFEF4444),
-                                        size: 16,
-                                      ),
-                                      const SizedBox(width: 5),
-                                      Text(
-                                        'Gone (${_outdatedVotes[event.id] ?? 0})',
-                                        style: const TextStyle(
-                                          color: Color(0xFFEF4444),
-                                          fontSize: 12,
-                                          fontWeight: FontWeight.w600,
-                                        ),
-                                      ),
-                                    ],
-                                  ),
-                                ),
-                              ),
-                            ),
-                          ],
-                        ),
-                      ],
-                    ),
-                  ),
-                  const SizedBox(height: 16),
-                ],
-
-                // ── Like / Save / Share ──────────────────────────────────────
-                Row(
-                  children: [
-                    _ActionButton(
-                      icon: _likedItems.contains(event.id)
-                          ? Icons.favorite_rounded
-                          : Icons.favorite_border_rounded,
-                      color: _likedItems.contains(event.id)
-                          ? const Color(0xFFFF4D6D)
-                          : UniverseColors.textMuted,
-                      label: _likedItems.contains(event.id) ? 'Liked' : 'Like',
-                      onTap: () => setState(() {
-                        if (_likedItems.contains(event.id)) {
-                          _likedItems.remove(event.id);
-                        } else {
-                          _likedItems.add(event.id);
-                          _dislikedItems.remove(event.id);
-                        }
-                      }),
-                    ),
-                    const SizedBox(width: 8),
-                    _ActionButton(
-                      icon: _savedItems.contains(event.id)
-                          ? Icons.bookmark_rounded
-                          : Icons.bookmark_border_rounded,
-                      color: _savedItems.contains(event.id)
-                          ? UniverseColors.accent
-                          : UniverseColors.textMuted,
-                      label: _savedItems.contains(event.id) ? 'Saved' : 'Save',
-                      onTap: () => setState(() {
-                        if (_savedItems.contains(event.id)) {
-                          _savedItems.remove(event.id);
-                        } else {
-                          _savedItems.add(event.id);
-                        }
-                      }),
-                    ),
-                    const SizedBox(width: 8),
-                    _ActionButton(
-                      icon: Icons.share_rounded,
-                      color: UniverseColors.textMuted,
-                      label: 'Share',
-                      onTap: () {},
-                    ),
-                    const SizedBox(width: 8),
-                    _ActionButton(
-                      icon: Icons.directions_rounded,
-                      color: UniverseColors.textMuted,
-                      label: 'Directions',
-                      onTap: () async {
-                        final lat = event.position.latitude;
-                        final lng = event.position.longitude;
-                        final uri = Uri.parse(
-                          'https://www.google.com/maps/dir/?api=1&destination=$lat,$lng',
-                        );
-                        if (await canLaunchUrl(uri)) {
-                          await launchUrl(
-                            uri,
-                            mode: LaunchMode.externalApplication,
-                          );
-                        }
-                      },
-                    ),
-                  ],
-                ),
-                const SizedBox(height: 20),
-
-                // Going / Not Going
-                Row(
-                  children: [
-                    Expanded(
-                      child: GestureDetector(
-                        onTap: () => setState(() => _isGoing = true),
-                        child: AnimatedContainer(
-                          duration: const Duration(milliseconds: 180),
-                          height: 50,
-                          decoration: BoxDecoration(
-                            borderRadius: BorderRadius.circular(14),
-                            gradient: _isGoing
-                                ? const LinearGradient(
-                                    colors: [
-                                      Color(0xFF6C63FF),
-                                      Color(0xFF3D8BFF),
-                                    ],
-                                    begin: Alignment.centerLeft,
-                                    end: Alignment.centerRight,
-                                  )
-                                : null,
-                            color: _isGoing ? null : Colors.white,
-                            border: _isGoing
-                                ? null
-                                : Border.all(color: UniverseColors.accent),
-                            boxShadow: _isGoing
-                                ? const [
-                                    BoxShadow(
-                                      color: Color(0x446C63FF),
-                                      blurRadius: 12,
-                                      offset: Offset(0, 3),
-                                    ),
-                                  ]
-                                : null,
-                          ),
-                          child: Center(
-                            child: Text(
-                              _isGoing ? '✓  Going' : 'Going',
-                              style: TextStyle(
-                                color: _isGoing
-                                    ? Colors.white
-                                    : UniverseColors.accent,
-                                fontWeight: FontWeight.w700,
-                                fontSize: 15,
-                              ),
-                            ),
-                          ),
-                        ),
-                      ),
-                    ),
-                    const SizedBox(width: 12),
-                    Expanded(
-                      child: GestureDetector(
-                        onTap: () => setState(() => _isGoing = false),
-                        child: AnimatedContainer(
-                          duration: const Duration(milliseconds: 180),
-                          height: 50,
-                          decoration: BoxDecoration(
-                            color: !_isGoing
-                                ? UniverseColors.bgPage
-                                : Colors.white,
-                            borderRadius: BorderRadius.circular(14),
-                            border: Border.all(
-                              color: UniverseColors.borderColor,
-                            ),
-                          ),
-                          child: const Center(
-                            child: Text(
-                              'Not Going',
-                              style: TextStyle(
-                                color: UniverseColors.textMuted,
-                                fontWeight: FontWeight.w600,
-                                fontSize: 15,
-                              ),
-                            ),
-                          ),
-                        ),
-                      ),
-                    ),
-                  ],
-                ),
-                const SizedBox(height: 120),
-              ],
-            ),
-          ),
-        ),
-      ],
-    );
-  }
-
-  Widget _buildPlacePanel(
-    ScrollController scrollController,
-    CampusPlace place,
-  ) {
-    return CustomScrollView(
-      controller: scrollController,
-      physics: const ClampingScrollPhysics(),
-      slivers: [
-        SliverToBoxAdapter(
-          child: Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 16),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                _DragHandle(onTap: _onDragHandleTap),
-                // ── Header row ─────────────────────────────────────────────
-                Row(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    // Category pill
-                    Container(
-                      padding: const EdgeInsets.symmetric(
-                        horizontal: 10,
-                        vertical: 4,
-                      ),
-                      decoration: BoxDecoration(
-                        color: UniverseColors.accent.withOpacity(0.10),
-                        borderRadius: BorderRadius.circular(8),
-                      ),
-                      child: Row(
-                        mainAxisSize: MainAxisSize.min,
-                        children: [
-                          Icon(
-                            place.icon,
-                            size: 13,
-                            color: UniverseColors.accent,
-                          ),
-                          const SizedBox(width: 5),
-                          Text(
-                            place.category,
-                            style: const TextStyle(
-                              color: UniverseColors.accent,
-                              fontSize: 12,
-                              fontWeight: FontWeight.w700,
-                            ),
-                          ),
-                        ],
-                      ),
-                    ),
-                    const Spacer(),
-                    // Close button
-                    GestureDetector(
-                      onTap: () {
-                        setState(() => _selectedPlace = null);
-                        _dismissPreview();
-                      },
-                      child: Container(
-                        width: 30,
-                        height: 30,
-                        decoration: const BoxDecoration(
-                          color: UniverseColors.bgPage,
-                          shape: BoxShape.circle,
-                        ),
-                        child: const Icon(
-                          Icons.close,
-                          size: 16,
-                          color: UniverseColors.textMuted,
-                        ),
-                      ),
-                    ),
-                  ],
-                ),
-                const SizedBox(height: 10),
-                // ── Place name ─────────────────────────────────────────────
-                Text(
-                  place.name,
-                  style: const TextStyle(
-                    fontSize: 22,
-                    fontWeight: FontWeight.w800,
-                    color: UniverseColors.textPrimary,
-                    height: 1.2,
-                  ),
-                ),
-                const SizedBox(height: 8),
-                // ── Rating row ─────────────────────────────────────────────
-                Row(
-                  children: [
-                    ...List.generate(5, (i) {
-                      final full = i < place.rating.floor();
-                      final half =
-                          !full &&
-                          i < place.rating &&
-                          (place.rating - i) >= 0.5;
-                      return Icon(
-                        full
-                            ? Icons.star_rounded
-                            : half
-                            ? Icons.star_half_rounded
-                            : Icons.star_outline_rounded,
-                        size: 16,
-                        color: const Color(0xFFFFB800),
-                      );
-                    }),
-                    const SizedBox(width: 6),
-                    Text(
-                      place.rating.toStringAsFixed(1),
-                      style: const TextStyle(
-                        fontSize: 13,
-                        fontWeight: FontWeight.w600,
-                        color: UniverseColors.textPrimary,
-                      ),
-                    ),
-                  ],
-                ),
-                const SizedBox(height: 6),
-                // ── Hours ──────────────────────────────────────────────────
-                Row(
-                  children: [
-                    const Icon(
-                      Icons.schedule_rounded,
-                      size: 14,
-                      color: UniverseColors.textMuted,
-                    ),
-                    const SizedBox(width: 4),
-                    Text(
-                      place.hours,
-                      style: const TextStyle(
-                        fontSize: 13,
-                        color: UniverseColors.textMuted,
-                      ),
-                    ),
-                  ],
-                ),
-                const SizedBox(height: 20),
-                // ── Get Directions button ──────────────────────────────────
-                SizedBox(
-                  width: double.infinity,
-                  height: 50,
-                  child: GestureDetector(
-                    onTap: () async {
-                      final lat = place.position.latitude;
-                      final lng = place.position.longitude;
-                      final uri = Uri.parse(
-                        'https://www.google.com/maps/dir/?api=1&destination=$lat,$lng',
-                      );
-                      if (await canLaunchUrl(uri)) {
-                        await launchUrl(
-                          uri,
-                          mode: LaunchMode.externalApplication,
-                        );
-                      }
-                    },
-                    child: Container(
-                      decoration: BoxDecoration(
-                        gradient: const LinearGradient(
-                          colors: [Color(0xFF6C63FF), Color(0xFF3D8BFF)],
-                          begin: Alignment.centerLeft,
-                          end: Alignment.centerRight,
-                        ),
-                        borderRadius: BorderRadius.circular(14),
-                        boxShadow: const [
-                          BoxShadow(
-                            color: Color(0x446C63FF),
-                            blurRadius: 12,
-                            offset: Offset(0, 3),
-                          ),
-                        ],
-                      ),
-                      child: const Row(
-                        mainAxisAlignment: MainAxisAlignment.center,
-                        children: [
-                          Icon(
-                            Icons.directions_rounded,
-                            color: Colors.white,
-                            size: 20,
-                          ),
-                          SizedBox(width: 8),
-                          Text(
-                            'Get Directions',
-                            style: TextStyle(
-                              color: Colors.white,
-                              fontWeight: FontWeight.w700,
-                              fontSize: 15,
-                            ),
-                          ),
-                        ],
-                      ),
-                    ),
-                  ),
-                ),
-                const SizedBox(height: 120),
-              ],
-            ),
-          ),
-        ),
-      ],
-    );
-  }
-
-  Widget _buildStudySpotPanel(
-    ScrollController scrollController,
-    StudySpot spot,
-  ) {
-    final info = categoryInfo[EventCategory.study]!;
-    return CustomScrollView(
-      controller: scrollController,
-      physics: const ClampingScrollPhysics(),
-      slivers: [
-        SliverToBoxAdapter(
-          child: Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 16),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                _DragHandle(onTap: _onDragHandleTap),
-                Row(
-                  children: [
-                    Container(
-                      padding: const EdgeInsets.symmetric(
-                        horizontal: 10,
-                        vertical: 4,
-                      ),
-                      decoration: BoxDecoration(
-                        color: info.color.withOpacity(0.10),
-                        borderRadius: BorderRadius.circular(8),
-                      ),
-                      child: Row(
-                        mainAxisSize: MainAxisSize.min,
-                        children: [
-                          Icon(info.icon, size: 13, color: info.color),
-                          const SizedBox(width: 5),
-                          Text(
-                            info.label,
-                            style: TextStyle(
-                              color: info.color,
-                              fontSize: 12,
-                              fontWeight: FontWeight.w700,
-                            ),
-                          ),
-                        ],
-                      ),
-                    ),
-                    const Spacer(),
-                    GestureDetector(
-                      onTap: () {
-                        setState(() => _selectedStudySpot = null);
-                        _dismissPreview();
-                      },
-                      child: Container(
-                        width: 30,
-                        height: 30,
-                        decoration: const BoxDecoration(
-                          color: UniverseColors.bgPage,
-                          shape: BoxShape.circle,
-                        ),
-                        child: const Icon(
-                          Icons.close_rounded,
-                          size: 16,
-                          color: UniverseColors.textMuted,
-                        ),
-                      ),
-                    ),
-                  ],
-                ),
-                const SizedBox(height: 12),
-                Text(
-                  spot.title,
-                  style: const TextStyle(
-                    color: UniverseColors.textPrimary,
-                    fontSize: 22,
-                    fontWeight: FontWeight.w800,
-                  ),
-                ),
-                const SizedBox(height: 8),
-                _MiniRow(icon: Icons.location_on_rounded, label: spot.location),
-                const SizedBox(height: 20),
-                const Text(
-                  'This study spot does not expire and has no attendance controls.',
-                  style: TextStyle(
-                    color: UniverseColors.textLight,
-                    fontSize: 12,
-                  ),
-                ),
-                const SizedBox(height: 220),
-              ],
-            ),
-          ),
-        ),
-      ],
-    );
-  }
 }
 
-// ─────────────────────────────────────────────────────────────────────────────
-// HELPER WIDGETS
-// ─────────────────────────────────────────────────────────────────────────────
-
-class _DragHandle extends StatelessWidget {
-  final VoidCallback? onTap;
-  const _DragHandle({this.onTap});
-
-  @override
-  Widget build(BuildContext context) {
-    return GestureDetector(
-      onTap: onTap,
-      behavior: HitTestBehavior.opaque,
-      child: Padding(
-        padding: const EdgeInsets.symmetric(vertical: 10),
-        child: Center(
-          child: Container(
-            width: 32,
-            height: 3,
-            decoration: BoxDecoration(
-              color: const Color(0xFFD1D5DB),
-              borderRadius: BorderRadius.circular(2),
-            ),
-          ),
-        ),
-      ),
-    );
-  }
-}
-
-/// Google Maps-style teardrop pin drawn with CustomPaint.
-class _MapPin extends StatelessWidget {
-  final Color color;
-  final IconData icon;
-  final bool isSelected;
-  final double width;
-  final double height;
-
-  const _MapPin({
-    required this.color,
-    required this.icon,
-    required this.width,
-    required this.height,
-    this.isSelected = false,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    return CustomPaint(
-      size: Size(width, height),
-      painter: _MapPinPainter(color: color, isSelected: isSelected),
-      child: SizedBox(
-        width: width,
-        height: height,
-        child: Align(
-          alignment: const Alignment(0, -0.24),
-          child: Icon(icon, color: Colors.white, size: width * 0.44),
-        ),
-      ),
-    );
-  }
-}
-
-class _MapPinPainter extends CustomPainter {
-  final Color color;
-  final bool isSelected;
-
-  const _MapPinPainter({required this.color, this.isSelected = false});
-
-  @override
-  void paint(Canvas canvas, Size size) {
-    final w = size.width;
-    final h = size.height;
-    final cx = w / 2;
-
-    // ── Sleek circle pin with subtle stem (Linear-style) ────────────────
-    final headR = w * 0.42;
-    final headCY = w * 0.06 + headR;
-
-    // Tiny stem connecting circle to point
-    final stemHW = w * 0.09;
-    final stemTopY = headCY + headR * 0.80;
-    final stemPath = ui.Path()
-      ..moveTo(cx - stemHW, stemTopY)
-      ..quadraticBezierTo(cx, h + 1, cx + stemHW, stemTopY)
-      ..close();
-
-    // Soft shadow
-    canvas.drawShadow(
-      ui.Path()..addOval(Rect.fromCircle(center: Offset(cx, headCY), radius: headR)),
-      color.withOpacity(0.30),
-      isSelected ? 6 : 3,
-      false,
-    );
-
-    // Stem fill
-    canvas.drawPath(stemPath, Paint()..color = color..style = PaintingStyle.fill);
-
-    // Circle fill
-    canvas.drawCircle(
-      Offset(cx, headCY),
-      headR,
-      Paint()..color = color..style = PaintingStyle.fill,
-    );
-
-    // Subtle gloss — minimal highlight
-    canvas.drawCircle(
-      Offset(cx - w * 0.10, headCY - headR * 0.28),
-      w * 0.10,
-      Paint()
-        ..color = Colors.white.withOpacity(isSelected ? 0.20 : 0.12)
-        ..style = PaintingStyle.fill,
-    );
-
-    // White ring when selected
-    if (isSelected) {
-      canvas.drawCircle(
-        Offset(cx, headCY),
-        headR,
-        Paint()
-          ..color = Colors.white
-          ..strokeWidth = 2.0
-          ..style = PaintingStyle.stroke,
-      );
-    }
-  }
-
-  @override
-  bool shouldRepaint(_MapPinPainter old) =>
-      old.color != color || old.isSelected != isSelected;
-}
-
-/// Compact card shown in the "Happening Now" horizontal carousel.
-class _HappeningCard extends StatelessWidget {
-  final CampusEvent event;
-  final VoidCallback onTap;
-
-  const _HappeningCard({required this.event, required this.onTap});
-
-  @override
-  Widget build(BuildContext context) {
-    final info = categoryInfo[event.category]!;
-    return GestureDetector(
-      onTap: onTap,
-      child: Container(
-        margin: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-        clipBehavior: Clip.antiAlias,
-        decoration: BoxDecoration(
-          color: Colors.white,
-          borderRadius: BorderRadius.circular(16),
-          border: Border.all(color: UniverseColors.borderColor, width: 0.5),
-          boxShadow: const [
-            BoxShadow(
-              color: Color(0x08000000),
-              blurRadius: 16,
-              offset: Offset(0, 4),
-            ),
-          ],
-        ),
-        child: IntrinsicHeight(
-          child: Row(
-            crossAxisAlignment: CrossAxisAlignment.stretch,
-            children: [
-              // Accent gradient bar
-              Container(
-                width: 4,
-                decoration: BoxDecoration(
-                  gradient: LinearGradient(
-                    colors: [info.color, info.color.withOpacity(0.4)],
-                    begin: Alignment.topCenter,
-                    end: Alignment.bottomCenter,
-                  ),
-                ),
-              ),
-              ClipRRect(
-                borderRadius: BorderRadius.zero,
-                child: Image.network(
-                  event.imageUrl,
-                  width: 88,
-                  height: double.infinity,
-                  fit: BoxFit.cover,
-                  errorBuilder: (_, __, ___) => Container(
-                    width: 88,
-                    color: info.color.withOpacity(0.06),
-                    child: Icon(info.icon, color: info.color.withOpacity(0.3), size: 28),
-                  ),
-                ),
-              ),
-              Expanded(
-                child: Padding(
-                  padding: const EdgeInsets.symmetric(
-                    horizontal: 12,
-                    vertical: 10,
-                  ),
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    mainAxisAlignment: MainAxisAlignment.center,
-                    children: [
-                      Text(
-                        event.title,
-                        style: const TextStyle(
-                          color: UniverseColors.textPrimary,
-                          fontSize: 14,
-                          fontWeight: FontWeight.w600,
-                          height: 1.3,
-                          letterSpacing: -0.2,
-                        ),
-                        maxLines: 1,
-                        overflow: TextOverflow.ellipsis,
-                      ),
-                      const SizedBox(height: 2),
-                      Text(
-                        event.subtitle,
-                        style: const TextStyle(
-                          color: UniverseColors.textSecondary,
-                          fontSize: 12,
-                          fontWeight: FontWeight.w400,
-                        ),
-                        maxLines: 1,
-                        overflow: TextOverflow.ellipsis,
-                      ),
-                      const SizedBox(height: 6),
-                      Text(
-                        '${event.location}  ·  ${event.time.split(', ').last}',
-                        style: const TextStyle(
-                          color: UniverseColors.textMuted,
-                          fontSize: 11,
-                          fontWeight: FontWeight.w400,
-                          letterSpacing: 0.1,
-                        ),
-                        maxLines: 1,
-                        overflow: TextOverflow.ellipsis,
-                      ),
-                    ],
-                  ),
-                ),
-              ),
-              Padding(
-                padding: const EdgeInsets.only(right: 12),
-                child: Center(
-                  child: Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                    decoration: BoxDecoration(
-                      color: info.color.withOpacity(0.08),
-                      borderRadius: BorderRadius.circular(6),
-                    ),
-                    child: Text(
-                      '${event.attendees}',
-                      style: TextStyle(
-                        color: info.color,
-                        fontWeight: FontWeight.w600,
-                        fontSize: 11,
-                      ),
-                    ),
-                  ),
-                ),
-              ),
-            ],
-          ),
-        ),
-      ),
-    );
-  }
-}
-
-/// List row shown in expanded "All Events" section.
-class _EventRow extends StatelessWidget {
-  final CampusEvent event;
-  final VoidCallback onTap;
-
-  const _EventRow({required this.event, required this.onTap});
-
-  @override
-  Widget build(BuildContext context) {
-    final info = categoryInfo[event.category]!;
-    return Padding(
-      padding: const EdgeInsets.fromLTRB(16, 0, 16, 10),
-      child: GestureDetector(
-        onTap: onTap,
-        child: Container(
-          clipBehavior: Clip.antiAlias,
-          decoration: BoxDecoration(
-            color: Colors.white,
-            borderRadius: BorderRadius.circular(14),
-            border: Border.all(color: UniverseColors.borderColor, width: 0.5),
-            boxShadow: const [
-              BoxShadow(
-                color: Color(0x06000000),
-                blurRadius: 10,
-                offset: Offset(0, 2),
-              ),
-            ],
-          ),
-          child: IntrinsicHeight(
-            child: Row(
-              crossAxisAlignment: CrossAxisAlignment.stretch,
-              children: [
-                // Accent gradient bar
-                Container(
-                  width: 4,
-                  decoration: BoxDecoration(
-                    gradient: LinearGradient(
-                      colors: [info.color, info.color.withOpacity(0.3)],
-                      begin: Alignment.topCenter,
-                      end: Alignment.bottomCenter,
-                    ),
-                  ),
-                ),
-                Expanded(
-                  child: Padding(
-                    padding: const EdgeInsets.all(12),
-                    child: Row(
-                      children: [
-                        ClipRRect(
-                          borderRadius: BorderRadius.circular(10),
-                          child: Image.network(
-                            event.imageUrl,
-                            width: 52,
-                            height: 52,
-                            fit: BoxFit.cover,
-                            errorBuilder: (_, __, ___) => Container(
-                              width: 52,
-                              height: 52,
-                              color: info.color.withOpacity(0.06),
-                              child: Icon(info.icon, color: info.color.withOpacity(0.3), size: 20),
-                            ),
-                          ),
-                        ),
-                        const SizedBox(width: 12),
-                        Expanded(
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            mainAxisAlignment: MainAxisAlignment.center,
-                            children: [
-                              Text(
-                                event.title,
-                                style: const TextStyle(
-                                  color: UniverseColors.textPrimary,
-                                  fontSize: 14,
-                                  fontWeight: FontWeight.w600,
-                                  letterSpacing: -0.1,
-                                ),
-                              ),
-                              const SizedBox(height: 3),
-                              Text(
-                                '${event.location}  ·  ${event.time}',
-                                style: const TextStyle(
-                                  color: UniverseColors.textMuted,
-                                  fontSize: 12,
-                                  fontWeight: FontWeight.w400,
-                                ),
-                              ),
-                            ],
-                          ),
-                        ),
-                        Container(
-                          padding: const EdgeInsets.symmetric(
-                            horizontal: 8,
-                            vertical: 4,
-                          ),
-                          decoration: BoxDecoration(
-                            color: info.color.withOpacity(0.08),
-                            borderRadius: BorderRadius.circular(6),
-                          ),
-                          child: Text(
-                            '${event.attendees}',
-                            style: TextStyle(
-                              color: info.color,
-                              fontWeight: FontWeight.w600,
-                              fontSize: 11,
-                            ),
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
-                ),
-              ],
-            ),
-          ),
-        ),
-      ),
-    );
-  }
-}
-
-class _MiniRow extends StatelessWidget {
-  final IconData icon;
-  final String label;
-
-  const _MiniRow({required this.icon, required this.label});
-
-  @override
-  Widget build(BuildContext context) {
-    return Row(
-      children: [
-        Icon(icon, size: 11, color: UniverseColors.textLight),
-        const SizedBox(width: 4),
-        Expanded(
-          child: Text(
-            label,
-            style: const TextStyle(
-              color: UniverseColors.textLight,
-              fontSize: 11,
-            ),
-            overflow: TextOverflow.ellipsis,
-          ),
-        ),
-      ],
-    );
-  }
-}
-
-class _DetailRow extends StatelessWidget {
-  final IconData icon;
-  final String label;
-  final Color iconColor;
-
-  const _DetailRow({
-    required this.icon,
-    required this.label,
-    required this.iconColor,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      padding: const EdgeInsets.all(14),
-      decoration: BoxDecoration(
-        color: const Color(0xFFF8F9FD),
-        borderRadius: BorderRadius.circular(14),
-      ),
-      child: Row(
-        children: [
-          Container(
-            width: 36,
-            height: 36,
-            decoration: BoxDecoration(
-              color: iconColor.withOpacity(0.10),
-              borderRadius: BorderRadius.circular(10),
-            ),
-            child: Icon(icon, color: iconColor, size: 18),
-          ),
-          const SizedBox(width: 14),
-          Text(
-            label,
-            style: const TextStyle(
-              color: UniverseColors.textPrimary,
-              fontSize: 14,
-              fontWeight: FontWeight.w600,
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-}
-
-class _FriendAvatar extends StatelessWidget {
-  final String initials;
-  final String name;
-  final Color color;
-
-  const _FriendAvatar({
-    required this.initials,
-    required this.name,
-    required this.color,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    return Column(
-      children: [
-        CircleAvatar(
-          radius: 22,
-          backgroundColor: color,
-          child: Text(
-            initials,
-            style: const TextStyle(
-              color: Colors.white,
-              fontWeight: FontWeight.w700,
-              fontSize: 13,
-            ),
-          ),
-        ),
-        const SizedBox(height: 4),
-        Text(
-          name,
-          style: const TextStyle(color: UniverseColors.textMuted, fontSize: 10),
-        ),
-      ],
-    );
-  }
-}
-
-/// Small label shown above a pin when zoom ≥ 16.5.
-class _PinLabel extends StatelessWidget {
-  final String text;
-  final Color color;
-
-  const _PinLabel({required this.text, required this.color});
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      constraints: const BoxConstraints(maxWidth: 86),
-      padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 2),
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(6),
-        border: Border.all(color: UniverseColors.borderColor, width: 0.5),
-        boxShadow: const [
-          BoxShadow(
-            color: Color(0x22000000),
-            blurRadius: 4,
-            offset: Offset(0, 1),
-          ),
-        ],
-      ),
-      child: Text(
-        text,
-        style: TextStyle(
-          color: color,
-          fontSize: 9.5,
-          fontWeight: FontWeight.w700,
-          height: 1.2,
-        ),
-        maxLines: 1,
-        overflow: TextOverflow.ellipsis,
-        textAlign: TextAlign.center,
-      ),
-    );
-  }
-}
-
-/// Small countdown badge shown above a pin for today's upcoming events.
-class _CountdownBadge extends StatelessWidget {
-  final String text;
-  final Color color;
-
-  const _CountdownBadge({required this.text, required this.color});
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 2),
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(8),
-        border: Border.all(color: color, width: 1.2),
-        boxShadow: const [
-          BoxShadow(
-            color: Color(0x22000000),
-            blurRadius: 4,
-            offset: Offset(0, 1),
-          ),
-        ],
-      ),
-      child: Row(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          Icon(Icons.timer_outlined, size: 9, color: color),
-          const SizedBox(width: 2),
-          Text(
-            text,
-            style: TextStyle(
-              fontSize: 9.5,
-              fontWeight: FontWeight.w700,
-              color: color,
-              height: 1.2,
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-}
-
-/// Bus stop pin for the public transport layer.
-class _BusStopPin extends StatelessWidget {
-  final BusStop stop;
-  final bool showLabel;
-
-  const _BusStopPin({required this.stop, this.showLabel = false});
-
-  @override
-  Widget build(BuildContext context) {
-    const teal = Color(0xFF009688);
-    return Column(
-      mainAxisSize: MainAxisSize.min,
-      crossAxisAlignment: CrossAxisAlignment.center,
-      children: [
-        if (showLabel)
-          Padding(
-            padding: const EdgeInsets.only(bottom: 2),
-            child: Container(
-              padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 2),
-              decoration: BoxDecoration(
-                color: teal,
-                borderRadius: BorderRadius.circular(6),
-                boxShadow: const [
-                  BoxShadow(
-                    color: Color(0x22000000),
-                    blurRadius: 3,
-                    offset: Offset(0, 1),
-                  ),
-                ],
-              ),
-              child: Text(
-                stop.nextArrival,
-                style: const TextStyle(
-                  color: Colors.white,
-                  fontSize: 9,
-                  fontWeight: FontWeight.w700,
-                ),
-              ),
-            ),
-          ),
-        Container(
-          width: 34,
-          height: 34,
-          decoration: BoxDecoration(
-            color: teal,
-            shape: BoxShape.circle,
-            border: Border.all(color: Colors.white, width: 2),
-            boxShadow: const [
-              BoxShadow(
-                color: Color(0x33000000),
-                blurRadius: 4,
-                offset: Offset(0, 2),
-              ),
-            ],
-          ),
-          child: const Icon(
-            Icons.directions_bus_rounded,
-            color: Colors.white,
-            size: 18,
-          ),
-        ),
-      ],
-    );
-  }
-}
-
-/// Full-map heatmap layer.
-///
-/// Draws ALL heat blobs onto a single canvas inside [saveLayer] using
-/// [BlendMode.screen], so overlapping blobs brighten and merge naturally —
-/// identical to the merging behaviour seen on Snap Map when zooming out.
-class _HeatmapLayer extends StatelessWidget {
-  final List<HeatPoint> points;
-  final double zoom;
-
-  const _HeatmapLayer({required this.points, required this.zoom});
-
-  @override
-  Widget build(BuildContext context) {
-    final camera = MapCamera.of(context);
-    return SizedBox.expand(
-      child: CustomPaint(
-        painter: _HeatmapPainter(points: points, camera: camera, zoom: zoom),
-      ),
-    );
-  }
-}
-
-class _HeatmapPainter extends CustomPainter {
-  final List<HeatPoint> points;
-  final MapCamera camera;
-  final double zoom;
-
-  const _HeatmapPainter({
-    required this.points,
-    required this.camera,
-    required this.zoom,
-  });
-
-  /// Radius of each blob in logical pixels, zoom-responsive.
-  double _radius(double intensity) {
-    final zoomFactor = ((zoom - 15.0) / 3.0).clamp(0.0, 1.0);
-    final base = ui.lerpDouble(70.0, 26.0, zoomFactor)!;
-    final scale = ui.lerpDouble(38.0, 16.0, zoomFactor)!;
-    return base + intensity * scale;
-  }
-
-  @override
-  void paint(Canvas canvas, Size size) {
-    if (points.isEmpty) return;
-
-    // Isolate the entire heatmap onto its own compositing layer so that
-    // BlendMode.screen blends blobs against each other (not the base map).
-    final layerPaint = Paint();
-    canvas.saveLayer(Offset.zero & size, layerPaint);
-
-    for (final pt in points) {
-      final screenPt = camera.latLngToScreenPoint(pt.position);
-      final center = Offset(screenPt.x, screenPt.y);
-      final radius = _radius(pt.intensity);
-
-      // Core colour: yellow (low) → red (high)
-      final coreColor = Color.lerp(
-        const Color(0xFFFFE500),
-        const Color(0xFFFF2200),
-        pt.intensity,
-      )!;
-      const midColor = Color(0xFFFF8C00); // orange
-      const outerColor = Color(0xFF34C759); // green
-      const haloColor = Color(0xFF00C7BE); // turquoise
-
-      final coreOpacity = (0.62 + pt.intensity * 0.33).clamp(0.0, 1.0);
-
-      final paint = Paint()
-        ..blendMode = BlendMode.screen
-        ..shader = ui.Gradient.radial(
-          center,
-          radius,
-          [
-            coreColor.withOpacity(coreOpacity),
-            midColor.withOpacity(coreOpacity * 0.82),
-            outerColor.withOpacity(0.50),
-            haloColor.withOpacity(0.22),
-            haloColor.withOpacity(0.0),
-          ],
-          [0.0, 0.25, 0.52, 0.76, 1.0],
-        );
-      canvas.drawCircle(center, radius, paint);
-    }
-
-    canvas.restore();
-  }
-
-  @override
-  bool shouldRepaint(_HeatmapPainter old) =>
-      old.points != points || old.zoom != zoom || old.camera != camera;
-}
-
-/// Reusable circular map control button (zoom +/-, heatmap toggle, etc.)
-class _MapControlButton extends StatelessWidget {
-  final VoidCallback onTap;
-  final Widget child;
-  final bool active;
-  final Color activeColor;
-
-  const _MapControlButton({
-    required this.onTap,
-    required this.child,
-    this.active = false,
-    this.activeColor = UniverseColors.accent,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    return GestureDetector(
-      onTap: onTap,
-      child: AnimatedContainer(
-        duration: const Duration(milliseconds: 180),
-        width: 40,
-        height: 40,
-        decoration: BoxDecoration(
-          color: Colors.white.withOpacity(0.85),
-          shape: BoxShape.circle,
-          border: Border.all(
-            color: active ? activeColor.withOpacity(0.30) : UniverseColors.borderColor,
-            width: 0.5,
-          ),
-          boxShadow: const [
-            BoxShadow(
-              color: Color(0x0C000000),
-              blurRadius: 12,
-              offset: Offset(0, 2),
-            ),
-          ],
-        ),
-        child: IconTheme(
-          data: IconThemeData(
-            color: active ? activeColor : UniverseColors.textMuted,
-            size: 18,
-          ),
-          child: Center(child: child),
-        ),
-      ),
-    );
-  }
-}
-
-// ─────────────────────────────────────────────────────────────────────────────
-// PLACEMENT MODE WIDGETS
-// ─────────────────────────────────────────────────────────────────────────────
-
-/// Instruction banner shown while the user is placing a pin.
-class _PlacementBanner extends StatelessWidget {
-  final String text;
-  const _PlacementBanner({this.text = 'Move the map to position your pin'});
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-      decoration: BoxDecoration(
-        color: Colors.black.withOpacity(0.62),
-        borderRadius: BorderRadius.circular(24),
-      ),
-      child: Text(
-        text,
-        style: const TextStyle(
-          color: Colors.white,
-          fontSize: 13,
-          fontWeight: FontWeight.w500,
-        ),
-      ),
-    );
-  }
-}
-
-/// Animated pin shown fixed at the centre of the screen during placement mode.
-// ─────────────────────────────────────────────────────────────────────────────
-// SIGNAL PIN — pulsing broadcast marker
-// ─────────────────────────────────────────────────────────────────────────────
-
-class _SignalPin extends StatelessWidget {
-  final Color color;
-  final IconData icon;
-  final bool isSelected;
-  final AnimationController pulseController;
-  final String? imageUrl;
-
-  const _SignalPin({
-    required this.color,
-    required this.icon,
-    required this.isSelected,
-    required this.pulseController,
-    this.imageUrl,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    final hasImage = imageUrl != null && imageUrl!.isNotEmpty;
-    final double circleSize = isSelected ? 32.0 : 26.0;
-    return SizedBox(
-      width: 50,
-      height: 50,
-      child: Column(
-        mainAxisAlignment: MainAxisAlignment.end,
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          AnimatedBuilder(
-            animation: pulseController,
-            builder: (_, child) {
-              final t = pulseController.value;
-              // Single soft pulse ring — understated radar effect
-              final pulseRadius = circleSize / 2 + t * 14.0;
-              final pulseOpacity = (1.0 - t) * 0.25;
-              return SizedBox(
-                width: circleSize,
-                height: circleSize,
-                child: Stack(
-                  alignment: Alignment.center,
-                  clipBehavior: Clip.none,
-                  children: [
-                    Positioned(
-                      left: circleSize / 2 - pulseRadius,
-                      top: circleSize / 2 - pulseRadius,
-                      child: Container(
-                        width: pulseRadius * 2,
-                        height: pulseRadius * 2,
-                        decoration: BoxDecoration(
-                          shape: BoxShape.circle,
-                          border: Border.all(
-                            color: UniverseColors.accent.withOpacity(pulseOpacity),
-                            width: 1.5,
-                          ),
-                        ),
-                      ),
-                    ),
-                    child!,
-                  ],
-                ),
-              );
-            },
-            child: Container(
-              width: circleSize,
-              height: circleSize,
-              clipBehavior: Clip.antiAlias,
-              decoration: BoxDecoration(
-                color: hasImage ? null : color,
-                shape: BoxShape.circle,
-                border: Border.all(
-                  color: Colors.white,
-                  width: isSelected ? 2.5 : 1.5,
-                ),
-                boxShadow: [
-                  BoxShadow(
-                    color: color.withOpacity(0.20),
-                    blurRadius: isSelected ? 10 : 6,
-                    offset: const Offset(0, 2),
-                  ),
-                ],
-              ),
-              child: hasImage
-                  ? Image.network(
-                      imageUrl!,
-                      fit: BoxFit.cover,
-                      errorBuilder: (_, __, ___) => Icon(
-                        icon,
-                        color: Colors.white,
-                        size: isSelected ? 20 : 16,
-                      ),
-                    )
-                  : Icon(icon, color: Colors.white, size: isSelected ? 20 : 16),
-            ),
-          ),
-          const SizedBox(height: 2),
-          // Dot tail — minimal
-          Container(
-            width: 4,
-            height: 4,
-            decoration: BoxDecoration(
-              color: UniverseColors.textMuted,
-              shape: BoxShape.circle,
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-}
-
-/// Live countdown showing time remaining on a signal.
-class _SignalCountdown extends StatefulWidget {
-  final CampusSignal signal;
-  const _SignalCountdown({required this.signal});
-
-  @override
-  State<_SignalCountdown> createState() => _SignalCountdownState();
-}
-
-class _SignalCountdownState extends State<_SignalCountdown> {
-  late Timer _timer;
-
-  @override
-  void initState() {
-    super.initState();
-    _timer = Timer.periodic(const Duration(seconds: 30), (_) {
-      if (mounted) setState(() {});
-    });
-  }
-
-  @override
-  void dispose() {
-    _timer.cancel();
-    super.dispose();
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    final rem = widget.signal.timeRemaining;
-    if (rem.isNegative) {
-      return const Text(
-        'Expired',
-        style: TextStyle(fontSize: 13, color: UniverseColors.textMuted),
-      );
-    }
-    final minutes = rem.inMinutes;
-    return Text(
-      'Expires in ${minutes}m',
-      style: const TextStyle(fontSize: 13, color: UniverseColors.textMuted),
-    );
-  }
-}
-
-class _PlacementPin extends StatelessWidget {
-  final bool lifted;
-  final Color color;
-  final IconData icon;
-  const _PlacementPin({
-    required this.lifted,
-    this.color = UniverseColors.accent,
-    this.icon = Icons.add_rounded,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    return Column(
-      mainAxisSize: MainAxisSize.min,
-      children: [
-        AnimatedContainer(
-          duration: const Duration(milliseconds: 180),
-          curve: Curves.easeOut,
-          margin: EdgeInsets.only(bottom: lifted ? 14 : 0),
-          child: _MapPin(color: color, icon: icon, width: 36, height: 46),
-        ),
-        // Drop shadow under pin — expands while being dragged
-        AnimatedContainer(
-          duration: const Duration(milliseconds: 180),
-          curve: Curves.easeOut,
-          width: lifted ? 22 : 14,
-          height: lifted ? 6 : 4,
-          decoration: BoxDecoration(
-            color: Colors.black.withOpacity(0.22),
-            borderRadius: BorderRadius.circular(8),
-          ),
-        ),
-      ],
-    );
-  }
-}
-
-// ─────────────────────────────────────────────────────────────────────────────
-// SHEET HELPER WIDGETS
-// ─────────────────────────────────────────────────────────────────────────────
-
-/// Compact text field for use inside the pin customisation sheet.
-class _SheetTextField extends StatelessWidget {
-  final TextEditingController controller;
-  final String hint;
-  final IconData icon;
-
-  const _SheetTextField({
-    required this.controller,
-    required this.hint,
-    required this.icon,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      height: 44,
-      decoration: BoxDecoration(
-        color: UniverseColors.bgPage,
-        borderRadius: BorderRadius.circular(12),
-      ),
-      child: Row(
-        children: [
-          const SizedBox(width: 12),
-          Icon(icon, size: 16, color: UniverseColors.iosSysGray),
-          const SizedBox(width: 8),
-          Expanded(
-            child: TextField(
-              controller: controller,
-              style: const TextStyle(
-                color: UniverseColors.textPrimary,
-                fontSize: 14,
-                fontWeight: FontWeight.w400,
-                height: 1.0,
-              ),
-              decoration: InputDecoration(
-                hintText: hint,
-                hintStyle: const TextStyle(
-                  color: UniverseColors.iosSysGray,
-                  fontSize: 14,
-                  fontWeight: FontWeight.w400,
-                  height: 1.0,
-                ),
-                isDense: true,
-                border: InputBorder.none,
-                contentPadding: EdgeInsets.zero,
-              ),
-            ),
-          ),
-          const SizedBox(width: 12),
-        ],
-      ),
-    );
-  }
-}
-
-/// Expandable add-menu option (Signal / Event).
-class _AddMenuOption extends StatelessWidget {
-  final String label;
-  final IconData icon;
-  final Color color;
-  final VoidCallback onTap;
-
-  const _AddMenuOption({
-    required this.label,
-    required this.icon,
-    required this.color,
-    required this.onTap,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    return GestureDetector(
-      onTap: onTap,
-      child: Container(
-        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
-        decoration: BoxDecoration(
-          color: Colors.white,
-          borderRadius: BorderRadius.circular(24),
-          boxShadow: const [
-            BoxShadow(
-              color: Color(0x22000000),
-              blurRadius: 8,
-              offset: Offset(0, 2),
-            ),
-          ],
-        ),
-        child: Row(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Container(
-              width: 30,
-              height: 30,
-              decoration: BoxDecoration(
-                color: color.withOpacity(0.15),
-                shape: BoxShape.circle,
-              ),
-              child: Icon(icon, color: color, size: 17),
-            ),
-            const SizedBox(width: 8),
-            Text(
-              label,
-              style: TextStyle(
-                color: color,
-                fontSize: 13,
-                fontWeight: FontWeight.w700,
-              ),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-}
-
-/// Small icon + label action button used in the event detail panel.
-class _ActionButton extends StatelessWidget {
-  final IconData icon;
-  final Color color;
-  final String label;
-  final VoidCallback onTap;
-
-  const _ActionButton({
-    required this.icon,
-    required this.color,
-    required this.label,
-    required this.onTap,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    return Expanded(
-      child: GestureDetector(
-        onTap: onTap,
-        child: Container(
-          height: 44,
-          decoration: BoxDecoration(
-            color: UniverseColors.bgPage,
-            borderRadius: BorderRadius.circular(12),
-          ),
-          child: Column(
-            mainAxisAlignment: MainAxisAlignment.center,
-            children: [
-              Icon(icon, color: color, size: 20),
-              const SizedBox(height: 3),
-              Text(
-                label,
-                style: TextStyle(
-                  color: color,
-                  fontSize: 11,
-                  fontWeight: FontWeight.w600,
-                ),
-              ),
-            ],
-          ),
-        ),
-      ),
-    );
-  }
-}
