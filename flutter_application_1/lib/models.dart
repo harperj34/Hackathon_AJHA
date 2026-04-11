@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:latlong2/latlong.dart';
 
-enum EventCategory { clubs, food, events, social, study }
+enum EventCategory { clubs, food, events, social, study, freeStuff, myki }
 
 class EventCategoryInfo {
   final String label;
@@ -40,6 +40,16 @@ final Map<EventCategory, EventCategoryInfo> categoryInfo = {
     label: 'Study Spots',
     icon: Icons.menu_book_rounded,
     color: Color(0xFF00B894),
+  ),
+  EventCategory.freeStuff: const EventCategoryInfo(
+    label: 'Free Stuff',
+    icon: Icons.card_giftcard_rounded,
+    color: Color(0xFFFFC107),
+  ),
+  EventCategory.myki: const EventCategoryInfo(
+    label: 'Myki Inspectors',
+    icon: Icons.security_rounded,
+    color: Color(0xFFEF5350),
   ),
 };
 
@@ -119,7 +129,7 @@ final List<CampusEvent> sampleEvents = [
   ),
   CampusEvent(
     id: '4',
-    title: 'Free Bubble Tea 🧋',
+    title: 'Free Bubble Tea',
     subtitle: 'Asian Society',
     location: 'Sir John Monash Drive',
     time: 'Today, 1:00 PM',
@@ -130,7 +140,7 @@ final List<CampusEvent> sampleEvents = [
   ),
   CampusEvent(
     id: '5',
-    title: 'Hackathon Kickoff 🚀',
+    title: 'Hackathon Kickoff',
     subtitle: 'WIRED Club',
     location: 'Learning & Teaching Building',
     time: 'Fri, 6:00 PM',

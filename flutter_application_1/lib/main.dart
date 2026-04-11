@@ -54,9 +54,18 @@ class _UniverseShellState extends State<UniverseShell> {
       extendBody: true,
       body: IndexedStack(index: _currentIndex, children: _tabs),
       bottomNavigationBar: Container(
-        decoration: const BoxDecoration(
+        decoration: BoxDecoration(
           color: Colors.white,
-          border: Border(top: BorderSide(color: UniverseColors.divider)),
+          border: const Border(
+            top: BorderSide(color: UniverseColors.borderColor, width: 0.5),
+          ),
+          boxShadow: const [
+            BoxShadow(
+              color: Color(0x0A000000),
+              blurRadius: 20,
+              offset: Offset(0, -3),
+            ),
+          ],
         ),
         child: SafeArea(
           child: Padding(
@@ -65,25 +74,25 @@ class _UniverseShellState extends State<UniverseShell> {
               mainAxisAlignment: MainAxisAlignment.spaceAround,
               children: [
                 _NavItem(
-                  icon: Icons.map_rounded,
+                  icon: Icons.map_outlined,
                   label: 'Map',
                   isActive: _currentIndex == 0,
                   onTap: () => setState(() => _currentIndex = 0),
                 ),
                 _NavItem(
-                  icon: Icons.explore_rounded,
+                  icon: Icons.explore_outlined,
                   label: 'Discover',
                   isActive: _currentIndex == 1,
                   onTap: () => setState(() => _currentIndex = 1),
                 ),
                 _NavItem(
-                  icon: Icons.notifications_rounded,
+                  icon: Icons.notifications_none,
                   label: 'Activity',
                   isActive: _currentIndex == 2,
                   onTap: () => setState(() => _currentIndex = 2),
                 ),
                 _NavItem(
-                  icon: Icons.person_rounded,
+                  icon: Icons.person_outline,
                   label: 'Profile',
                   isActive: _currentIndex == 3,
                   onTap: () => setState(() => _currentIndex = 3),
@@ -112,6 +121,7 @@ class _NavItem extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final color = isActive ? UniverseColors.accent : const Color(0xFFBBC0CF);
     return GestureDetector(
       onTap: onTap,
       behavior: HitTestBehavior.opaque,
@@ -120,21 +130,11 @@ class _NavItem extends StatelessWidget {
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            Icon(
-              icon,
-              color: isActive ? UniverseColors.accent : const Color(0xFFABABC7),
-              size: 26,
-            ),
+            Icon(icon, color: color, size: 24),
             const SizedBox(height: 3),
             Text(
               label,
-              style: TextStyle(
-                color: isActive
-                    ? UniverseColors.accent
-                    : const Color(0xFFABABC7),
-                fontSize: 11,
-                fontWeight: isActive ? FontWeight.w700 : FontWeight.w500,
-              ),
+              style: UniverseTextStyles.tabLabel.copyWith(color: color),
             ),
           ],
         ),

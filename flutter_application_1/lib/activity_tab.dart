@@ -12,17 +12,12 @@ class ActivityTab extends StatelessWidget {
         children: [
           Padding(
             padding: const EdgeInsets.fromLTRB(20, 16, 20, 0),
-            child: Center(
             child: Column(
-              crossAxisAlignment: CrossAxisAlignment.center,
+              crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                const Text(
+                Text(
                   'Activity',
-                  style: TextStyle(
-                    color: UniverseColors.textPrimary,
-                    fontSize: 30,
-                    fontWeight: FontWeight.w800,
-                  ),
+                  style: UniverseTextStyles.displayLarge,
                 ),
                 const SizedBox(height: 4),
                 const Text(
@@ -34,7 +29,6 @@ class ActivityTab extends StatelessWidget {
                 ),
               ],
             ),
-          ),
           ),
           const SizedBox(height: 20),
           Expanded(
@@ -54,7 +48,7 @@ class ActivityTab extends StatelessWidget {
                     _ActivityItem(
                       icon: Icons.favorite_rounded,
                       iconColor: UniverseColors.accentPink,
-                      title: 'You saved Hackathon Kickoff 🚀',
+                      title: 'You saved Hackathon Kickoff',
                       subtitle: 'Learning & Teaching Building',
                       time: '5h ago',
                     ),
@@ -74,7 +68,7 @@ class ActivityTab extends StatelessWidget {
                     _ActivityItem(
                       icon: Icons.star_rounded,
                       iconColor: UniverseColors.accentOrange,
-                      title: 'New event near you: Free Bubble Tea 🧋',
+                      title: 'New event near you: Free Bubble Tea',
                       subtitle: 'Sir John Monash Drive',
                       time: '1d ago',
                     ),

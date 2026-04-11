@@ -10,23 +10,19 @@ class DiscoverTab extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final featured = sampleEvents.first;
+    final featuredInfo = categoryInfo[featured.category]!;
     return SafeArea(
       child: CustomScrollView(
         slivers: [
+          // ── Page header ────────────────────────────────────────────────────
           SliverToBoxAdapter(
             child: Padding(
-              padding: const EdgeInsets.fromLTRB(20, 16, 20, 0),
+              padding: const EdgeInsets.fromLTRB(20, 16, 20, 4),
               child: Column(
-                crossAxisAlignment: CrossAxisAlignment.center,
+                crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  const Text(
-                    'Discover',
-                    style: TextStyle(
-                      color: UniverseColors.textPrimary,
-                      fontSize: 30,
-                      fontWeight: FontWeight.w800,
-                    ),
-                  ),
+                  Text('Discover', style: UniverseTextStyles.displayLarge),
                   const SizedBox(height: 4),
                   const Text(
                     "What's happening on campus today",
@@ -35,25 +31,211 @@ class DiscoverTab extends StatelessWidget {
                       fontSize: 15,
                     ),
                   ),
-                  const SizedBox(height: 20),
                 ],
               ),
             ),
           ),
 
-          // Trending section
+          // ── Featured Today hero card ───────────────────────────────────────
+          SliverToBoxAdapter(
+            child: Padding(
+              padding: const EdgeInsets.fromLTRB(20, 16, 20, 0),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Row(
+                    children: [
+                      const Icon(
+                        Icons.auto_awesome_rounded,
+                        size: 18,
+                        color: UniverseColors.accent,
+                      ),
+                      const SizedBox(width: 7),
+                      Text(
+                        'Featured Today',
+                        style: UniverseTextStyles.sectionHeader,
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 12),
+                  GestureDetector(
+                    onTap: () => Navigator.push(
+                      context,
+                      MaterialPageRoute(
+                        builder: (_) => EventDetailPage(event: featured),
+                      ),
+                    ),
+                    child: Container(
+                      height: 214,
+                      decoration: BoxDecoration(
+                        borderRadius: BorderRadius.circular(22),
+                        boxShadow: const [
+                          BoxShadow(
+                            color: Color(0x22000000),
+                            blurRadius: 20,
+                            offset: Offset(0, 6),
+                          ),
+                        ],
+                      ),
+                      child: ClipRRect(
+                        borderRadius: BorderRadius.circular(22),
+                        child: Stack(
+                          fit: StackFit.expand,
+                          children: [
+                            Image.network(
+                              featured.imageUrl,
+                              fit: BoxFit.cover,
+                              errorBuilder: (_, __, ___) => Container(
+                                color: featuredInfo.color.withOpacity(0.25),
+                                child: Icon(
+                                  featuredInfo.icon,
+                                  size: 64,
+                                  color: featuredInfo.color,
+                                ),
+                              ),
+                            ),
+                            // Dark gradient overlay
+                            Container(
+                              decoration: BoxDecoration(
+                                gradient: LinearGradient(
+                                  begin: Alignment.topCenter,
+                                  end: Alignment.bottomCenter,
+                                  colors: [
+                                    Colors.transparent,
+                                    Colors.black.withOpacity(0.72),
+                                  ],
+                                  stops: const [0.35, 1.0],
+                                ),
+                              ),
+                            ),
+                            // Bottom text
+                            Positioned(
+                              left: 16,
+                              right: 16,
+                              bottom: 16,
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                mainAxisSize: MainAxisSize.min,
+                                children: [
+                                  Container(
+                                    padding: const EdgeInsets.symmetric(
+                                      horizontal: 10,
+                                      vertical: 4,
+                                    ),
+                                    decoration: BoxDecoration(
+                                      color: featuredInfo.color,
+                                      borderRadius: BorderRadius.circular(8),
+                                    ),
+                                    child: Row(
+                                      mainAxisSize: MainAxisSize.min,
+                                      children: [
+                                        Icon(
+                                          featuredInfo.icon,
+                                          size: 11,
+                                          color: Colors.white,
+                                        ),
+                                        const SizedBox(width: 5),
+                                        Text(
+                                          featuredInfo.label,
+                                          style: const TextStyle(
+                                            color: Colors.white,
+                                            fontSize: 11,
+                                            fontWeight: FontWeight.w700,
+                                          ),
+                                        ),
+                                      ],
+                                    ),
+                                  ),
+                                  const SizedBox(height: 8),
+                                  Text(
+                                    featured.title,
+                                    style: const TextStyle(
+                                      color: Colors.white,
+                                      fontSize: 20,
+                                      fontWeight: FontWeight.w700,
+                                      height: 1.2,
+                                    ),
+                                    maxLines: 2,
+                                    overflow: TextOverflow.ellipsis,
+                                  ),
+                                  const SizedBox(height: 5),
+                                  Text(
+                                    '${featured.subtitle}  ·  ${featured.time}',
+                                    style: TextStyle(
+                                      color: Colors.white.withOpacity(0.82),
+                                      fontSize: 12,
+                                      fontWeight: FontWeight.w500,
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ),
+                            // Attendee badge top-right
+                            Positioned(
+                              top: 14,
+                              right: 14,
+                              child: Container(
+                                padding: const EdgeInsets.symmetric(
+                                  horizontal: 10,
+                                  vertical: 5,
+                                ),
+                                decoration: BoxDecoration(
+                                  color: Colors.black.withOpacity(0.46),
+                                  borderRadius: BorderRadius.circular(12),
+                                ),
+                                child: Row(
+                                  mainAxisSize: MainAxisSize.min,
+                                  children: [
+                                    const Icon(
+                                      Icons.people_rounded,
+                                      size: 12,
+                                      color: Colors.white,
+                                    ),
+                                    const SizedBox(width: 4),
+                                    Text(
+                                      '${featured.attendees} going',
+                                      style: const TextStyle(
+                                        color: Colors.white,
+                                        fontSize: 11,
+                                        fontWeight: FontWeight.w600,
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ),
+
+          const SliverToBoxAdapter(child: SizedBox(height: 28)),
+
+          // ── Trending section ──────────────────────────────────────────
           SliverToBoxAdapter(
             child: Padding(
               padding: const EdgeInsets.symmetric(horizontal: 20),
               child: Row(
                 children: [
-                  const Text(
-                    '🔥 Trending',
-                    style: TextStyle(
-                      color: UniverseColors.textPrimary,
-                      fontSize: 18,
-                      fontWeight: FontWeight.w700,
-                    ),
+                  Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      const Icon(
+                        Icons.local_fire_department_rounded,
+                        size: 18,
+                        color: Color(0xFFFF6B35),
+                      ),
+                      const SizedBox(width: 7),
+                      Text(
+                        'Trending',
+                        style: UniverseTextStyles.sectionHeader,
+                      ),
+                    ],
                   ),
                   const Spacer(),
                   GestureDetector(
@@ -90,10 +272,10 @@ class DiscoverTab extends StatelessWidget {
 
           SliverToBoxAdapter(
             child: SizedBox(
-              height: 220,
+              height: 252,
               child: ListView.builder(
                 scrollDirection: Axis.horizontal,
-                padding: const EdgeInsets.fromLTRB(16, 12, 16, 0),
+                padding: const EdgeInsets.fromLTRB(16, 12, 16, 4),
                 itemCount: sampleEvents.length,
                 itemBuilder: (context, index) {
                   final event = sampleEvents[index];
@@ -106,17 +288,16 @@ class DiscoverTab extends StatelessWidget {
                       ),
                     ),
                     child: Container(
-                      width: 170,
-                      margin: const EdgeInsets.only(right: 12),
+                      width: 202,
+                      margin: const EdgeInsets.only(right: 14),
                       decoration: BoxDecoration(
                         borderRadius: BorderRadius.circular(20),
                         color: Colors.white,
-                        border: Border.all(color: UniverseColors.borderColor),
                         boxShadow: const [
                           BoxShadow(
-                            color: Color(0x0A000000),
-                            blurRadius: 8,
-                            offset: Offset(0, 2),
+                            color: Color(0x0F000000),
+                            blurRadius: 12,
+                            offset: Offset(0, 3),
                           ),
                         ],
                       ),
@@ -129,22 +310,22 @@ class DiscoverTab extends StatelessWidget {
                             ),
                             child: Image.network(
                               event.imageUrl,
-                              height: 110,
+                              height: 132,
                               width: double.infinity,
                               fit: BoxFit.cover,
-                              errorBuilder: (_, _, _) => Container(
-                                height: 110,
-                                color: info.color.withOpacity(0.2),
+                              errorBuilder: (_, __, ___) => Container(
+                                height: 132,
+                                color: info.color.withOpacity(0.18),
                                 child: Icon(
                                   info.icon,
                                   color: info.color,
-                                  size: 36,
+                                  size: 40,
                                 ),
                               ),
                             ),
                           ),
                           Padding(
-                            padding: const EdgeInsets.all(12),
+                            padding: const EdgeInsets.fromLTRB(12, 10, 12, 12),
                             child: Column(
                               crossAxisAlignment: CrossAxisAlignment.start,
                               children: [
@@ -154,38 +335,55 @@ class DiscoverTab extends StatelessWidget {
                                     color: UniverseColors.textPrimary,
                                     fontSize: 14,
                                     fontWeight: FontWeight.w700,
+                                    height: 1.3,
                                   ),
                                   maxLines: 1,
                                   overflow: TextOverflow.ellipsis,
                                 ),
-                                const SizedBox(height: 4),
+                                const SizedBox(height: 3),
                                 Text(
-                                  event.location,
+                                  event.subtitle,
                                   style: const TextStyle(
-                                    color: UniverseColors.textLight,
-                                    fontSize: 11,
+                                    color: UniverseColors.textSecondary,
+                                    fontSize: 12,
+                                    fontWeight: FontWeight.w500,
                                   ),
                                   maxLines: 1,
                                   overflow: TextOverflow.ellipsis,
                                 ),
-                                const SizedBox(height: 6),
+                                const SizedBox(height: 7),
                                 Row(
                                   children: [
-                                    Container(
-                                      width: 8,
-                                      height: 8,
-                                      decoration: BoxDecoration(
-                                        shape: BoxShape.circle,
-                                        color: info.color,
+                                    const Icon(
+                                      Icons.access_time_rounded,
+                                      size: 11,
+                                      color: UniverseColors.textLight,
+                                    ),
+                                    const SizedBox(width: 3),
+                                    Text(
+                                      event.time.split(', ').last,
+                                      style: const TextStyle(
+                                        color: UniverseColors.textLight,
+                                        fontSize: 11,
                                       ),
                                     ),
                                     const SizedBox(width: 6),
-                                    Text(
-                                      '${event.attendees} going',
+                                    const Text(
+                                      '·',
                                       style: TextStyle(
-                                        color: info.color,
+                                        color: UniverseColors.textLight,
                                         fontSize: 11,
-                                        fontWeight: FontWeight.w600,
+                                      ),
+                                    ),
+                                    const SizedBox(width: 6),
+                                    Expanded(
+                                      child: Text(
+                                        event.location,
+                                        style: const TextStyle(
+                                          color: UniverseColors.textLight,
+                                          fontSize: 11,
+                                        ),
+                                        overflow: TextOverflow.ellipsis,
                                       ),
                                     ),
                                   ],
@@ -208,13 +406,9 @@ class DiscoverTab extends StatelessWidget {
           SliverToBoxAdapter(
             child: Padding(
               padding: const EdgeInsets.symmetric(horizontal: 20),
-              child: const Text(
+              child: Text(
                 'Browse by Category',
-                style: TextStyle(
-                  color: UniverseColors.textPrimary,
-                  fontSize: 18,
-                  fontWeight: FontWeight.w700,
-                ),
+                style: UniverseTextStyles.sectionHeader,
               ),
             ),
           ),

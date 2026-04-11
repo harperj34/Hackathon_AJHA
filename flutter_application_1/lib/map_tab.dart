@@ -34,7 +34,10 @@ class _MapTabState extends State<MapTab> {
   bool _showTransport = false;
   bool _showHeatmap = false;
   double _currentZoom = 15.5;
+  bool _headerCollapsed = false;
   StreamSubscription<MapEvent>? _mapEventSub;
+  final Map<String, DateTime> _tempExpiry = {};
+  final List<Timer> _expiryTimers = [];
 
   static const double _kCollapsed = 0.20;
   static const double _kPreview = 0.38;
@@ -45,8 +48,11 @@ class _MapTabState extends State<MapTab> {
     super.initState();
     _mapController = MapController();
     WidgetsBinding.instance.addPostFrameCallback((_) {
-      _mapEventSub = _mapController.mapEventStream.listen((_) {
+      _mapEventSub = _mapController.mapEventStream.listen((event) {
         if (!mounted) return;
+        if (event is MapEventMoveStart || event is MapEventScrollWheelZoom) {
+          if (!_headerCollapsed) setState(() => _headerCollapsed = true);
+        }
         final z = _mapController.camera.zoom;
         if ((z - _currentZoom).abs() > 0.08) {
           setState(() => _currentZoom = z);
@@ -56,9 +62,18 @@ class _MapTabState extends State<MapTab> {
   }
 
   List<CampusEvent> get _filteredEvents {
+    // Remove expired temporary events first
+    final now = DateTime.now();
+    final expired = _tempExpiry.entries.where((e) => e.value.isBefore(now)).map((e) => e.key).toList();
+    if (expired.isNotEmpty) {
+      for (final id in expired) {
+        sampleEvents.removeWhere((ev) => ev.id == id);
+        _tempExpiry.remove(id);
+      }
+    }
+
     return sampleEvents.where((e) {
-      final matchesFilter =
-          _activeFilter == null || e.category == _activeFilter;
+      final matchesFilter = _activeFilter == null || e.category == _activeFilter;
       final matchesSearch =
           _searchQuery.isEmpty ||
           e.title.toLowerCase().contains(_searchQuery.toLowerCase()) ||
@@ -70,8 +85,12 @@ class _MapTabState extends State<MapTab> {
 
   List<StudySpot> get _filteredStudySpots {
     return sampleStudySpots.where((s) {
-      final matchesFilter = _activeFilter == null || _activeFilter == EventCategory.study;
-      final matchesSearch = _searchQuery.isEmpty || s.title.toLowerCase().contains(_searchQuery.toLowerCase()) || s.location.toLowerCase().contains(_searchQuery.toLowerCase());
+      final matchesFilter =
+          _activeFilter == null || _activeFilter == EventCategory.study;
+      final matchesSearch =
+          _searchQuery.isEmpty ||
+          s.title.toLowerCase().contains(_searchQuery.toLowerCase()) ||
+          s.location.toLowerCase().contains(_searchQuery.toLowerCase());
       return matchesFilter && matchesSearch;
     }).toList();
   }
@@ -135,6 +154,38 @@ class _MapTabState extends State<MapTab> {
     }
   }
 
+  void _scheduleExpiry(String id, Duration duration) {
+    final timer = Timer(duration, () {
+      if (!mounted) return;
+      setState(() {
+        sampleEvents.removeWhere((e) => e.id == id);
+        _tempExpiry.remove(id);
+      });
+    });
+    _expiryTimers.add(timer);
+  }
+
+  void _addTemporaryEvent(EventCategory category, String title, String location) {
+    final center = _mapController.camera.center ?? const LatLng(-37.9110, 145.1335);
+    final id = 't${DateTime.now().millisecondsSinceEpoch}';
+    final ev = CampusEvent(
+      id: id,
+      title: title,
+      subtitle: 'User',
+      location: location.isEmpty ? 'Campus' : location,
+      time: 'Now',
+      imageUrl: '',
+      category: category,
+      position: center,
+      attendees: 0,
+    );
+    setState(() {
+      sampleEvents.add(ev);
+      _tempExpiry[id] = DateTime.now().add(const Duration(hours: 2));
+    });
+    _scheduleExpiry(id, const Duration(hours: 2));
+  }
+
   @override
   void dispose() {
     _mapEventSub?.cancel();
@@ -142,6 +193,9 @@ class _MapTabState extends State<MapTab> {
     _sheetController.dispose();
     _searchController.dispose();
     _pageController.dispose();
+    for (final t in _expiryTimers) {
+      t.cancel();
+    }
     super.dispose();
   }
 
@@ -152,17 +206,14 @@ class _MapTabState extends State<MapTab> {
       child: GestureDetector(
         onTap: () => setState(() => _showTransport = !_showTransport),
         child: AnimatedContainer(
-          duration: const Duration(milliseconds: 180),
-          padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 5),
+          duration: const Duration(milliseconds: 160),
+          padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 6),
           decoration: BoxDecoration(
             color: _showTransport ? teal : Colors.white,
             borderRadius: BorderRadius.circular(20),
-            border: Border.all(
-              color: _showTransport ? teal : UniverseColors.borderColor,
-            ),
             boxShadow: const [
               BoxShadow(
-                color: Color(0x0A000000),
+                color: Color(0x14000000),
                 blurRadius: 6,
                 offset: Offset(0, 1),
               ),
@@ -184,7 +235,7 @@ class _MapTabState extends State<MapTab> {
                       ? Colors.white
                       : UniverseColors.textPrimary,
                   fontSize: 13,
-                  fontWeight: FontWeight.w600,
+                  fontWeight: FontWeight.w500,
                 ),
               ),
             ],
@@ -270,84 +321,128 @@ class _MapTabState extends State<MapTab> {
               ),
             // ── Event pins (primary interactive layer) ─────────────────────
             MarkerLayer(
-              markers: _filteredEvents.where((event) => categoryInfo[event.category] != null)
-              .map((event) {
-                final info = categoryInfo[event.category]!;
-                final isSelected = _selectedEvent?.id == event.id;
-                final showLabel = _currentZoom >= 16.5;
-                final double pinW = isSelected ? 34.0 : 28.0;
-                final double pinH = isSelected ? 44.0 : 36.0;
-                return Marker(
-                  point: event.position,
-                  width: showLabel ? 90.0 : pinW,
-                  height: showLabel ? pinH + 20.0 : pinH,
-                  alignment: Alignment.bottomCenter,
-                  child: GestureDetector(
-                    onTap: () => _onPinTap(event),
-                    behavior: HitTestBehavior.opaque,
-                    child: Column(
-                      mainAxisSize: MainAxisSize.min,
-                      crossAxisAlignment: CrossAxisAlignment.center,
-                      children: [
-                        if (showLabel)
-                          Padding(
-                            padding: const EdgeInsets.only(bottom: 2),
-                            child: _PinLabel(
-                              text: event.title,
+              markers: _filteredEvents
+                  .where((event) => categoryInfo[event.category] != null)
+                  .map((event) {
+                    final info = categoryInfo[event.category]!;
+                    final isSelected = _selectedEvent?.id == event.id;
+                    final showLabel = _currentZoom >= 16.5;
+                    final double pinW = isSelected ? 34.0 : 28.0;
+                    final double pinH = isSelected ? 44.0 : 36.0;
+                    return Marker(
+                      point: event.position,
+                      width: showLabel ? 90.0 : pinW,
+                      height: showLabel ? pinH + 20.0 : pinH,
+                      alignment: Alignment.bottomCenter,
+                      child: GestureDetector(
+                        onTap: () => _onPinTap(event),
+                        behavior: HitTestBehavior.opaque,
+                        child: Column(
+                          mainAxisSize: MainAxisSize.min,
+                          crossAxisAlignment: CrossAxisAlignment.center,
+                          children: [
+                            if (showLabel)
+                              Padding(
+                                padding: const EdgeInsets.only(bottom: 2),
+                                child: _PinLabel(
+                                  text: event.title,
+                                  color: info.color,
+                                ),
+                              ),
+                            _MapPin(
                               color: info.color,
+                              icon: info.icon,
+                              isSelected: isSelected,
+                              width: pinW,
+                              height: pinH,
                             ),
-                          ),
-                        _MapPin(
-                          color: info.color,
-                          icon: info.icon,
-                          isSelected: isSelected,
-                          width: pinW,
-                          height: pinH,
+                          ],
                         ),
-                      ],
-                    ),
-                  ),
-                );
-              }).toList(),
+                      ),
+                    );
+                  })
+                  .toList(),
             ),
-            // Study spot markers
+            // Study spot markers — invisible when zoomed-out, smoothly scale up,
+            // and show normal size when filtered or at building zoom.
             MarkerLayer(
-              markers: _filteredStudySpots.where((_) => categoryInfo[EventCategory.study] != null)
-              .map((spot) {
-                final info = categoryInfo[EventCategory.study]!;
-                final showLabel = _currentZoom >= 16.5;
-                return Marker(
-                  point: spot.position,
-                  width: showLabel ? 90.0 : 28.0,
-                  height: showLabel ? 56.0 : 36.0,
-                  alignment: Alignment.bottomCenter,
-                  child: GestureDetector(
-                    onTap: () => _onStudyPinTap(spot),
-                    behavior: HitTestBehavior.opaque,
-                    child: Column(
-                      mainAxisSize: MainAxisSize.min,
-                      crossAxisAlignment: CrossAxisAlignment.center,
-                      children: [
-                        if (showLabel)
-                          Padding(
-                            padding: const EdgeInsets.only(bottom: 2),
-                            child: _PinLabel(
-                              text: spot.title,
+              markers: _filteredStudySpots
+                  .where((s) {
+                    const minVisibleZoom = 18.2;
+                    if (_activeFilter == EventCategory.study) return true;
+                    return _currentZoom >= minVisibleZoom;
+                  })
+                  .where((_) => categoryInfo[EventCategory.study] != null)
+                  .map((spot) {
+                    final info = categoryInfo[EventCategory.study]!;
+                    const double minVisibleZoom = 18.2;
+                    const double normalZoom =
+                        19.0; // use map max zoom as full-size
+
+                    final bool forcedNormal =
+                        _activeFilter == EventCategory.study;
+                    final bool showLabel = _currentZoom >= normalZoom;
+
+                    double scale;
+                    if (forcedNormal) {
+                      scale = 1.0;
+                    } else if (_currentZoom <= minVisibleZoom) {
+                      scale = 0.0;
+                    } else if (_currentZoom >= normalZoom) {
+                      scale = 1.0;
+                    } else {
+                      scale =
+                          (_currentZoom - minVisibleZoom) /
+                          (normalZoom - minVisibleZoom);
+                    }
+
+                    const double baseW = 28.0;
+                    const double baseH = 36.0;
+                    const double minW = 12.0;
+                    const double minH = 16.0;
+
+                    final double pinW = (minW + (baseW - minW) * scale).clamp(
+                      minW,
+                      baseW,
+                    );
+                    final double pinH = (minH + (baseH - minH) * scale).clamp(
+                      minH,
+                      baseH,
+                    );
+
+                    return Marker(
+                      point: spot.position,
+                      width: showLabel ? 90.0 : pinW,
+                      height: showLabel ? pinH + 20.0 : pinH,
+                      alignment: Alignment.bottomCenter,
+                      child: GestureDetector(
+                        onTap: () => _onStudyPinTap(spot),
+                        behavior: HitTestBehavior.opaque,
+                        child: Column(
+                          mainAxisSize: MainAxisSize.min,
+                          crossAxisAlignment: CrossAxisAlignment.center,
+                          children: [
+                            if (showLabel)
+                              Padding(
+                                padding: const EdgeInsets.only(bottom: 2),
+                                child: _PinLabel(
+                                  text: spot.title,
+                                  color: info.color,
+                                ),
+                              ),
+                            _MapPin(
                               color: info.color,
+                              icon: info.icon,
+                              isSelected: _selectedStudySpot?.id == spot.id,
+                              width: pinW,
+                              height: pinH,
                             ),
-                          ),
-                        _MapPin(
-                          color: info.color,
-                          icon: info.icon,
-                          isSelected: _selectedStudySpot?.id == spot.id,
-                          width: 28.0,
-                          height: 36.0,
+                          ],
                         ),
-                      ],
-                    ),
-                  ),
-                );
-              }).toList(),
+                      ),
+                    );
+                  })
+                  .toList(),
             ),
             if (_showTransport)
               MarkerLayer(
@@ -365,129 +460,265 @@ class _MapTabState extends State<MapTab> {
           ],
         ),
 
-        // ── Search Bar + Filter Chips ──────────────────────
-        SafeArea(
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Padding(
-                padding: const EdgeInsets.fromLTRB(16, 10, 16, 0),
-                child: Container(
-                  decoration: BoxDecoration(
-                    color: Colors.white,
-                    borderRadius: BorderRadius.circular(14),
-                    boxShadow: const [
-                      BoxShadow(
-                        color: Color(0x14000000),
-                        blurRadius: 16,
-                        offset: Offset(0, 2),
-                      ),
-                    ],
-                  ),
-                  child: TextField(
-                    controller: _searchController,
-                    onChanged: (v) => setState(() => _searchQuery = v),
-                    style: const TextStyle(
-                      color: UniverseColors.textPrimary,
-                      fontSize: 15,
-                    ),
-                    decoration: InputDecoration(
-                      hintText: 'Search buildings, events, clubs...',
-                      hintStyle: const TextStyle(
-                        color: UniverseColors.textLight,
-                        fontSize: 15,
-                      ),
-                      prefixIcon: const Icon(
-                        Icons.search_rounded,
-                        color: UniverseColors.textLight,
-                      ),
-                      suffixIcon: _searchQuery.isNotEmpty
-                          ? IconButton(
-                              icon: const Icon(
-                                Icons.close_rounded,
-                                color: UniverseColors.textLight,
-                              ),
-                              onPressed: () {
-                                _searchController.clear();
-                                setState(() => _searchQuery = '');
-                              },
-                            )
-                          : null,
-                      border: InputBorder.none,
-                      contentPadding: const EdgeInsets.symmetric(
-                        horizontal: 16,
-                        vertical: 14,
-                      ),
-                    ),
-                  ),
-                ),
+        // ── Search Bar + Filter Chips (opaque underlay, top-pinned) ────────
+        Positioned(
+          top: 0,
+          left: 0,
+          right: 0,
+          child: Container(
+            decoration: const BoxDecoration(
+              color: Color(0xFFF5F6FA),
+              border: Border(
+                bottom: BorderSide(color: Color(0x18000000), width: 0.5),
               ),
-              const SizedBox(height: 8),
-              SizedBox(
-                height: 36,
-                child: ListView(
-                  scrollDirection: Axis.horizontal,
-                  padding: const EdgeInsets.symmetric(horizontal: 12),
-                  children: [
-                    ...EventCategory.values.map((cat) {
-                      final info = categoryInfo[cat]!;
-                      final isActive = _activeFilter == cat;
-                      return Padding(
-                        padding: const EdgeInsets.only(right: 8),
-                        child: GestureDetector(
-                          onTap: () => _onFilterTap(cat),
-                          child: AnimatedContainer(
-                            duration: const Duration(milliseconds: 180),
-                            padding: const EdgeInsets.symmetric(
-                              horizontal: 14,
-                              vertical: 5,
-                            ),
-                            decoration: BoxDecoration(
-                              color: isActive ? info.color : Colors.white,
-                              borderRadius: BorderRadius.circular(20),
-                              border: Border.all(
-                                color: isActive
-                                    ? info.color
-                                    : UniverseColors.borderColor,
+            ),
+            child: SafeArea(
+              bottom: false,
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  // ── Collapsible: title + search bar ────────────────────────────
+                  AnimatedSize(
+                    duration: const Duration(milliseconds: 220),
+                    curve: Curves.easeInOut,
+                    alignment: Alignment.topCenter,
+                    child: _headerCollapsed
+                        ? const SizedBox.shrink()
+                        : Column(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              // Page title row
+                              Padding(
+                                padding: const EdgeInsets.fromLTRB(
+                                  20,
+                                  12,
+                                  16,
+                                  6,
+                                ),
+                                child: Row(
+                                  crossAxisAlignment: CrossAxisAlignment.center,
+                                  children: [
+                                    Text(
+                                      'Live Campus Map',
+                                      style: UniverseTextStyles.displayLarge
+                                          .copyWith(fontSize: 26),
+                                    ),
+                                    const Spacer(),
+                                    GestureDetector(
+                                      onTap: () {},
+                                      child: Container(
+                                        width: 38,
+                                        height: 38,
+                                        decoration: const BoxDecoration(
+                                          color: Colors.white,
+                                          shape: BoxShape.circle,
+                                          boxShadow: [
+                                            BoxShadow(
+                                              color: Color(0x14000000),
+                                              blurRadius: 8,
+                                              offset: Offset(0, 2),
+                                            ),
+                                          ],
+                                        ),
+                                        child: const Icon(
+                                          Icons.tune_rounded,
+                                          size: 18,
+                                          color: UniverseColors.textPrimary,
+                                        ),
+                                      ),
+                                    ),
+                                  ],
+                                ),
                               ),
-                              boxShadow: const [
-                                BoxShadow(
-                                  color: Color(0x0A000000),
-                                  blurRadius: 6,
-                                  offset: Offset(0, 1),
+                              // iOS-style search bar
+                              Padding(
+                                padding: const EdgeInsets.fromLTRB(
+                                  16,
+                                  0,
+                                  16,
+                                  0,
                                 ),
-                              ],
-                            ),
-                            child: Row(
-                              mainAxisSize: MainAxisSize.min,
-                              children: [
-                                Icon(
-                                  info.icon,
-                                  size: 13,
-                                  color: isActive ? Colors.white : info.color,
-                                ),
-                                const SizedBox(width: 5),
-                                Text(
-                                  info.label,
-                                  style: TextStyle(
-                                    color: isActive
-                                        ? Colors.white
-                                        : UniverseColors.textPrimary,
-                                    fontSize: 13,
-                                    fontWeight: FontWeight.w600,
+                                child: Container(
+                                  height: 36,
+                                  decoration: const BoxDecoration(
+                                    color: Colors.white,
+                                    borderRadius: BorderRadius.all(
+                                      Radius.circular(14),
+                                    ),
+                                    boxShadow: [
+                                      BoxShadow(
+                                        color: Color(0x1A000000),
+                                        blurRadius: 12,
+                                        offset: Offset(0, 2),
+                                      ),
+                                    ],
+                                  ),
+                                  child: Row(
+                                    crossAxisAlignment:
+                                        CrossAxisAlignment.center,
+                                    children: [
+                                      const SizedBox(width: 10),
+                                      const Icon(
+                                        Icons.search_rounded,
+                                        size: 18,
+                                        color: UniverseColors.iosSysGray,
+                                      ),
+                                      const SizedBox(width: 6),
+                                      Expanded(
+                                        child: TextField(
+                                          controller: _searchController,
+                                          onChanged: (v) =>
+                                              setState(() => _searchQuery = v),
+                                          style: const TextStyle(
+                                            color: UniverseColors.textPrimary,
+                                            fontSize: 15,
+                                            fontWeight: FontWeight.w400,
+                                            height: 1.0,
+                                          ),
+                                          decoration: InputDecoration(
+                                            hintText: 'Search',
+                                            hintStyle: const TextStyle(
+                                              color: UniverseColors.iosSysGray,
+                                              fontSize: 15,
+                                              fontWeight: FontWeight.w400,
+                                              height: 1.0,
+                                            ),
+                                            isDense: true,
+                                            border: InputBorder.none,
+                                            contentPadding: EdgeInsets.zero,
+                                          ),
+                                        ),
+                                      ),
+                                      if (_searchQuery.isNotEmpty)
+                                        GestureDetector(
+                                          onTap: () {
+                                            _searchController.clear();
+                                            setState(() => _searchQuery = '');
+                                          },
+                                          child: Container(
+                                            margin: const EdgeInsets.only(
+                                              right: 8,
+                                            ),
+                                            width: 18,
+                                            height: 18,
+                                            decoration: const BoxDecoration(
+                                              color: UniverseColors.iosSysGray2,
+                                              shape: BoxShape.circle,
+                                            ),
+                                            child: const Icon(
+                                              Icons.close_rounded,
+                                              size: 12,
+                                              color: Colors.white,
+                                            ),
+                                          ),
+                                        ),
+                                    ],
                                   ),
                                 ),
-                              ],
+                              ),
+                            ],
+                          ),
+                  ),
+
+                  // ── iOS-style filter chips ──────────────────────────────────────
+                  const SizedBox(height: 10),
+                  SizedBox(
+                    height: 34,
+                    child: ListView(
+                      scrollDirection: Axis.horizontal,
+                      padding: const EdgeInsets.symmetric(horizontal: 16),
+                      children: [
+                        // When header is collapsed, show a restore search chip
+                        if (_headerCollapsed)
+                          Padding(
+                            padding: const EdgeInsets.only(right: 8),
+                            child: GestureDetector(
+                              onTap: () =>
+                                  setState(() => _headerCollapsed = false),
+                              child: Container(
+                                padding: const EdgeInsets.symmetric(
+                                  horizontal: 12,
+                                  vertical: 6,
+                                ),
+                                decoration: BoxDecoration(
+                                  color: Colors.white,
+                                  borderRadius: BorderRadius.circular(20),
+                                  boxShadow: const [
+                                    BoxShadow(
+                                      color: Color(0x14000000),
+                                      blurRadius: 6,
+                                      offset: Offset(0, 1),
+                                    ),
+                                  ],
+                                ),
+                                child: const Icon(
+                                  Icons.search_rounded,
+                                  size: 16,
+                                  color: UniverseColors.iosSysGray,
+                                ),
+                              ),
                             ),
                           ),
-                        ),
-                      );
-                    }).toList(),
-                    _buildTransportChip(),
-                  ],
-                ),
+                        ...EventCategory.values.map((cat) {
+                          final info = categoryInfo[cat]!;
+                          final isActive = _activeFilter == cat;
+                          return Padding(
+                            padding: const EdgeInsets.only(right: 8),
+                            child: GestureDetector(
+                              onTap: () => _onFilterTap(cat),
+                              child: AnimatedContainer(
+                                duration: const Duration(milliseconds: 160),
+                                padding: const EdgeInsets.symmetric(
+                                  horizontal: 14,
+                                  vertical: 6,
+                                ),
+                                decoration: BoxDecoration(
+                                  color: isActive ? info.color : Colors.white,
+                                  borderRadius: BorderRadius.circular(20),
+                                  boxShadow: const [
+                                    BoxShadow(
+                                      color: Color(0x14000000),
+                                      blurRadius: 6,
+                                      offset: Offset(0, 1),
+                                    ),
+                                  ],
+                                ),
+                                child: Row(
+                                  mainAxisSize: MainAxisSize.min,
+                                  children: [
+                                    Icon(
+                                      info.icon,
+                                      size: 13,
+                                      color: isActive
+                                          ? Colors.white
+                                          : info.color,
+                                    ),
+                                    const SizedBox(width: 5),
+                                    Text(
+                                      info.label,
+                                      style: TextStyle(
+                                        color: isActive
+                                            ? Colors.white
+                                            : UniverseColors.textPrimary,
+                                        fontSize: 13,
+                                        fontWeight: FontWeight.w500,
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                              ),
+                            ),
+                          );
+                        }).toList(),
+                        _buildTransportChip(),
+                      ],
+                    ),
+                  ),
+                  const SizedBox(height: 10),
+                ],
               ),
-            ],
+            ),
           ),
         ),
 
@@ -503,7 +734,7 @@ class _MapTabState extends State<MapTab> {
             return Container(
               decoration: const BoxDecoration(
                 color: Colors.white,
-                borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+                borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
                 boxShadow: [
                   BoxShadow(
                     color: Color(0x14000000),
@@ -515,20 +746,19 @@ class _MapTabState extends State<MapTab> {
               child: _selectedStudySpot != null
                   ? _buildStudySpotPanel(scrollController, _selectedStudySpot!)
                   : _selectedEvent == null
-                      ? _buildHappeningNow(scrollController)
-                      : _buildEventPanel(scrollController, _selectedEvent!),
+                  ? _buildHappeningNow(scrollController)
+                  : _buildEventPanel(scrollController, _selectedEvent!),
             );
           },
         ),
 
-        // ── Map controls (bottom-right) ─────────────────────────────────────
+        // ── Map controls (right side) — heatmap + zoom
         Positioned(
           right: 16,
           bottom: MediaQuery.of(context).size.height * _kCollapsed + 16,
           child: Column(
             mainAxisSize: MainAxisSize.min,
             children: [
-              // Heatmap toggle
               _MapControlButton(
                 onTap: () => setState(() => _showHeatmap = !_showHeatmap),
                 active: _showHeatmap,
@@ -536,7 +766,6 @@ class _MapTabState extends State<MapTab> {
                 child: const Icon(Icons.whatshot_rounded, size: 20),
               ),
               const SizedBox(height: 8),
-              // Zoom in
               _MapControlButton(
                 onTap: () => _mapController.move(
                   _mapController.camera.center,
@@ -545,7 +774,6 @@ class _MapTabState extends State<MapTab> {
                 child: const Icon(Icons.add_rounded, size: 20),
               ),
               const SizedBox(height: 4),
-              // Zoom out
               _MapControlButton(
                 onTap: () => _mapController.move(
                   _mapController.camera.center,
@@ -556,61 +784,114 @@ class _MapTabState extends State<MapTab> {
             ],
           ),
         ),
-        // Floating button to add a study spot (on top of the pullup bar)
+        // ── Create study spot (big purple FAB on the left)
         Positioned(
-          right: 16,
+          left: 16,
           bottom: MediaQuery.of(context).size.height * _kCollapsed - 40 < 16
               ? 16
               : MediaQuery.of(context).size.height * _kCollapsed - 40,
           child: FloatingActionButton(
+            backgroundColor: UniverseColors.accent,
             onPressed: () async {
-              final titleController = TextEditingController();
-              final locController = TextEditingController();
-              final result = await showDialog<bool>(
+              // Present a creation menu
+              final choice = await showModalBottomSheet<String?>(
                 context: context,
-                builder: (ctx) => AlertDialog(
-                  title: const Text('Add Study Spot'),
-                  content: Column(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      TextField(
-                        controller: titleController,
-                        decoration: const InputDecoration(labelText: 'Title'),
-                      ),
-                      TextField(
-                        controller: locController,
-                        decoration: const InputDecoration(labelText: 'Location'),
-                      ),
-                    ],
-                  ),
-                  actions: [
-                    TextButton(
-                        onPressed: () => Navigator.of(ctx).pop(false),
-                        child: const Text('Cancel')),
-                    ElevatedButton(
-                        onPressed: () => Navigator.of(ctx).pop(true),
-                        child: const Text('Add')),
+                builder: (ctx) => Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    ListTile(
+                      leading: const Icon(Icons.menu_book_rounded),
+                      title: const Text('Study Spot'),
+                      onTap: () => Navigator.of(ctx).pop('study'),
+                    ),
+                    ListTile(
+                      leading: const Icon(Icons.restaurant_rounded),
+                      title: const Text('Food (timed)'),
+                      onTap: () => Navigator.of(ctx).pop('food'),
+                    ),
+                    ListTile(
+                      leading: const Icon(Icons.card_giftcard_rounded),
+                      title: const Text('Free Stuff (timed)'),
+                      onTap: () => Navigator.of(ctx).pop('free'),
+                    ),
+                    ListTile(
+                      leading: const Icon(Icons.security_rounded),
+                      title: const Text('Myki Inspectors (timed)'),
+                      onTap: () => Navigator.of(ctx).pop('myki'),
+                    ),
+                    const SizedBox(height: 8),
                   ],
                 ),
               );
-              if (result == true && titleController.text.trim().isNotEmpty) {
-                LatLng center;
-                try {
-                  center = _mapController.camera.center;
-                } catch (_) {
-                  center = const LatLng(-37.9110, 145.1335);
+              
+              if (choice == null) return;
+              if (choice == 'study') {
+                final titleController = TextEditingController();
+                final locController = TextEditingController();
+                final result = await showDialog<bool>(
+                  context: context,
+                  builder: (ctx) => AlertDialog(
+                    title: const Text('Add Study Spot'),
+                    content: Column(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        TextField(
+                          controller: titleController,
+                          decoration: const InputDecoration(labelText: 'Title'),
+                        ),
+                        TextField(
+                          controller: locController,
+                          decoration: const InputDecoration(labelText: 'Location'),
+                        ),
+                      ],
+                    ),
+                    actions: [
+                      TextButton(onPressed: () => Navigator.of(ctx).pop(false), child: const Text('Cancel')),
+                      ElevatedButton(onPressed: () => Navigator.of(ctx).pop(true), child: const Text('Add')),
+                    ],
+                  ),
+                );
+                if (result == true && titleController.text.trim().isNotEmpty) {
+                  final center = _mapController.camera.center ?? const LatLng(-37.9110, 145.1335);
+                  final id = DateTime.now().millisecondsSinceEpoch.toString();
+                  setState(() {
+                    sampleStudySpots.add(StudySpot(
+                      id: id,
+                      title: titleController.text.trim(),
+                      location: locController.text.trim().isEmpty ? 'Campus' : locController.text.trim(),
+                      position: center,
+                    ));
+                  });
                 }
-                final id = DateTime.now().millisecondsSinceEpoch.toString();
-                setState(() {
-                  sampleStudySpots.add(StudySpot(
-                    id: id,
-                    title: titleController.text.trim(),
-                    location: locController.text.trim().isEmpty
-                        ? 'Campus'
-                        : locController.text.trim(),
-                    position: center,
-                  ));
-                });
+              } else {
+                // Timed event types
+                final titleController = TextEditingController();
+                final locController = TextEditingController();
+                final category = choice == 'food'
+                    ? EventCategory.food
+                    : choice == 'free'
+                        ? EventCategory.freeStuff
+                        : EventCategory.myki;
+                final result = await showDialog<bool>(
+                  context: context,
+                  builder: (ctx) => AlertDialog(
+                    title: Text('Add ${categoryInfo[category]!.label}'),
+                    content: Column(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        TextField(controller: titleController, decoration: const InputDecoration(labelText: 'Title')),
+                        TextField(controller: locController, decoration: const InputDecoration(labelText: 'Location')),
+                      ],
+                    ),
+                    actions: [
+                      TextButton(onPressed: () => Navigator.of(ctx).pop(false), child: const Text('Cancel')),
+                      ElevatedButton(onPressed: () => Navigator.of(ctx).pop(true), child: const Text('Add')),
+                    ],
+                  ),
+                );
+                if (result == true && titleController.text.trim().isNotEmpty) {
+                  _addTemporaryEvent(category, titleController.text.trim(), locController.text.trim());
+                }
               }
             },
             child: const Icon(Icons.add_rounded),
@@ -637,13 +918,9 @@ class _MapTabState extends State<MapTab> {
                 padding: const EdgeInsets.fromLTRB(20, 0, 20, 12),
                 child: Row(
                   children: [
-                    const Text(
+                    Text(
                       'Happening Now',
-                      style: TextStyle(
-                        color: UniverseColors.textPrimary,
-                        fontSize: 18,
-                        fontWeight: FontWeight.w700,
-                      ),
+                      style: UniverseTextStyles.sectionHeader,
                     ),
                     const Spacer(),
                     Text(
@@ -675,14 +952,12 @@ class _MapTabState extends State<MapTab> {
                 color: UniverseColors.divider,
               ),
               const SizedBox(height: 14),
-              const Padding(
-                padding: EdgeInsets.symmetric(horizontal: 20),
+              Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 20),
                 child: Text(
                   'All Events',
-                  style: TextStyle(
-                    color: UniverseColors.textPrimary,
+                  style: UniverseTextStyles.sectionHeader.copyWith(
                     fontSize: 16,
-                    fontWeight: FontWeight.w700,
                   ),
                 ),
               ),
@@ -883,6 +1158,7 @@ class _MapTabState extends State<MapTab> {
                     color: UniverseColors.textPrimary,
                     fontSize: 22,
                     fontWeight: FontWeight.w800,
+                    letterSpacing: -0.2,
                   ),
                 ),
                 const SizedBox(height: 4),
@@ -962,11 +1238,30 @@ class _MapTabState extends State<MapTab> {
                           duration: const Duration(milliseconds: 180),
                           height: 50,
                           decoration: BoxDecoration(
-                            color: _isGoing
-                                ? UniverseColors.accent
-                                : Colors.white,
                             borderRadius: BorderRadius.circular(14),
-                            border: Border.all(color: UniverseColors.accent),
+                            gradient: _isGoing
+                                ? const LinearGradient(
+                                    colors: [
+                                      Color(0xFF6C63FF),
+                                      Color(0xFF3D8BFF),
+                                    ],
+                                    begin: Alignment.centerLeft,
+                                    end: Alignment.centerRight,
+                                  )
+                                : null,
+                            color: _isGoing ? null : Colors.white,
+                            border: _isGoing
+                                ? null
+                                : Border.all(color: UniverseColors.accent),
+                            boxShadow: _isGoing
+                                ? const [
+                                    BoxShadow(
+                                      color: Color(0x446C63FF),
+                                      blurRadius: 12,
+                                      offset: Offset(0, 3),
+                                    ),
+                                  ]
+                                : null,
                           ),
                           child: Center(
                             child: Text(
@@ -1023,7 +1318,10 @@ class _MapTabState extends State<MapTab> {
     );
   }
 
-  Widget _buildStudySpotPanel(ScrollController scrollController, StudySpot spot) {
+  Widget _buildStudySpotPanel(
+    ScrollController scrollController,
+    StudySpot spot,
+  ) {
     final info = categoryInfo[EventCategory.study]!;
     return CustomScrollView(
       controller: scrollController,
@@ -1099,7 +1397,10 @@ class _MapTabState extends State<MapTab> {
                 const SizedBox(height: 20),
                 const Text(
                   'This study spot does not expire and has no attendance controls.',
-                  style: TextStyle(color: UniverseColors.textLight, fontSize: 12),
+                  style: TextStyle(
+                    color: UniverseColors.textLight,
+                    fontSize: 12,
+                  ),
                 ),
                 const SizedBox(height: 220),
               ],
@@ -1301,6 +1602,18 @@ class _HappeningCard extends StatelessWidget {
                         color: UniverseColors.textPrimary,
                         fontSize: 14,
                         fontWeight: FontWeight.w700,
+                        height: 1.3,
+                      ),
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                    ),
+                    const SizedBox(height: 3),
+                    Text(
+                      event.subtitle,
+                      style: const TextStyle(
+                        color: UniverseColors.textSecondary,
+                        fontSize: 12,
+                        fontWeight: FontWeight.w500,
                       ),
                       maxLines: 1,
                       overflow: TextOverflow.ellipsis,

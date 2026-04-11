@@ -112,6 +112,7 @@ class EventDetailPage extends StatelessWidget {
                       fontSize: 28,
                       fontWeight: FontWeight.w800,
                       height: 1.2,
+                      letterSpacing: -0.3,
                     ),
                   ),
                   const SizedBox(height: 6),
@@ -149,13 +150,27 @@ class EventDetailPage extends StatelessWidget {
 
                   const SizedBox(height: 32),
 
-                  // CTA Button
+                  // CTA Button — gradient primary action
                   Container(
                     width: double.infinity,
                     height: 54,
                     decoration: BoxDecoration(
                       borderRadius: BorderRadius.circular(16),
-                      color: UniverseColors.accent,
+                      gradient: const LinearGradient(
+                        colors: [
+                          Color(0xFF6C63FF),
+                          Color(0xFF3D8BFF),
+                        ],
+                        begin: Alignment.centerLeft,
+                        end: Alignment.centerRight,
+                      ),
+                      boxShadow: const [
+                        BoxShadow(
+                          color: Color(0x446C63FF),
+                          blurRadius: 16,
+                          offset: Offset(0, 4),
+                        ),
+                      ],
                     ),
                     child: Material(
                       color: Colors.transparent,
@@ -164,11 +179,12 @@ class EventDetailPage extends StatelessWidget {
                         onTap: () {},
                         child: const Center(
                           child: Text(
-                            "I'm Going",
+                            "I'm Going  ✓",
                             style: TextStyle(
                               color: Colors.white,
                               fontSize: 17,
                               fontWeight: FontWeight.w700,
+                              letterSpacing: 0.2,
                             ),
                           ),
                         ),
@@ -184,6 +200,7 @@ class EventDetailPage extends StatelessWidget {
                     height: 48,
                     decoration: BoxDecoration(
                       borderRadius: BorderRadius.circular(16),
+                      color: UniverseColors.bgPage,
                       border: Border.all(color: UniverseColors.borderColor),
                     ),
                     child: Material(
@@ -191,15 +208,24 @@ class EventDetailPage extends StatelessWidget {
                       child: InkWell(
                         borderRadius: BorderRadius.circular(16),
                         onTap: () {},
-                        child: Center(
-                          child: Text(
-                            'Share with friends',
-                            style: TextStyle(
+                        child: Row(
+                          mainAxisAlignment: MainAxisAlignment.center,
+                          children: [
+                            const Icon(
+                              Icons.ios_share_rounded,
+                              size: 17,
                               color: UniverseColors.textMuted,
-                              fontSize: 15,
-                              fontWeight: FontWeight.w600,
                             ),
-                          ),
+                            const SizedBox(width: 8),
+                            Text(
+                              'Share with friends',
+                              style: TextStyle(
+                                color: UniverseColors.textMuted,
+                                fontSize: 15,
+                                fontWeight: FontWeight.w600,
+                              ),
+                            ),
+                          ],
                         ),
                       ),
                     ),
