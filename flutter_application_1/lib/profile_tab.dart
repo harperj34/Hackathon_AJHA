@@ -3,6 +3,8 @@ import 'theme.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'login_page.dart';
 import 'activity_tab.dart';
+import 'models.dart';
+import 'event_detail.dart';
 
 class ProfileTab extends StatelessWidget {
   const ProfileTab({super.key});
@@ -149,18 +151,33 @@ class ProfileTab extends StatelessWidget {
               iconColor: UniverseColors.accentOrange,
               title: 'Saved Events',
               subtitle: '3 saved',
+              onTap: () {
+                Navigator.of(context).push(
+                  MaterialPageRoute(builder: (_) => const SavedEventsPage()),
+                );
+              },
             ),
             _MenuItem(
               icon: Icons.groups_rounded,
               iconColor: UniverseColors.accent,
               title: 'My Clubs',
               subtitle: '5 joined',
+              onTap: () {
+                Navigator.of(context).push(
+                  MaterialPageRoute(builder: (_) => const MyClubsPage()),
+                );
+              },
             ),
             _MenuItem(
               icon: Icons.calendar_today_rounded,
               iconColor: UniverseColors.accentBlue,
               title: 'My Calendar',
               subtitle: '2 upcoming',
+              onTap: () {
+                Navigator.of(context).push(
+                  MaterialPageRoute(builder: (_) => const MyCalendarPage()),
+                );
+              },
             ),
             _MenuItem(
               icon: Icons.settings_rounded,
@@ -309,3 +326,265 @@ class _MenuItem extends StatelessWidget {
     );
   }
 }
+
+// ---------------------- New pages with dummy content ----------------------
+
+class SavedEventsPage extends StatelessWidget {
+  const SavedEventsPage({super.key});
+
+  @override
+  Widget build(BuildContext context) {
+    final List<CampusEvent> events = sampleEvents.take(3).toList();
+
+    return Scaffold(
+      appBar: AppBar(title: const Text('Saved Events')),
+      body: ListView.separated(
+        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+        itemCount: events.length,
+        separatorBuilder: (_, __) => const SizedBox(height: 10),
+        itemBuilder: (context, index) {
+          final e = events[index];
+          final info = categoryInfo[e.category];
+          if (info == null) return const SizedBox();
+
+          return GestureDetector(
+            onTap: () => Navigator.push(
+              context,
+              MaterialPageRoute(builder: (_) => EventDetailPage(event: e)),
+            ),
+            child: Container(
+              padding: const EdgeInsets.all(14),
+              decoration: BoxDecoration(
+                color: Colors.white,
+                borderRadius: BorderRadius.circular(16),
+                border: Border.all(color: UniverseColors.borderColor),
+              ),
+              child: Row(
+                children: [
+                  ClipRRect(
+                    borderRadius: BorderRadius.circular(12),
+                    child: Image.network(
+                      e.imageUrl,
+                      width: 120,
+                      height: 120,
+                      fit: BoxFit.cover,
+                      errorBuilder: (_, __, ___) => Container(
+                        width: 120,
+                        height: 120,
+                        decoration: BoxDecoration(
+                          color: info.color.withOpacity(0.12),
+                          borderRadius: BorderRadius.circular(12),
+                        ),
+                        child: Icon(info.icon, color: info.color, size: 26),
+                      ),
+                    ),
+                  ),
+                  const SizedBox(width: 20),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          e.title,
+                          style: const TextStyle(
+                            color: UniverseColors.textPrimary,
+                            fontSize: 18,
+                            fontWeight: FontWeight.w600,
+                          ),
+                          maxLines: 2,
+                          overflow: TextOverflow.ellipsis,
+                        ),
+                        const SizedBox(height: 6),
+                        Text(
+                          e.location,
+                          style: const TextStyle(
+                            color: UniverseColors.textLight,
+                            fontSize: 14,
+                          ),
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                        ),
+                      ],
+                    ),
+                  ),
+                  const SizedBox(width: 8),
+                  Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 12),
+                    decoration: BoxDecoration(
+                      color: info.color.withOpacity(0.12),
+                      borderRadius: BorderRadius.circular(40),
+                    ),
+                    child: Text(
+                      '${e.attendees} going',
+                      style: TextStyle(
+                        color: info.color,
+                        fontSize: 14,
+                        fontWeight: FontWeight.w600,
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          );
+        },
+      ),
+    );
+  }
+}
+
+class MyClubsPage extends StatelessWidget {
+  const MyClubsPage({super.key});
+
+  @override
+  Widget build(BuildContext context) {
+    final clubs = [
+      {'name': 'City Hikers', 'members': '128'},
+      {'name': 'Late Night Coders', 'members': '54'},
+      {'name': 'Planetarium Volunteers', 'members': '32'},
+    ];
+
+    return Scaffold(
+      appBar: AppBar(title: const Text('My Clubs')),
+      body: ListView.separated(
+        padding: const EdgeInsets.all(12),
+        itemCount: clubs.length,
+        separatorBuilder: (_, __) => const SizedBox(height: 8),
+        itemBuilder: (context, i) {
+          final c = clubs[i];
+          return Card(
+            child: ListTile(
+              leading: const Icon(Icons.group, color: UniverseColors.accent),
+              title: Text(c['name']!),
+              subtitle: Text('${c['members']} members'),
+              trailing: ElevatedButton(
+                style: ElevatedButton.styleFrom(minimumSize: const Size(80, 36)),
+                onPressed: () {
+                  // placeholder for join/leave flow
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    SnackBar(content: Text('Manage ${c['name']} (TODO)')),
+                  );
+                },
+                child: const Text('Manage'),
+              ),
+            ),
+          );
+        },
+      ),
+    );
+  }
+}
+
+class MyCalendarPage extends StatelessWidget {
+  const MyCalendarPage({super.key});
+
+  @override
+  Widget build(BuildContext context) {
+    final List<CampusEvent> calendar = sampleEvents.take(2).toList();
+
+    return Scaffold(
+      appBar: AppBar(title: const Text('My Calendar')),
+      body: ListView.separated(
+        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+        itemCount: calendar.length,
+        separatorBuilder: (_, __) => const SizedBox(height: 10),
+        itemBuilder: (context, index) {
+          final e = calendar[index];
+          final info = categoryInfo[e.category];
+          if (info == null) return const SizedBox();
+
+          return GestureDetector(
+            onTap: () => Navigator.push(
+              context,
+              MaterialPageRoute(builder: (_) => EventDetailPage(event: e)),
+            ),
+            child: Container(
+              padding: const EdgeInsets.all(14),
+              decoration: BoxDecoration(
+                color: Colors.white,
+                borderRadius: BorderRadius.circular(16),
+                border: Border.all(color: UniverseColors.borderColor),
+              ),
+              child: Row(
+                children: [
+                  ClipRRect(
+                    borderRadius: BorderRadius.circular(12),
+                    child: Image.network(
+                      e.imageUrl,
+                      width: 120,
+                      height: 120,
+                      fit: BoxFit.cover,
+                      errorBuilder: (_, __, ___) => Container(
+                        width: 120,
+                        height: 120,
+                        decoration: BoxDecoration(
+                          color: info.color.withOpacity(0.12),
+                          borderRadius: BorderRadius.circular(12),
+                        ),
+                        child: Icon(info.icon, color: info.color, size: 26),
+                      ),
+                    ),
+                  ),
+                  const SizedBox(width: 20),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          e.title,
+                          style: const TextStyle(
+                            color: UniverseColors.textPrimary,
+                            fontSize: 18,
+                            fontWeight: FontWeight.w600,
+                          ),
+                          maxLines: 2,
+                          overflow: TextOverflow.ellipsis,
+                        ),
+                        const SizedBox(height: 6),
+                        Text(
+                          e.location,
+                          style: const TextStyle(
+                            color: UniverseColors.textLight,
+                            fontSize: 14,
+                          ),
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                        ),
+                        const SizedBox(height: 6),
+                        Text(
+                          e.time,
+                          style: const TextStyle(
+                            color: UniverseColors.textLight,
+                            fontSize: 13,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                  const SizedBox(width: 8),
+                  Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 12),
+                    decoration: BoxDecoration(
+                      color: info.color.withOpacity(0.12),
+                      borderRadius: BorderRadius.circular(40),
+                    ),
+                    child: Text(
+                      '${e.attendees} going',
+                      style: TextStyle(
+                        color: info.color,
+                        fontSize: 14,
+                        fontWeight: FontWeight.w600,
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          );
+        },
+      ),
+    );
+  }
+}
+
+// (No placeholder) Event details use `EventDetailPage` from event_detail.dart
