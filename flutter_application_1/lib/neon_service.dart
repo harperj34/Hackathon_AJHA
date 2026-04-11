@@ -2,45 +2,31 @@ import 'dart:convert';
 import 'package:http/http.dart' as http;
 
 class NeonService {
-  
-  static const String _apiUrl = 'https://ep-morning-frog-aney0u45-pooler.c-6.us-east-1.aws.neon.tech/sql';
-  static const String _apiKey = 'napi_eqdgwjwusvhl8wcqj2h7h9zws900e19s276m7q7h1dzq1z9rmxzlpay2typ19jzl';
+  // This points to our local Node.js server
+  static const String _baseUrl = 'http://localhost:3000';
 
-  static Future<Map<String, dynamic>> _query(
-    String sql, [
-    List<dynamic> params = const [],
-  ]) async {
-    final response = await http.post(
-      Uri.parse(_apiUrl),
-      headers: {
-        'Content-Type': 'application/json',
-        'Authorization': 'Bearer $_apiKey',
-      },
-      body: jsonEncode({'query': sql, 'params': params}),
-    );
-    return jsonDecode(response.body);
-  }
-
-  // returning user -> true return
+  //returning user
   static Future<bool> emailExists(String email) async {
-    final result = await _query(
-      'SELECT id FROM users WHERE email = \$1',
-      [email],
+    final response = await http.get(
+      Uri.parse('$_baseUrl/user/$email'),
     );
-    final rows = result['rows'] as List;
-    return rows.isNotEmpty;
+    if (response.statusCode == 200) {
+      final data = jsonDecode(response.body);
+      return data['exists'] == true;
+    }
+    throw Exception('Failed to check email');
   }
 
-  // new user
+  //new user creation
   static Future<bool> createUser(String email) async {
-    try {
-      await _query(
-        'INSERT INTO users (email) VALUES (\$1)',
-        [email],
-      );
+    final response = await http.post(
+      Uri.parse('$_baseUrl/user'),
+      headers: {'Content-Type': 'application/json'},
+      body: jsonEncode({'email': email}),
+    );
+    if (response.statusCode == 200) {
       return true;
-    } catch (e) {
-      return false;
     }
+    throw Exception('Failed to create user');
   }
 }
