@@ -308,15 +308,46 @@ class _MapTabState extends State<MapTab> {
                 );
               }).toList(),
             ),
-            // Study spot markers
+            // Study spot markers — invisible when zoomed-out, smoothly scale up,
+            // and show normal size when filtered or at building zoom.
             MarkerLayer(
-              markers: _filteredStudySpots.map((spot) {
+              markers: _filteredStudySpots
+                  .where((s) {
+                const minVisibleZoom = 18.2;
+                if (_activeFilter == EventCategory.study) return true;
+                return _currentZoom >= minVisibleZoom;
+              })
+                  .map((spot) {
                 final info = categoryInfo[EventCategory.study]!;
-                final showLabel = _currentZoom >= 16.5;
+                const double minVisibleZoom = 18.2;
+                const double normalZoom = 19.0; // use map max zoom as full-size
+
+                final bool forcedNormal = _activeFilter == EventCategory.study;
+                final bool showLabel = _currentZoom >= normalZoom;
+
+                double scale;
+                if (forcedNormal) {
+                  scale = 1.0;
+                } else if (_currentZoom <= minVisibleZoom) {
+                  scale = 0.0;
+                } else if (_currentZoom >= normalZoom) {
+                  scale = 1.0;
+                } else {
+                  scale = (_currentZoom - minVisibleZoom) / (normalZoom - minVisibleZoom);
+                }
+
+                const double baseW = 28.0;
+                const double baseH = 36.0;
+                const double minW = 12.0;
+                const double minH = 16.0;
+
+                final double pinW = (minW + (baseW - minW) * scale).clamp(minW, baseW);
+                final double pinH = (minH + (baseH - minH) * scale).clamp(minH, baseH);
+
                 return Marker(
                   point: spot.position,
-                  width: showLabel ? 90.0 : 28.0,
-                  height: showLabel ? 56.0 : 36.0,
+                  width: showLabel ? 90.0 : pinW,
+                  height: showLabel ? pinH + 20.0 : pinH,
                   alignment: Alignment.bottomCenter,
                   child: GestureDetector(
                     onTap: () => _onStudyPinTap(spot),
@@ -337,8 +368,8 @@ class _MapTabState extends State<MapTab> {
                           color: info.color,
                           icon: info.icon,
                           isSelected: _selectedStudySpot?.id == spot.id,
-                          width: 28.0,
-                          height: 36.0,
+                          width: pinW,
+                          height: pinH,
                         ),
                       ],
                     ),
@@ -518,14 +549,13 @@ class _MapTabState extends State<MapTab> {
           },
         ),
 
-        // ── Map controls (bottom-right) ─────────────────────────────────────
+        // ── Map controls (right side) — heatmap + zoom
         Positioned(
           right: 16,
           bottom: MediaQuery.of(context).size.height * _kCollapsed + 16,
           child: Column(
             mainAxisSize: MainAxisSize.min,
             children: [
-              // Heatmap toggle
               _MapControlButton(
                 onTap: () => setState(() => _showHeatmap = !_showHeatmap),
                 active: _showHeatmap,
@@ -533,7 +563,6 @@ class _MapTabState extends State<MapTab> {
                 child: const Icon(Icons.whatshot_rounded, size: 20),
               ),
               const SizedBox(height: 8),
-              // Zoom in
               _MapControlButton(
                 onTap: () => _mapController.move(
                   _mapController.camera.center,
@@ -542,7 +571,6 @@ class _MapTabState extends State<MapTab> {
                 child: const Icon(Icons.add_rounded, size: 20),
               ),
               const SizedBox(height: 4),
-              // Zoom out
               _MapControlButton(
                 onTap: () => _mapController.move(
                   _mapController.camera.center,
@@ -553,13 +581,14 @@ class _MapTabState extends State<MapTab> {
             ],
           ),
         ),
-        // Floating button to add a study spot (on top of the pullup bar)
+        // ── Create study spot (big purple FAB on the left)
         Positioned(
-          right: 16,
+          left: 16,
           bottom: MediaQuery.of(context).size.height * _kCollapsed - 40 < 16
               ? 16
               : MediaQuery.of(context).size.height * _kCollapsed - 40,
           child: FloatingActionButton(
+            backgroundColor: UniverseColors.accent,
             onPressed: () async {
               final titleController = TextEditingController();
               final locController = TextEditingController();
