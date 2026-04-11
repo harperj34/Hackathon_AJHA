@@ -68,12 +68,12 @@ class DiscoverSeeAll extends StatelessWidget {
                     borderRadius: BorderRadius.circular(12),
                     child: Image.network(
                       event.imageUrl,
-                      width: 52,
-                      height: 52,
+                      width: 150,
+                      height: 150,
                       fit: BoxFit.cover,
                       errorBuilder: (_, __, ___) => Container(
-                        width: 52,
-                        height: 52,
+                        width: 150,
+                        height: 150,
                         decoration: BoxDecoration(
                           color: info.color.withOpacity(0.12),
                           borderRadius: BorderRadius.circular(12),
@@ -82,7 +82,7 @@ class DiscoverSeeAll extends StatelessWidget {
                       ),
                     ),
                   ),
-                  const SizedBox(width: 14),
+                  const SizedBox(width: 30),
                   // Event details
                   Expanded(
                     child: Column(
@@ -92,7 +92,7 @@ class DiscoverSeeAll extends StatelessWidget {
                           event.title,
                           style: const TextStyle(
                             color: UniverseColors.textPrimary,
-                            fontSize: 14,
+                            fontSize: 21,
                             fontWeight: FontWeight.w600,
                           ),
                           maxLines: 1,
@@ -103,7 +103,7 @@ class DiscoverSeeAll extends StatelessWidget {
                           event.location,
                           style: const TextStyle(
                             color: UniverseColors.textLight,
-                            fontSize: 12,
+                            fontSize: 15,
                           ),
                           maxLines: 1,
                           overflow: TextOverflow.ellipsis,
@@ -114,16 +114,16 @@ class DiscoverSeeAll extends StatelessWidget {
                   const SizedBox(width: 8),
                   // Attendees badge
                   Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
+                    padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 12),
                     decoration: BoxDecoration(
                       color: info.color.withOpacity(0.12),
-                      borderRadius: BorderRadius.circular(20),
+                      borderRadius: BorderRadius.circular(40),
                     ),
                     child: Text(
                       '${event.attendees} going',
                       style: TextStyle(
                         color: info.color,
-                        fontSize: 11,
+                        fontSize: 14,
                         fontWeight: FontWeight.w600,
                       ),
                     ),
