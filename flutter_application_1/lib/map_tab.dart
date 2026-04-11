@@ -491,58 +491,65 @@ class _MapTabState extends State<MapTab> with TickerProviderStateMixin {
                         scrollDirection: Axis.horizontal,
                         child: Row(
                           children: SignalCategory.values
-                              .where((cat) => signalCategoryMeta.containsKey(cat))
+                              .where(
+                                (cat) => signalCategoryMeta.containsKey(cat),
+                              )
                               .map((cat) {
-                            final meta = signalCategoryMeta[cat]!;
-                            final sel = selectedCategory == cat;
-                            return Padding(
-                              padding: const EdgeInsets.only(right: 8),
-                              child: GestureDetector(
-                                onTap: () =>
-                                    setSheet(() => selectedCategory = cat),
-                                child: AnimatedContainer(
-                                  duration: const Duration(milliseconds: 150),
-                                  padding: const EdgeInsets.symmetric(
-                                    horizontal: 14,
-                                    vertical: 8,
-                                  ),
-                                  decoration: BoxDecoration(
-                                    color: sel
-                                        ? meta.color
-                                        : meta.color.withOpacity(0.10),
-                                    borderRadius: BorderRadius.circular(20),
-                                    border: Border.all(
-                                      color: sel
-                                          ? meta.color
-                                          : Colors.transparent,
-                                      width: 1.5,
-                                    ),
-                                  ),
-                                  child: Row(
-                                    mainAxisSize: MainAxisSize.min,
-                                    children: [
-                                      Icon(
-                                        meta.icon,
-                                        size: 14,
-                                        color: sel ? Colors.white : meta.color,
+                                final meta = signalCategoryMeta[cat]!;
+                                final sel = selectedCategory == cat;
+                                return Padding(
+                                  padding: const EdgeInsets.only(right: 8),
+                                  child: GestureDetector(
+                                    onTap: () =>
+                                        setSheet(() => selectedCategory = cat),
+                                    child: AnimatedContainer(
+                                      duration: const Duration(
+                                        milliseconds: 150,
                                       ),
-                                      const SizedBox(width: 6),
-                                      Text(
-                                        meta.label,
-                                        style: TextStyle(
+                                      padding: const EdgeInsets.symmetric(
+                                        horizontal: 14,
+                                        vertical: 8,
+                                      ),
+                                      decoration: BoxDecoration(
+                                        color: sel
+                                            ? meta.color
+                                            : meta.color.withOpacity(0.10),
+                                        borderRadius: BorderRadius.circular(20),
+                                        border: Border.all(
                                           color: sel
-                                              ? Colors.white
-                                              : meta.color,
-                                          fontSize: 13,
-                                          fontWeight: FontWeight.w600,
+                                              ? meta.color
+                                              : Colors.transparent,
+                                          width: 1.5,
                                         ),
                                       ),
-                                    ],
+                                      child: Row(
+                                        mainAxisSize: MainAxisSize.min,
+                                        children: [
+                                          Icon(
+                                            meta.icon,
+                                            size: 14,
+                                            color: sel
+                                                ? Colors.white
+                                                : meta.color,
+                                          ),
+                                          const SizedBox(width: 6),
+                                          Text(
+                                            meta.label,
+                                            style: TextStyle(
+                                              color: sel
+                                                  ? Colors.white
+                                                  : meta.color,
+                                              fontSize: 13,
+                                              fontWeight: FontWeight.w600,
+                                            ),
+                                          ),
+                                        ],
+                                      ),
+                                    ),
                                   ),
-                                ),
-                              ),
-                            );
-                          }).toList(),
+                                );
+                              })
+                              .toList(),
                         ),
                       ),
                       const SizedBox(height: 20),
@@ -961,70 +968,65 @@ class _MapTabState extends State<MapTab> with TickerProviderStateMixin {
             ),
             // Study spot markers — circles, not teardrop pins.
             MarkerLayer(
-              markers: _filteredStudySpots
-                  .map((spot) {
-                    final color = categoryInfo[EventCategory.study]!.color;
-                    final bool isSelected = _selectedStudySpot?.id == spot.id;
-                    final double size = isSelected ? 36.0 : 28.0;
-                    final bool showLabel = _currentZoom >= 16.5;
-                    final double markerW = showLabel ? 90.0 : size;
-                    final double markerH = showLabel ? size + 18.0 : size;
+              markers: _filteredStudySpots.map((spot) {
+                final color = categoryInfo[EventCategory.study]!.color;
+                final bool isSelected = _selectedStudySpot?.id == spot.id;
+                final double size = isSelected ? 36.0 : 28.0;
+                final bool showLabel = _currentZoom >= 16.5;
+                final double markerW = showLabel ? 90.0 : size;
+                final double markerH = showLabel ? size + 18.0 : size;
 
-                    return Marker(
-                      point: spot.position,
+                return Marker(
+                  point: spot.position,
+                  width: markerW,
+                  height: markerH,
+                  alignment: Alignment.topCenter,
+                  rotate: true,
+                  child: GestureDetector(
+                    onTap: () => _onStudyPinTap(spot),
+                    behavior: HitTestBehavior.opaque,
+                    child: SizedBox(
                       width: markerW,
                       height: markerH,
-                      alignment: Alignment.topCenter,
-                      rotate: true,
-                      child: GestureDetector(
-                        onTap: () => _onStudyPinTap(spot),
-                        behavior: HitTestBehavior.opaque,
-                        child: SizedBox(
-                          width: markerW,
-                          height: markerH,
-                          child: Column(
-                            mainAxisAlignment: MainAxisAlignment.end,
-                            crossAxisAlignment: CrossAxisAlignment.center,
-                            children: [
-                              if (showLabel)
-                                Padding(
-                                  padding: const EdgeInsets.only(bottom: 2),
-                                  child: _PinLabel(
-                                    text: spot.title,
-                                    color: color,
-                                  ),
-                                ),
-                              Container(
-                                width: size,
-                                height: size,
-                                decoration: BoxDecoration(
-                                  shape: BoxShape.circle,
-                                  color: color,
-                                  border: Border.all(
-                                    color: Colors.white,
-                                    width: isSelected ? 3 : 2,
-                                  ),
-                                  boxShadow: [
-                                    BoxShadow(
-                                      color: color.withOpacity(0.40),
-                                      blurRadius: isSelected ? 12 : 6,
-                                      offset: const Offset(0, 2),
-                                    ),
-                                  ],
-                                ),
-                                child: Icon(
-                                  Icons.menu_book_rounded,
-                                  color: Colors.white,
-                                  size: isSelected ? 18 : 14,
-                                ),
+                      child: Column(
+                        mainAxisAlignment: MainAxisAlignment.end,
+                        crossAxisAlignment: CrossAxisAlignment.center,
+                        children: [
+                          if (showLabel)
+                            Padding(
+                              padding: const EdgeInsets.only(bottom: 2),
+                              child: _PinLabel(text: spot.title, color: color),
+                            ),
+                          Container(
+                            width: size,
+                            height: size,
+                            decoration: BoxDecoration(
+                              shape: BoxShape.circle,
+                              color: color,
+                              border: Border.all(
+                                color: Colors.white,
+                                width: isSelected ? 3 : 2,
                               ),
-                            ],
+                              boxShadow: [
+                                BoxShadow(
+                                  color: color.withOpacity(0.40),
+                                  blurRadius: isSelected ? 12 : 6,
+                                  offset: const Offset(0, 2),
+                                ),
+                              ],
+                            ),
+                            child: Icon(
+                              Icons.menu_book_rounded,
+                              color: Colors.white,
+                              size: isSelected ? 18 : 14,
+                            ),
                           ),
-                        ),
+                        ],
                       ),
-                    );
-                  })
-                  .toList(),
+                    ),
+                  ),
+                );
+              }).toList(),
             ),
             if (_showTransport)
               MarkerLayer(
@@ -1270,58 +1272,61 @@ class _MapTabState extends State<MapTab> with TickerProviderStateMixin {
                             ),
                           ),
                         ...EventCategory.values
-                          .where((cat) => categoryInfo.containsKey(cat))
-                          .map((cat) {
-                          final info = categoryInfo[cat]!;
-                          final isActive = _activeFilter == cat;
-                          return Padding(
-                            padding: const EdgeInsets.only(right: 8),
-                            child: GestureDetector(
-                              onTap: () => _onFilterTap(cat),
-                              child: AnimatedContainer(
-                                duration: const Duration(milliseconds: 160),
-                                padding: const EdgeInsets.symmetric(
-                                  horizontal: 14,
-                                  vertical: 6,
-                                ),
-                                decoration: BoxDecoration(
-                                  color: isActive ? info.color : Colors.white,
-                                  borderRadius: BorderRadius.circular(20),
-                                  boxShadow: const [
-                                    BoxShadow(
-                                      color: Color(0x14000000),
-                                      blurRadius: 6,
-                                      offset: Offset(0, 1),
+                            .where((cat) => categoryInfo.containsKey(cat))
+                            .map((cat) {
+                              final info = categoryInfo[cat]!;
+                              final isActive = _activeFilter == cat;
+                              return Padding(
+                                padding: const EdgeInsets.only(right: 8),
+                                child: GestureDetector(
+                                  onTap: () => _onFilterTap(cat),
+                                  child: AnimatedContainer(
+                                    duration: const Duration(milliseconds: 160),
+                                    padding: const EdgeInsets.symmetric(
+                                      horizontal: 14,
+                                      vertical: 6,
                                     ),
-                                  ],
-                                ),
-                                child: Row(
-                                  mainAxisSize: MainAxisSize.min,
-                                  children: [
-                                    Icon(
-                                      info.icon,
-                                      size: 13,
+                                    decoration: BoxDecoration(
                                       color: isActive
-                                          ? Colors.white
-                                          : info.color,
+                                          ? info.color
+                                          : Colors.white,
+                                      borderRadius: BorderRadius.circular(20),
+                                      boxShadow: const [
+                                        BoxShadow(
+                                          color: Color(0x14000000),
+                                          blurRadius: 6,
+                                          offset: Offset(0, 1),
+                                        ),
+                                      ],
                                     ),
-                                    const SizedBox(width: 5),
-                                    Text(
-                                      info.label,
-                                      style: TextStyle(
-                                        color: isActive
-                                            ? Colors.white
-                                            : UniverseColors.textPrimary,
-                                        fontSize: 13,
-                                        fontWeight: FontWeight.w500,
-                                      ),
+                                    child: Row(
+                                      mainAxisSize: MainAxisSize.min,
+                                      children: [
+                                        Icon(
+                                          info.icon,
+                                          size: 13,
+                                          color: isActive
+                                              ? Colors.white
+                                              : info.color,
+                                        ),
+                                        const SizedBox(width: 5),
+                                        Text(
+                                          info.label,
+                                          style: TextStyle(
+                                            color: isActive
+                                                ? Colors.white
+                                                : UniverseColors.textPrimary,
+                                            fontSize: 13,
+                                            fontWeight: FontWeight.w500,
+                                          ),
+                                        ),
+                                      ],
                                     ),
-                                  ],
+                                  ),
                                 ),
-                              ),
-                            ),
-                          );
-                        }).toList(),
+                              );
+                            })
+                            .toList(),
                         _buildTransportChip(),
                       ],
                     ),
@@ -1876,51 +1881,64 @@ class _MapTabState extends State<MapTab> with TickerProviderStateMixin {
                       Wrap(
                         spacing: 8,
                         runSpacing: 8,
-                        children: const [EventCategory.food, EventCategory.events, EventCategory.study, EventCategory.deals]
-                            .where((cat) => categoryInfo.containsKey(cat))
-                            .map((cat) {
-                          final info = categoryInfo[cat]!;
-                          final sel = selectedCategory == cat;
-                          return GestureDetector(
-                            onTap: () => setSheet(() => selectedCategory = cat),
-                            child: AnimatedContainer(
-                              duration: const Duration(milliseconds: 140),
-                              padding: const EdgeInsets.symmetric(
-                                horizontal: 14,
-                                vertical: 8,
-                              ),
-                              decoration: BoxDecoration(
-                                color: sel
-                                    ? info.color
-                                    : info.color.withOpacity(0.09),
-                                borderRadius: BorderRadius.circular(12),
-                                border: Border.all(
-                                  color: sel ? info.color : Colors.transparent,
-                                  width: 1.5,
-                                ),
-                              ),
-                              child: Row(
-                                mainAxisSize: MainAxisSize.min,
-                                children: [
-                                  Icon(
-                                    info.icon,
-                                    size: 14,
-                                    color: sel ? Colors.white : info.color,
-                                  ),
-                                  const SizedBox(width: 6),
-                                  Text(
-                                    info.label,
-                                    style: TextStyle(
-                                      color: sel ? Colors.white : info.color,
-                                      fontSize: 13,
-                                      fontWeight: FontWeight.w600,
+                        children:
+                            const [
+                              EventCategory.food,
+                              EventCategory.events,
+                              EventCategory.study,
+                              EventCategory.deals,
+                            ].where((cat) => categoryInfo.containsKey(cat)).map(
+                              (cat) {
+                                final info = categoryInfo[cat]!;
+                                final sel = selectedCategory == cat;
+                                return GestureDetector(
+                                  onTap: () =>
+                                      setSheet(() => selectedCategory = cat),
+                                  child: AnimatedContainer(
+                                    duration: const Duration(milliseconds: 140),
+                                    padding: const EdgeInsets.symmetric(
+                                      horizontal: 14,
+                                      vertical: 8,
+                                    ),
+                                    decoration: BoxDecoration(
+                                      color: sel
+                                          ? info.color
+                                          : info.color.withOpacity(0.09),
+                                      borderRadius: BorderRadius.circular(12),
+                                      border: Border.all(
+                                        color: sel
+                                            ? info.color
+                                            : Colors.transparent,
+                                        width: 1.5,
+                                      ),
+                                    ),
+                                    child: Row(
+                                      mainAxisSize: MainAxisSize.min,
+                                      children: [
+                                        Icon(
+                                          info.icon,
+                                          size: 14,
+                                          color: sel
+                                              ? Colors.white
+                                              : info.color,
+                                        ),
+                                        const SizedBox(width: 6),
+                                        Text(
+                                          info.label,
+                                          style: TextStyle(
+                                            color: sel
+                                                ? Colors.white
+                                                : info.color,
+                                            fontSize: 13,
+                                            fontWeight: FontWeight.w600,
+                                          ),
+                                        ),
+                                      ],
                                     ),
                                   ),
-                                ],
-                              ),
-                            ),
-                          );
-                        }).toList(),
+                                );
+                              },
+                            ).toList(),
                       ),
                       const SizedBox(height: 20),
                       // ── Title
@@ -1937,7 +1955,8 @@ class _MapTabState extends State<MapTab> with TickerProviderStateMixin {
                         controller: titleCtrl,
                         hint: selectedCategory == null
                             ? "What's happening here?"
-                            : categoryInfo[selectedCategory]?.label ?? "What's happening here?",
+                            : categoryInfo[selectedCategory]?.label ??
+                                  "What's happening here?",
                         icon: Icons.title_rounded,
                       ),
                       const SizedBox(height: 14),

@@ -254,7 +254,14 @@ List<StudySpot> sampleStudySpots = [
 // Drop a Signal — ephemeral 30-minute broadcast pins
 // ─────────────────────────────────────────────────────────────────────────────
 
-enum SignalCategory { freeFood, study, social, studyGroup, mykiOfficers, fireAlarm }
+enum SignalCategory {
+  freeFood,
+  study,
+  social,
+  studyGroup,
+  mykiOfficers,
+  fireAlarm,
+}
 
 const Map<SignalCategory, _SignalCategoryMeta> signalCategoryMeta = {
   SignalCategory.freeFood: _SignalCategoryMeta(
