@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:latlong2/latlong.dart';
 
-enum EventCategory { food, events, social, study, freeStuff, myki }
+enum EventCategory { food, events, study, deals, social, myki }
 
 class EventCategoryInfo {
   final String label;
@@ -26,20 +26,20 @@ final Map<EventCategory, EventCategoryInfo> categoryInfo = {
     icon: Icons.celebration_rounded,
     color: Color(0xFF6C63FF),
   ),
+  EventCategory.study: const EventCategoryInfo(
+    label: 'Study Spot',
+    icon: Icons.menu_book_rounded,
+    color: Color(0xFF00B894),
+  ),
+  EventCategory.deals: const EventCategoryInfo(
+    label: 'Deals',
+    icon: Icons.local_offer_rounded,
+    color: Color(0xFFFFC107),
+  ),
   EventCategory.social: const EventCategoryInfo(
     label: 'Social',
     icon: Icons.emoji_people_rounded,
     color: Color(0xFFFF7AD9),
-  ),
-  EventCategory.study: const EventCategoryInfo(
-    label: 'Study Spots',
-    icon: Icons.menu_book_rounded,
-    color: Color(0xFF00B894),
-  ),
-  EventCategory.freeStuff: const EventCategoryInfo(
-    label: 'Free Stuff',
-    icon: Icons.card_giftcard_rounded,
-    color: Color(0xFFFFC107),
   ),
   EventCategory.myki: const EventCategoryInfo(
     label: 'Myki Inspectors',
@@ -254,7 +254,7 @@ List<StudySpot> sampleStudySpots = [
 // Drop a Signal — ephemeral 30-minute broadcast pins
 // ─────────────────────────────────────────────────────────────────────────────
 
-enum SignalCategory { freeFood, study, social, activity, other }
+enum SignalCategory { freeFood, study, social, studyGroup, mykiOfficers, fireAlarm }
 
 const Map<SignalCategory, _SignalCategoryMeta> signalCategoryMeta = {
   SignalCategory.freeFood: _SignalCategoryMeta(
@@ -272,15 +272,20 @@ const Map<SignalCategory, _SignalCategoryMeta> signalCategoryMeta = {
     icon: Icons.emoji_people_rounded,
     color: Color(0xFFFF7AD9),
   ),
-  SignalCategory.activity: _SignalCategoryMeta(
-    label: 'Activity',
-    icon: Icons.sports_rounded,
+  SignalCategory.studyGroup: _SignalCategoryMeta(
+    label: 'Study Group',
+    icon: Icons.groups_rounded,
     color: Color(0xFF3D8BFF),
   ),
-  SignalCategory.other: _SignalCategoryMeta(
-    label: 'Other',
-    icon: Icons.campaign_rounded,
-    color: Color(0xFF6C63FF),
+  SignalCategory.mykiOfficers: _SignalCategoryMeta(
+    label: 'Myki Officers',
+    icon: Icons.security_rounded,
+    color: Color(0xFFEF5350),
+  ),
+  SignalCategory.fireAlarm: _SignalCategoryMeta(
+    label: 'Fire Alarm',
+    icon: Icons.local_fire_department_rounded,
+    color: Color(0xFFFF5722),
   ),
 };
 

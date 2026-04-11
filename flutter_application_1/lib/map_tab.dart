@@ -84,11 +84,14 @@ class _MapTabState extends State<MapTab> with TickerProviderStateMixin {
         if (!mounted) return;
         if (event is MapEventMoveStart || event is MapEventScrollWheelZoom) {
           if (!_headerCollapsed) setState(() => _headerCollapsed = true);
-          if ((_placementMode || _signalPlacementMode) && !_pinLifted) setState(() => _pinLifted = true);
+          if ((_placementMode || _signalPlacementMode) && !_pinLifted)
+            setState(() => _pinLifted = true);
         }
         if (event is MapEventMoveEnd) {
-          if ((_placementMode || _signalPlacementMode) && _pinLifted) setState(() => _pinLifted = false);
-          if (_placementMode || _signalPlacementMode) _reverseGeocode(_mapController.camera.center);
+          if ((_placementMode || _signalPlacementMode) && _pinLifted)
+            setState(() => _pinLifted = false);
+          if (_placementMode || _signalPlacementMode)
+            _reverseGeocode(_mapController.camera.center);
         }
         final z = _mapController.camera.zoom;
         if ((z - _currentZoom).abs() > 0.08) {
@@ -309,7 +312,13 @@ class _MapTabState extends State<MapTab> with TickerProviderStateMixin {
     );
   }
 
-  void _dropSignal(String message, SignalCategory category, LatLng position, {String? imageUrl, String? notes}) {
+  void _dropSignal(
+    String message,
+    SignalCategory category,
+    LatLng position, {
+    String? imageUrl,
+    String? notes,
+  }) {
     final now = DateTime.now();
     final id = 'sig_${now.millisecondsSinceEpoch}';
     final signal = CampusSignal(
@@ -352,7 +361,10 @@ class _MapTabState extends State<MapTab> with TickerProviderStateMixin {
             SizedBox(width: 8),
             Text(
               'Signal sent to nearby students!',
-              style: TextStyle(color: Colors.white, fontWeight: FontWeight.w600),
+              style: TextStyle(
+                color: Colors.white,
+                fontWeight: FontWeight.w600,
+              ),
             ),
           ],
         ),
@@ -366,7 +378,7 @@ class _MapTabState extends State<MapTab> with TickerProviderStateMixin {
   }
 
   void _showSignalCustomizationSheet(LatLng position) {
-    SignalCategory selectedCategory = SignalCategory.other;
+    SignalCategory selectedCategory = SignalCategory.freeFood;
     final msgCtrl = TextEditingController();
     final locationCtrl = TextEditingController(text: _pendingPinAddress);
     final notesCtrl = TextEditingController();
@@ -413,7 +425,11 @@ class _MapTabState extends State<MapTab> with TickerProviderStateMixin {
                           ),
                           borderRadius: BorderRadius.circular(10),
                         ),
-                        child: const Icon(Icons.sensors_rounded, color: Colors.white, size: 20),
+                        child: const Icon(
+                          Icons.sensors_rounded,
+                          color: Colors.white,
+                          size: 20,
+                        ),
                       ),
                       const SizedBox(width: 12),
                       Column(
@@ -429,7 +445,10 @@ class _MapTabState extends State<MapTab> with TickerProviderStateMixin {
                           ),
                           Text(
                             'Broadcasts for 30 minutes',
-                            style: TextStyle(fontSize: 12, color: UniverseColors.textMuted),
+                            style: TextStyle(
+                              fontSize: 12,
+                              color: UniverseColors.textMuted,
+                            ),
                           ),
                         ],
                       ),
@@ -443,7 +462,11 @@ class _MapTabState extends State<MapTab> with TickerProviderStateMixin {
                             color: UniverseColors.bgPage,
                             shape: BoxShape.circle,
                           ),
-                          child: const Icon(Icons.close_rounded, size: 16, color: UniverseColors.textMuted),
+                          child: const Icon(
+                            Icons.close_rounded,
+                            size: 16,
+                            color: UniverseColors.textMuted,
+                          ),
                         ),
                       ),
                     ],
@@ -467,33 +490,49 @@ class _MapTabState extends State<MapTab> with TickerProviderStateMixin {
                       SingleChildScrollView(
                         scrollDirection: Axis.horizontal,
                         child: Row(
-                          children: SignalCategory.values.map((cat) {
+                          children: SignalCategory.values
+                              .where((cat) => signalCategoryMeta.containsKey(cat))
+                              .map((cat) {
                             final meta = signalCategoryMeta[cat]!;
                             final sel = selectedCategory == cat;
                             return Padding(
                               padding: const EdgeInsets.only(right: 8),
                               child: GestureDetector(
-                                onTap: () => setSheet(() => selectedCategory = cat),
+                                onTap: () =>
+                                    setSheet(() => selectedCategory = cat),
                                 child: AnimatedContainer(
                                   duration: const Duration(milliseconds: 150),
-                                  padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
+                                  padding: const EdgeInsets.symmetric(
+                                    horizontal: 14,
+                                    vertical: 8,
+                                  ),
                                   decoration: BoxDecoration(
-                                    color: sel ? meta.color : meta.color.withOpacity(0.10),
+                                    color: sel
+                                        ? meta.color
+                                        : meta.color.withOpacity(0.10),
                                     borderRadius: BorderRadius.circular(20),
                                     border: Border.all(
-                                      color: sel ? meta.color : Colors.transparent,
+                                      color: sel
+                                          ? meta.color
+                                          : Colors.transparent,
                                       width: 1.5,
                                     ),
                                   ),
                                   child: Row(
                                     mainAxisSize: MainAxisSize.min,
                                     children: [
-                                      Icon(meta.icon, size: 14, color: sel ? Colors.white : meta.color),
+                                      Icon(
+                                        meta.icon,
+                                        size: 14,
+                                        color: sel ? Colors.white : meta.color,
+                                      ),
                                       const SizedBox(width: 6),
                                       Text(
                                         meta.label,
                                         style: TextStyle(
-                                          color: sel ? Colors.white : meta.color,
+                                          color: sel
+                                              ? Colors.white
+                                              : meta.color,
                                           fontSize: 13,
                                           fontWeight: FontWeight.w600,
                                         ),
@@ -529,13 +568,22 @@ class _MapTabState extends State<MapTab> with TickerProviderStateMixin {
                           maxLines: 3,
                           minLines: 2,
                           textInputAction: TextInputAction.done,
-                          style: const TextStyle(fontSize: 15, color: UniverseColors.textPrimary),
+                          style: const TextStyle(
+                            fontSize: 15,
+                            color: UniverseColors.textPrimary,
+                          ),
                           decoration: const InputDecoration(
                             hintText: "What's happening here?",
-                            hintStyle: TextStyle(color: UniverseColors.textMuted, fontSize: 15),
+                            hintStyle: TextStyle(
+                              color: UniverseColors.textMuted,
+                              fontSize: 15,
+                            ),
                             border: InputBorder.none,
                             contentPadding: EdgeInsets.all(14),
-                            counterStyle: TextStyle(color: UniverseColors.textMuted, fontSize: 11),
+                            counterStyle: TextStyle(
+                              color: UniverseColors.textMuted,
+                              fontSize: 11,
+                            ),
                           ),
                         ),
                       ),
@@ -576,10 +624,16 @@ class _MapTabState extends State<MapTab> with TickerProviderStateMixin {
                           controller: notesCtrl,
                           maxLines: 3,
                           minLines: 2,
-                          style: const TextStyle(fontSize: 14, color: UniverseColors.textPrimary),
+                          style: const TextStyle(
+                            fontSize: 14,
+                            color: UniverseColors.textPrimary,
+                          ),
                           decoration: const InputDecoration(
                             hintText: 'Any extra details...',
-                            hintStyle: TextStyle(color: UniverseColors.textMuted, fontSize: 14),
+                            hintStyle: TextStyle(
+                              color: UniverseColors.textMuted,
+                              fontSize: 14,
+                            ),
                             border: InputBorder.none,
                             contentPadding: EdgeInsets.all(14),
                           ),
@@ -639,7 +693,11 @@ class _MapTabState extends State<MapTab> with TickerProviderStateMixin {
                             child: Row(
                               mainAxisSize: MainAxisSize.min,
                               children: [
-                                Icon(Icons.sensors_rounded, color: Colors.white, size: 18),
+                                Icon(
+                                  Icons.sensors_rounded,
+                                  color: Colors.white,
+                                  size: 18,
+                                ),
                                 SizedBox(width: 8),
                                 Text(
                                   'Send Signal',
@@ -828,8 +886,12 @@ class _MapTabState extends State<MapTab> with TickerProviderStateMixin {
                     final showLabel = _currentZoom >= 16.5 && !isLive;
                     final double pinW = isSelected ? 34.0 : 28.0;
                     final double pinH = isSelected ? 44.0 : 36.0;
-                    final double markerW = isLive ? 70.0 : (showLabel ? 90.0 : pinW);
-                    final double markerH = isLive ? 72.0 : (showLabel ? pinH + 20.0 : pinH);
+                    final double markerW = isLive
+                        ? 70.0
+                        : (showLabel ? 90.0 : pinW);
+                    final double markerH = isLive
+                        ? 72.0
+                        : (showLabel ? pinH + 20.0 : pinH);
 
                     Widget pinWidget = _MapPin(
                       color: info.color,
@@ -897,29 +959,29 @@ class _MapTabState extends State<MapTab> with TickerProviderStateMixin {
                   })
                   .toList(),
             ),
-            // Study spot markers — always visible, same size as event pins.
+            // Study spot markers — circles, not teardrop pins.
             MarkerLayer(
               markers: _filteredStudySpots
-                  .where((_) => categoryInfo[EventCategory.study] != null)
                   .map((spot) {
-                    final info = categoryInfo[EventCategory.study]!;
+                    final color = categoryInfo[EventCategory.study]!.color;
                     final bool isSelected = _selectedStudySpot?.id == spot.id;
-                    final double pinW = isSelected ? 34.0 : 28.0;
-                    final double pinH = isSelected ? 44.0 : 36.0;
+                    final double size = isSelected ? 36.0 : 28.0;
                     final bool showLabel = _currentZoom >= 16.5;
+                    final double markerW = showLabel ? 90.0 : size;
+                    final double markerH = showLabel ? size + 18.0 : size;
 
                     return Marker(
                       point: spot.position,
-                      width: showLabel ? 90.0 : pinW,
-                      height: showLabel ? pinH + 20.0 : pinH,
+                      width: markerW,
+                      height: markerH,
                       alignment: Alignment.topCenter,
                       rotate: true,
                       child: GestureDetector(
                         onTap: () => _onStudyPinTap(spot),
                         behavior: HitTestBehavior.opaque,
                         child: SizedBox(
-                          width: showLabel ? 90.0 : pinW,
-                          height: showLabel ? pinH + 20.0 : pinH,
+                          width: markerW,
+                          height: markerH,
                           child: Column(
                             mainAxisAlignment: MainAxisAlignment.end,
                             crossAxisAlignment: CrossAxisAlignment.center,
@@ -929,15 +991,32 @@ class _MapTabState extends State<MapTab> with TickerProviderStateMixin {
                                   padding: const EdgeInsets.only(bottom: 2),
                                   child: _PinLabel(
                                     text: spot.title,
-                                    color: info.color,
+                                    color: color,
                                   ),
                                 ),
-                              _MapPin(
-                                color: info.color,
-                                icon: info.icon,
-                                isSelected: isSelected,
-                                width: pinW,
-                                height: pinH,
+                              Container(
+                                width: size,
+                                height: size,
+                                decoration: BoxDecoration(
+                                  shape: BoxShape.circle,
+                                  color: color,
+                                  border: Border.all(
+                                    color: Colors.white,
+                                    width: isSelected ? 3 : 2,
+                                  ),
+                                  boxShadow: [
+                                    BoxShadow(
+                                      color: color.withOpacity(0.40),
+                                      blurRadius: isSelected ? 12 : 6,
+                                      offset: const Offset(0, 2),
+                                    ),
+                                  ],
+                                ),
+                                child: Icon(
+                                  Icons.menu_book_rounded,
+                                  color: Colors.white,
+                                  size: isSelected ? 18 : 14,
+                                ),
                               ),
                             ],
                           ),
@@ -1190,7 +1269,9 @@ class _MapTabState extends State<MapTab> with TickerProviderStateMixin {
                               ),
                             ),
                           ),
-                        ...EventCategory.values.map((cat) {
+                        ...EventCategory.values
+                          .where((cat) => categoryInfo.containsKey(cat))
+                          .map((cat) {
                           final info = categoryInfo[cat]!;
                           final isActive = _activeFilter == cat;
                           return Padding(
@@ -1358,10 +1439,18 @@ class _MapTabState extends State<MapTab> with TickerProviderStateMixin {
           left: 80,
           top: addPinTop,
           child: IgnorePointer(
-            ignoring: _hideFloatingMapControls || _placementMode || _signalPlacementMode,
+            ignoring:
+                _hideFloatingMapControls ||
+                _placementMode ||
+                _signalPlacementMode,
             child: AnimatedOpacity(
               duration: const Duration(milliseconds: 180),
-              opacity: (_hideFloatingMapControls || _placementMode || _signalPlacementMode) ? 0 : 1,
+              opacity:
+                  (_hideFloatingMapControls ||
+                      _placementMode ||
+                      _signalPlacementMode)
+                  ? 0
+                  : 1,
               child: FloatingActionButton(
                 heroTag: 'signal_fab',
                 backgroundColor: _canDropSignal
@@ -1374,11 +1463,16 @@ class _MapTabState extends State<MapTab> with TickerProviderStateMixin {
                       SnackBar(
                         content: Text(
                           'You can drop another signal in ${rem.inMinutes}m ${rem.inSeconds % 60}s',
-                          style: const TextStyle(color: Colors.white, fontWeight: FontWeight.w600),
+                          style: const TextStyle(
+                            color: Colors.white,
+                            fontWeight: FontWeight.w600,
+                          ),
                         ),
                         backgroundColor: const Color(0xFF6C63FF),
                         behavior: SnackBarBehavior.floating,
-                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(12),
+                        ),
                         duration: const Duration(seconds: 3),
                         margin: const EdgeInsets.fromLTRB(16, 0, 16, 12),
                       ),
@@ -1410,9 +1504,7 @@ class _MapTabState extends State<MapTab> with TickerProviderStateMixin {
             top: MediaQuery.of(context).padding.top + 70,
             left: 24,
             right: 24,
-            child: IgnorePointer(
-              child: Center(child: _PlacementBanner()),
-            ),
+            child: IgnorePointer(child: Center(child: _PlacementBanner())),
           ),
           IgnorePointer(
             child: Center(child: _PlacementPin(lifted: _pinLifted)),
@@ -1784,7 +1876,9 @@ class _MapTabState extends State<MapTab> with TickerProviderStateMixin {
                       Wrap(
                         spacing: 8,
                         runSpacing: 8,
-                        children: EventCategory.values.map((cat) {
+                        children: const [EventCategory.food, EventCategory.events, EventCategory.study, EventCategory.deals]
+                            .where((cat) => categoryInfo.containsKey(cat))
+                            .map((cat) {
                           final info = categoryInfo[cat]!;
                           final sel = selectedCategory == cat;
                           return GestureDetector(
@@ -1843,7 +1937,7 @@ class _MapTabState extends State<MapTab> with TickerProviderStateMixin {
                         controller: titleCtrl,
                         hint: selectedCategory == null
                             ? "What's happening here?"
-                            : categoryInfo[selectedCategory]!.label,
+                            : categoryInfo[selectedCategory]?.label ?? "What's happening here?",
                         icon: Icons.title_rounded,
                       ),
                       const SizedBox(height: 14),
@@ -2123,7 +2217,10 @@ class _MapTabState extends State<MapTab> with TickerProviderStateMixin {
   // ═══════════════════════════════════════════════════
   // PANEL S — Signal preview
   // ═══════════════════════════════════════════════════
-  Widget _buildSignalPanel(ScrollController scrollController, CampusSignal signal) {
+  Widget _buildSignalPanel(
+    ScrollController scrollController,
+    CampusSignal signal,
+  ) {
     final meta = signalCategoryMeta[signal.category]!;
     return CustomScrollView(
       controller: scrollController,
@@ -2140,7 +2237,10 @@ class _MapTabState extends State<MapTab> with TickerProviderStateMixin {
                 Row(
                   children: [
                     Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 10,
+                        vertical: 4,
+                      ),
                       decoration: BoxDecoration(
                         color: meta.color.withOpacity(0.12),
                         borderRadius: BorderRadius.circular(8),
@@ -2148,7 +2248,11 @@ class _MapTabState extends State<MapTab> with TickerProviderStateMixin {
                       child: Row(
                         mainAxisSize: MainAxisSize.min,
                         children: [
-                          Icon(Icons.sensors_rounded, size: 13, color: meta.color),
+                          Icon(
+                            Icons.sensors_rounded,
+                            size: 13,
+                            color: meta.color,
+                          ),
                           const SizedBox(width: 4),
                           Text(
                             'Signal · ${meta.label}',
@@ -2171,7 +2275,11 @@ class _MapTabState extends State<MapTab> with TickerProviderStateMixin {
                           color: UniverseColors.bgPage,
                           shape: BoxShape.circle,
                         ),
-                        child: const Icon(Icons.close_rounded, size: 16, color: UniverseColors.textMuted),
+                        child: const Icon(
+                          Icons.close_rounded,
+                          size: 16,
+                          color: UniverseColors.textMuted,
+                        ),
                       ),
                     ),
                   ],
@@ -2209,14 +2317,25 @@ class _MapTabState extends State<MapTab> with TickerProviderStateMixin {
                 // Meta row — time + expiry
                 Row(
                   children: [
-                    Icon(Icons.access_time_rounded, size: 13, color: UniverseColors.textMuted),
+                    Icon(
+                      Icons.access_time_rounded,
+                      size: 13,
+                      color: UniverseColors.textMuted,
+                    ),
                     const SizedBox(width: 4),
                     Text(
                       signal.timeAgoLabel,
-                      style: const TextStyle(fontSize: 13, color: UniverseColors.textMuted),
+                      style: const TextStyle(
+                        fontSize: 13,
+                        color: UniverseColors.textMuted,
+                      ),
                     ),
                     const SizedBox(width: 16),
-                    Icon(Icons.timer_outlined, size: 13, color: UniverseColors.textMuted),
+                    Icon(
+                      Icons.timer_outlined,
+                      size: 13,
+                      color: UniverseColors.textMuted,
+                    ),
                     const SizedBox(width: 4),
                     _SignalCountdown(signal: signal),
                   ],
@@ -2270,7 +2389,11 @@ class _MapTabState extends State<MapTab> with TickerProviderStateMixin {
                         child: Row(
                           mainAxisSize: MainAxisSize.min,
                           children: [
-                            Icon(Icons.delete_outline_rounded, color: Color(0xFFEF5350), size: 18),
+                            Icon(
+                              Icons.delete_outline_rounded,
+                              color: Color(0xFFEF5350),
+                              size: 18,
+                            ),
                             SizedBox(width: 8),
                             Text(
                               'Remove Signal',
@@ -3677,7 +3800,9 @@ class _SignalPin extends StatelessWidget {
                         height: pulseRadius * 2,
                         decoration: BoxDecoration(
                           shape: BoxShape.circle,
-                          color: UniverseColors.accent.withOpacity(pulseOpacity),
+                          color: UniverseColors.accent.withOpacity(
+                            pulseOpacity,
+                          ),
                         ),
                       ),
                     ),
@@ -3715,8 +3840,11 @@ class _SignalPin extends StatelessWidget {
                   ? Image.network(
                       imageUrl!,
                       fit: BoxFit.cover,
-                      errorBuilder: (_, __, ___) =>
-                          Icon(icon, color: Colors.white, size: isSelected ? 20 : 16),
+                      errorBuilder: (_, __, ___) => Icon(
+                        icon,
+                        color: Colors.white,
+                        size: isSelected ? 20 : 16,
+                      ),
                     )
                   : Icon(icon, color: Colors.white, size: isSelected ? 20 : 16),
             ),
@@ -3805,12 +3933,7 @@ class _PlacementPin extends StatelessWidget {
           duration: const Duration(milliseconds: 180),
           curve: Curves.easeOut,
           margin: EdgeInsets.only(bottom: lifted ? 14 : 0),
-          child: _MapPin(
-            color: color,
-            icon: icon,
-            width: 36,
-            height: 46,
-          ),
+          child: _MapPin(color: color, icon: icon, width: 36, height: 46),
         ),
         // Drop shadow under pin — expands while being dragged
         AnimatedContainer(
