@@ -1,6 +1,8 @@
 import 'dart:async';
+import 'dart:convert';
 import 'dart:ui' as ui;
 import 'package:flutter/material.dart';
+import 'package:http/http.dart' as http;
 import 'package:flutter_map/flutter_map.dart';
 import 'package:latlong2/latlong.dart';
 import 'theme.dart';
@@ -19,7 +21,7 @@ class MapTab extends StatefulWidget {
   State<MapTab> createState() => _MapTabState();
 }
 
-class _MapTabState extends State<MapTab> {
+class _MapTabState extends State<MapTab> with TickerProviderStateMixin {
   late final MapController _mapController;
   final DraggableScrollableController _sheetController =
       DraggableScrollableController();
@@ -35,6 +37,15 @@ class _MapTabState extends State<MapTab> {
   bool _showHeatmap = false;
   double _currentZoom = 15.5;
   bool _headerCollapsed = false;
+  double _sheetExtent = _kCollapsed;
+  bool _placementMode = false;
+  bool _pinLifted = false;
+  final Map<String, int> _confirmations = {};
+  final Map<String, int> _outdatedVotes = {};
+  final Set<String> _savedItems = {};
+  final Set<String> _likedItems = {};
+  final Set<String> _dislikedItems = {};
+  String _pendingPinAddress = 'Monash Clayton Campus';
   StreamSubscription<MapEvent>? _mapEventSub;
   final Map<String, DateTime> _tempExpiry = {};
   final List<Timer> _expiryTimers = [];
@@ -43,15 +54,29 @@ class _MapTabState extends State<MapTab> {
   static const double _kPreview = 0.38;
   static const double _kExpanded = 0.85;
 
+  bool get _hideFloatingMapControls => _sheetExtent >= (_kExpanded - 0.01);
+
   @override
   void initState() {
     super.initState();
     _mapController = MapController();
+    _sheetController.addListener(() {
+      if (!mounted || !_sheetController.isAttached) return;
+      final extent = _sheetController.size.clamp(0.10, _kExpanded);
+      if ((extent - _sheetExtent).abs() > 0.005) {
+        setState(() => _sheetExtent = extent);
+      }
+    });
     WidgetsBinding.instance.addPostFrameCallback((_) {
       _mapEventSub = _mapController.mapEventStream.listen((event) {
         if (!mounted) return;
         if (event is MapEventMoveStart || event is MapEventScrollWheelZoom) {
           if (!_headerCollapsed) setState(() => _headerCollapsed = true);
+          if (_placementMode && !_pinLifted) setState(() => _pinLifted = true);
+        }
+        if (event is MapEventMoveEnd) {
+          if (_placementMode && _pinLifted) setState(() => _pinLifted = false);
+          if (_placementMode) _reverseGeocode(_mapController.camera.center);
         }
         final z = _mapController.camera.zoom;
         if ((z - _currentZoom).abs() > 0.08) {
@@ -64,7 +89,10 @@ class _MapTabState extends State<MapTab> {
   List<CampusEvent> get _filteredEvents {
     // Remove expired temporary events first
     final now = DateTime.now();
-    final expired = _tempExpiry.entries.where((e) => e.value.isBefore(now)).map((e) => e.key).toList();
+    final expired = _tempExpiry.entries
+        .where((e) => e.value.isBefore(now))
+        .map((e) => e.key)
+        .toList();
     if (expired.isNotEmpty) {
       for (final id in expired) {
         sampleEvents.removeWhere((ev) => ev.id == id);
@@ -73,7 +101,8 @@ class _MapTabState extends State<MapTab> {
     }
 
     return sampleEvents.where((e) {
-      final matchesFilter = _activeFilter == null || e.category == _activeFilter;
+      final matchesFilter =
+          _activeFilter == null || e.category == _activeFilter;
       final matchesSearch =
           _searchQuery.isEmpty ||
           e.title.toLowerCase().contains(_searchQuery.toLowerCase()) ||
@@ -114,7 +143,7 @@ class _MapTabState extends State<MapTab> {
       _selectedStudySpot = null;
       _isGoing = false;
     });
-    _mapController.move(event.position, 17.0);
+    _animateCameraTo(event.position, 17.0);
     _sheetController.animateTo(
       _kPreview,
       duration: const Duration(milliseconds: 350),
@@ -128,7 +157,7 @@ class _MapTabState extends State<MapTab> {
       _selectedEvent = null;
       _isGoing = false;
     });
-    _mapController.move(spot.position, 17.0);
+    _animateCameraTo(spot.position, 17.0);
     _sheetController.animateTo(
       _kPreview,
       duration: const Duration(milliseconds: 350),
@@ -148,9 +177,45 @@ class _MapTabState extends State<MapTab> {
     );
   }
 
+  /// Smooth easeInOut camera pan + zoom animation (~350 ms).
+  void _animateCameraTo(LatLng target, double targetZoom) {
+    final startLat = _mapController.camera.center.latitude;
+    final startLng = _mapController.camera.center.longitude;
+    final startZoom = _mapController.camera.zoom;
+    final controller = AnimationController(
+      duration: const Duration(milliseconds: 350),
+      vsync: this,
+    );
+    final animation = CurvedAnimation(
+      parent: controller,
+      curve: Curves.easeInOut,
+    );
+    animation.addListener(() {
+      if (!mounted) {
+        controller.dispose();
+        return;
+      }
+      final t = animation.value;
+      _mapController.move(
+        LatLng(
+          startLat + (target.latitude - startLat) * t,
+          startLng + (target.longitude - startLng) * t,
+        ),
+        startZoom + (targetZoom - startZoom) * t,
+      );
+    });
+    controller.addStatusListener((status) {
+      if (status == AnimationStatus.completed ||
+          status == AnimationStatus.dismissed) {
+        controller.dispose();
+      }
+    });
+    controller.forward();
+  }
+
   void _onPageChanged(int index) {
     if (index < _filteredEvents.length) {
-      _mapController.move(_filteredEvents[index].position, 16.0);
+      _animateCameraTo(_filteredEvents[index].position, 16.0);
     }
   }
 
@@ -165,8 +230,13 @@ class _MapTabState extends State<MapTab> {
     _expiryTimers.add(timer);
   }
 
-  void _addTemporaryEvent(EventCategory category, String title, String location) {
-    final center = _mapController.camera.center ?? const LatLng(-37.9110, 145.1335);
+  void _addTemporaryEvent(
+    EventCategory category,
+    String title,
+    String location,
+  ) {
+    final center =
+        _mapController.camera.center ?? const LatLng(-37.9110, 145.1335);
     final id = 't${DateTime.now().millisecondsSinceEpoch}';
     final ev = CampusEvent(
       id: id,
@@ -273,20 +343,52 @@ class _MapTabState extends State<MapTab> {
 
   @override
   Widget build(BuildContext context) {
+    final screenHeight = MediaQuery.of(context).size.height;
+    final safeTop = MediaQuery.of(context).padding.top;
+    final safeBottom = MediaQuery.of(context).padding.bottom;
+    final sheetTop = screenHeight * (1 - _sheetExtent);
+
+    // Confirm bar always anchored to screen bottom; SafeArea inside handles nav bar.
+    const confirmBarHeight = 50.0;
+    const confirmBarBottom = 0.0;
+    // Controls column is ~132 px tall. Keep a 16 px breathing gap above the panel.
+    const controlsHeight = 132.0;
+    const controlsGap = 16.0;
+    const fabHeight = 56.0; // standard FloatingActionButton size
+    // Both widgets use (sheetTop - controlsGap - ownHeight) so their bottom edges
+    // sit at the same y-position — identical gap from the panel.
+    final mapControlsTop = _placementMode
+        ? (screenHeight -
+                  safeBottom -
+                  confirmBarHeight -
+                  controlsGap -
+                  controlsHeight)
+              .clamp(safeTop + 12, screenHeight)
+        : (sheetTop - controlsGap - controlsHeight).clamp(
+            safeTop + 12,
+            screenHeight,
+          );
+    final addPinTop = _placementMode
+        ? screenHeight // off screen — hidden
+        : (sheetTop - controlsGap - fabHeight).clamp(
+            safeTop + 12,
+            screenHeight,
+          );
+
     return Stack(
       children: [
         // ── Light Map ──────────────────────────────────────
         FlutterMap(
           mapController: _mapController,
           options: MapOptions(
-            initialCenter: const LatLng(-37.9110, 145.1335),
-            initialZoom: 15.5,
-            minZoom: 13.5,
+            initialCenter: const LatLng(-37.9110, 145.13398),
+            initialZoom: 16.2,
+            minZoom: 14.5,
             maxZoom: 19.0,
             cameraConstraint: CameraConstraint.containCenter(
               bounds: LatLngBounds(
-                const LatLng(-37.895, 145.115),
-                const LatLng(-37.932, 145.156),
+                const LatLng(-37.922, 145.120),
+                const LatLng(-37.900, 145.148),
               ),
             ),
             onTap: (_, __) {
@@ -755,150 +857,595 @@ class _MapTabState extends State<MapTab> {
         // ── Map controls (right side) — heatmap + zoom
         Positioned(
           right: 16,
-          bottom: MediaQuery.of(context).size.height * _kCollapsed + 16,
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              _MapControlButton(
-                onTap: () => setState(() => _showHeatmap = !_showHeatmap),
-                active: _showHeatmap,
-                activeColor: UniverseColors.accentPink,
-                child: const Icon(Icons.whatshot_rounded, size: 20),
+          top: mapControlsTop,
+          child: IgnorePointer(
+            ignoring: _hideFloatingMapControls,
+            child: AnimatedOpacity(
+              duration: const Duration(milliseconds: 180),
+              opacity: _hideFloatingMapControls ? 0 : 1,
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  _MapControlButton(
+                    onTap: () => setState(() => _showHeatmap = !_showHeatmap),
+                    active: _showHeatmap,
+                    activeColor: UniverseColors.accentPink,
+                    child: const Icon(Icons.whatshot_rounded, size: 20),
+                  ),
+                  const SizedBox(height: 8),
+                  _MapControlButton(
+                    onTap: () => _animateCameraTo(
+                      _mapController.camera.center,
+                      (_mapController.camera.zoom + 1).clamp(15.6, 19.0),
+                    ),
+                    child: const Icon(Icons.add_rounded, size: 20),
+                  ),
+                  const SizedBox(height: 4),
+                  _MapControlButton(
+                    onTap: () => _animateCameraTo(
+                      _mapController.camera.center,
+                      (_mapController.camera.zoom - 1).clamp(15.6, 19.0),
+                    ),
+                    child: const Icon(Icons.remove_rounded, size: 20),
+                  ),
+                ],
               ),
-              const SizedBox(height: 8),
-              _MapControlButton(
-                onTap: () => _mapController.move(
-                  _mapController.camera.center,
-                  (_mapController.camera.zoom + 1).clamp(13.5, 19.0),
-                ),
-                child: const Icon(Icons.add_rounded, size: 20),
-              ),
-              const SizedBox(height: 4),
-              _MapControlButton(
-                onTap: () => _mapController.move(
-                  _mapController.camera.center,
-                  (_mapController.camera.zoom - 1).clamp(13.5, 19.0),
-                ),
-                child: const Icon(Icons.remove_rounded, size: 20),
-              ),
-            ],
+            ),
           ),
         ),
-        // ── Create study spot (big purple FAB on the left)
+
+        // ── Create post/pin FAB (floats above the panel)
         Positioned(
           left: 16,
-          bottom: MediaQuery.of(context).size.height * _kCollapsed - 40 < 16
-              ? 16
-              : MediaQuery.of(context).size.height * _kCollapsed - 40,
-          child: FloatingActionButton(
-            backgroundColor: UniverseColors.accent,
-            onPressed: () async {
-              // Present a creation menu
-              final choice = await showModalBottomSheet<String?>(
-                context: context,
-                builder: (ctx) => Column(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    ListTile(
-                      leading: const Icon(Icons.menu_book_rounded),
-                      title: const Text('Study Spot'),
-                      onTap: () => Navigator.of(ctx).pop('study'),
-                    ),
-                    ListTile(
-                      leading: const Icon(Icons.restaurant_rounded),
-                      title: const Text('Food (timed)'),
-                      onTap: () => Navigator.of(ctx).pop('food'),
-                    ),
-                    ListTile(
-                      leading: const Icon(Icons.card_giftcard_rounded),
-                      title: const Text('Free Stuff (timed)'),
-                      onTap: () => Navigator.of(ctx).pop('free'),
-                    ),
-                    ListTile(
-                      leading: const Icon(Icons.security_rounded),
-                      title: const Text('Myki Inspectors (timed)'),
-                      onTap: () => Navigator.of(ctx).pop('myki'),
-                    ),
-                    const SizedBox(height: 8),
-                  ],
-                ),
-              );
-              
-              if (choice == null) return;
-              if (choice == 'study') {
-                final titleController = TextEditingController();
-                final locController = TextEditingController();
-                final result = await showDialog<bool>(
-                  context: context,
-                  builder: (ctx) => AlertDialog(
-                    title: const Text('Add Study Spot'),
-                    content: Column(
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        TextField(
-                          controller: titleController,
-                          decoration: const InputDecoration(labelText: 'Title'),
-                        ),
-                        TextField(
-                          controller: locController,
-                          decoration: const InputDecoration(labelText: 'Location'),
-                        ),
-                      ],
-                    ),
-                    actions: [
-                      TextButton(onPressed: () => Navigator.of(ctx).pop(false), child: const Text('Cancel')),
-                      ElevatedButton(onPressed: () => Navigator.of(ctx).pop(true), child: const Text('Add')),
-                    ],
-                  ),
-                );
-                if (result == true && titleController.text.trim().isNotEmpty) {
-                  final center = _mapController.camera.center ?? const LatLng(-37.9110, 145.1335);
-                  final id = DateTime.now().millisecondsSinceEpoch.toString();
+          top: addPinTop,
+          child: IgnorePointer(
+            ignoring: _hideFloatingMapControls || _placementMode,
+            child: AnimatedOpacity(
+              duration: const Duration(milliseconds: 180),
+              opacity: (_hideFloatingMapControls || _placementMode) ? 0 : 1,
+              child: FloatingActionButton(
+                backgroundColor: UniverseColors.accent,
+                onPressed: () {
                   setState(() {
-                    sampleStudySpots.add(StudySpot(
-                      id: id,
-                      title: titleController.text.trim(),
-                      location: locController.text.trim().isEmpty ? 'Campus' : locController.text.trim(),
-                      position: center,
-                    ));
+                    _placementMode = true;
+                    _pinLifted = false;
                   });
-                }
-              } else {
-                // Timed event types
-                final titleController = TextEditingController();
-                final locController = TextEditingController();
-                final category = choice == 'food'
-                    ? EventCategory.food
-                    : choice == 'free'
-                        ? EventCategory.freeStuff
-                        : EventCategory.myki;
-                final result = await showDialog<bool>(
-                  context: context,
-                  builder: (ctx) => AlertDialog(
-                    title: Text('Add ${categoryInfo[category]!.label}'),
-                    content: Column(
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        TextField(controller: titleController, decoration: const InputDecoration(labelText: 'Title')),
-                        TextField(controller: locController, decoration: const InputDecoration(labelText: 'Location')),
-                      ],
-                    ),
-                    actions: [
-                      TextButton(onPressed: () => Navigator.of(ctx).pop(false), child: const Text('Cancel')),
-                      ElevatedButton(onPressed: () => Navigator.of(ctx).pop(true), child: const Text('Add')),
-                    ],
-                  ),
-                );
-                if (result == true && titleController.text.trim().isNotEmpty) {
-                  _addTemporaryEvent(category, titleController.text.trim(), locController.text.trim());
-                }
-              }
-            },
-            child: const Icon(Icons.add_rounded),
+                  // Collapse the bottom sheet so it doesn't overlap controls
+                  _sheetController.animateTo(
+                    _kCollapsed,
+                    duration: const Duration(milliseconds: 320),
+                    curve: Curves.easeOut,
+                  );
+                },
+                child: const Icon(Icons.add_location_alt_rounded),
+              ),
+            ),
           ),
         ),
+
+        // ── Pin placement mode overlay ──────────────────────────────────────
+        if (_placementMode) ...[
+          const IgnorePointer(
+            child: ColoredBox(
+              color: Color(0x14000000),
+              child: SizedBox.expand(),
+            ),
+          ),
+          Positioned(
+            top: MediaQuery.of(context).padding.top + 70,
+            left: 24,
+            right: 24,
+            child: const IgnorePointer(
+              child: Center(child: _PlacementBanner()),
+            ),
+          ),
+          IgnorePointer(
+            child: Center(child: _PlacementPin(lifted: _pinLifted)),
+          ),
+          Positioned(
+            bottom: confirmBarBottom,
+            left: 20,
+            right: 20,
+            child: SafeArea(
+              top: false,
+              child: Row(
+                children: [
+                  Expanded(
+                    child: GestureDetector(
+                      onTap: () => setState(() {
+                        _placementMode = false;
+                        _pinLifted = false;
+                      }),
+                      child: Container(
+                        height: 50,
+                        decoration: BoxDecoration(
+                          color: Colors.white,
+                          borderRadius: BorderRadius.circular(14),
+                          border: Border.all(color: UniverseColors.borderColor),
+                          boxShadow: const [
+                            BoxShadow(
+                              color: Color(0x1A000000),
+                              blurRadius: 12,
+                              offset: Offset(0, 2),
+                            ),
+                          ],
+                        ),
+                        child: const Center(
+                          child: Text(
+                            'Cancel',
+                            style: TextStyle(
+                              color: UniverseColors.textPrimary,
+                              fontWeight: FontWeight.w600,
+                              fontSize: 15,
+                            ),
+                          ),
+                        ),
+                      ),
+                    ),
+                  ),
+                  const SizedBox(width: 12),
+                  Expanded(
+                    flex: 2,
+                    child: GestureDetector(
+                      onTap: () {
+                        setState(() {
+                          _placementMode = false;
+                          _pinLifted = false;
+                        });
+                        _showPinCustomizationSheet();
+                      },
+                      child: Container(
+                        height: 50,
+                        decoration: BoxDecoration(
+                          gradient: const LinearGradient(
+                            colors: [Color(0xFF6C63FF), Color(0xFF3D8BFF)],
+                            begin: Alignment.centerLeft,
+                            end: Alignment.centerRight,
+                          ),
+                          borderRadius: BorderRadius.circular(14),
+                          boxShadow: const [
+                            BoxShadow(
+                              color: Color(0x446C63FF),
+                              blurRadius: 12,
+                              offset: Offset(0, 3),
+                            ),
+                          ],
+                        ),
+                        child: const Center(
+                          child: Text(
+                            'Confirm Location',
+                            style: TextStyle(
+                              color: Colors.white,
+                              fontWeight: FontWeight.w700,
+                              fontSize: 15,
+                            ),
+                          ),
+                        ),
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ),
+        ],
       ],
     );
+  }
+
+  // ═══════════════════════════════════════════════════
+  // REVERSE GEOCODING
+  // ═══════════════════════════════════════════════════
+
+  Future<void> _reverseGeocode(LatLng pos) async {
+    try {
+      final uri = Uri.parse(
+        'https://nominatim.openstreetmap.org/reverse'
+        '?lat=${pos.latitude}&lon=${pos.longitude}&format=json&zoom=18&addressdetails=1',
+      );
+      final response = await http.get(
+        uri,
+        headers: {'User-Agent': 'UniverseMonashApp/1.0'},
+      );
+      if (!mounted) return;
+      if (response.statusCode == 200) {
+        final data = jsonDecode(response.body) as Map<String, dynamic>;
+        final addr = data['address'] as Map<String, dynamic>?;
+        String label;
+        if (addr != null) {
+          final road = addr['road'] as String?;
+          final number = addr['house_number'] as String?;
+          final suburb =
+              (addr['suburb'] ?? addr['city_district'] ?? addr['neighbourhood'])
+                  as String?;
+          if (road != null && number != null) {
+            label = '$number $road';
+          } else if (road != null) {
+            label = suburb != null ? '$road, $suburb' : road;
+          } else if (suburb != null) {
+            label = suburb;
+          } else {
+            label =
+                (data['display_name'] as String?)?.split(',').first.trim() ??
+                'Monash Clayton Campus';
+          }
+        } else {
+          label =
+              (data['display_name'] as String?)?.split(',').first.trim() ??
+              'Monash Clayton Campus';
+        }
+        setState(() => _pendingPinAddress = label);
+      }
+    } catch (_) {
+      // keep existing label on network error
+    }
+  }
+
+  // ═══════════════════════════════════════════════════
+  // PIN CREATION — place + customise flow
+  // ═══════════════════════════════════════════════════
+
+  void _showPinCustomizationSheet() {
+    final center = _mapController.camera.center;
+    EventCategory? selectedCategory;
+    final titleCtrl = TextEditingController();
+    final locationCtrl = TextEditingController(text: _pendingPinAddress);
+    final Set<String> amenities = {};
+    String busyLevel = 'Quiet';
+
+    showModalBottomSheet<void>(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+      builder: (ctx) => StatefulBuilder(
+        builder: (ctx, setSheet) => DraggableScrollableSheet(
+          initialChildSize: 0.78,
+          minChildSize: 0.5,
+          maxChildSize: 0.95,
+          expand: false,
+          builder: (_, sc) => Container(
+            decoration: const BoxDecoration(
+              color: Colors.white,
+              borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
+            ),
+            child: Column(
+              children: [
+                Container(
+                  margin: const EdgeInsets.symmetric(vertical: 10),
+                  width: 36,
+                  height: 4,
+                  decoration: BoxDecoration(
+                    color: UniverseColors.borderColor,
+                    borderRadius: BorderRadius.circular(2),
+                  ),
+                ),
+                Padding(
+                  padding: const EdgeInsets.fromLTRB(20, 0, 20, 12),
+                  child: Row(
+                    children: [
+                      Text(
+                        'Drop a Pin',
+                        style: UniverseTextStyles.sectionHeader,
+                      ),
+                      const Spacer(),
+                      GestureDetector(
+                        onTap: () => Navigator.of(ctx).pop(),
+                        child: Container(
+                          width: 30,
+                          height: 30,
+                          decoration: const BoxDecoration(
+                            color: UniverseColors.bgPage,
+                            shape: BoxShape.circle,
+                          ),
+                          child: const Icon(
+                            Icons.close_rounded,
+                            size: 16,
+                            color: UniverseColors.textMuted,
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+                Expanded(
+                  child: ListView(
+                    controller: sc,
+                    padding: const EdgeInsets.fromLTRB(20, 0, 20, 40),
+                    children: [
+                      // ── Category picker
+                      const Text(
+                        'Category',
+                        style: TextStyle(
+                          color: UniverseColors.textPrimary,
+                          fontSize: 13,
+                          fontWeight: FontWeight.w600,
+                        ),
+                      ),
+                      const SizedBox(height: 10),
+                      Wrap(
+                        spacing: 8,
+                        runSpacing: 8,
+                        children: EventCategory.values.map((cat) {
+                          final info = categoryInfo[cat]!;
+                          final sel = selectedCategory == cat;
+                          return GestureDetector(
+                            onTap: () => setSheet(() => selectedCategory = cat),
+                            child: AnimatedContainer(
+                              duration: const Duration(milliseconds: 140),
+                              padding: const EdgeInsets.symmetric(
+                                horizontal: 14,
+                                vertical: 8,
+                              ),
+                              decoration: BoxDecoration(
+                                color: sel
+                                    ? info.color
+                                    : info.color.withOpacity(0.09),
+                                borderRadius: BorderRadius.circular(12),
+                                border: Border.all(
+                                  color: sel ? info.color : Colors.transparent,
+                                  width: 1.5,
+                                ),
+                              ),
+                              child: Row(
+                                mainAxisSize: MainAxisSize.min,
+                                children: [
+                                  Icon(
+                                    info.icon,
+                                    size: 14,
+                                    color: sel ? Colors.white : info.color,
+                                  ),
+                                  const SizedBox(width: 6),
+                                  Text(
+                                    info.label,
+                                    style: TextStyle(
+                                      color: sel ? Colors.white : info.color,
+                                      fontSize: 13,
+                                      fontWeight: FontWeight.w600,
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ),
+                          );
+                        }).toList(),
+                      ),
+                      const SizedBox(height: 20),
+                      // ── Title
+                      const Text(
+                        'Title',
+                        style: TextStyle(
+                          color: UniverseColors.textPrimary,
+                          fontSize: 13,
+                          fontWeight: FontWeight.w600,
+                        ),
+                      ),
+                      const SizedBox(height: 8),
+                      _SheetTextField(
+                        controller: titleCtrl,
+                        hint: selectedCategory == null
+                            ? "What's happening here?"
+                            : categoryInfo[selectedCategory]!.label,
+                        icon: Icons.title_rounded,
+                      ),
+                      const SizedBox(height: 14),
+                      // ── Location
+                      const Text(
+                        'Location',
+                        style: TextStyle(
+                          color: UniverseColors.textPrimary,
+                          fontSize: 13,
+                          fontWeight: FontWeight.w600,
+                        ),
+                      ),
+                      const SizedBox(height: 8),
+                      _SheetTextField(
+                        controller: locationCtrl,
+                        hint: 'Building, room or area',
+                        icon: Icons.location_on_rounded,
+                      ),
+                      // ── Study-spot extras
+                      if (selectedCategory == EventCategory.study) ...[
+                        const SizedBox(height: 20),
+                        const Text(
+                          'Amenities',
+                          style: TextStyle(
+                            color: UniverseColors.textPrimary,
+                            fontSize: 13,
+                            fontWeight: FontWeight.w600,
+                          ),
+                        ),
+                        const SizedBox(height: 8),
+                        Wrap(
+                          spacing: 8,
+                          runSpacing: 8,
+                          children: [
+                            for (final a in [
+                              'Power Outlets',
+                              'Whiteboard',
+                              'Quiet',
+                              'Aircon',
+                              'Natural Light',
+                            ])
+                              GestureDetector(
+                                onTap: () => setSheet(() {
+                                  if (amenities.contains(a)) {
+                                    amenities.remove(a);
+                                  } else {
+                                    amenities.add(a);
+                                  }
+                                }),
+                                child: AnimatedContainer(
+                                  duration: const Duration(milliseconds: 130),
+                                  padding: const EdgeInsets.symmetric(
+                                    horizontal: 12,
+                                    vertical: 6,
+                                  ),
+                                  decoration: BoxDecoration(
+                                    color: amenities.contains(a)
+                                        ? UniverseColors.accent
+                                        : UniverseColors.bgPage,
+                                    borderRadius: BorderRadius.circular(20),
+                                  ),
+                                  child: Text(
+                                    a,
+                                    style: TextStyle(
+                                      color: amenities.contains(a)
+                                          ? Colors.white
+                                          : UniverseColors.textSecondary,
+                                      fontSize: 13,
+                                      fontWeight: FontWeight.w500,
+                                    ),
+                                  ),
+                                ),
+                              ),
+                          ],
+                        ),
+                        const SizedBox(height: 14),
+                        const Text(
+                          'Busyness',
+                          style: TextStyle(
+                            color: UniverseColors.textPrimary,
+                            fontSize: 13,
+                            fontWeight: FontWeight.w600,
+                          ),
+                        ),
+                        const SizedBox(height: 8),
+                        Row(
+                          children: [
+                            for (final level in ['Quiet', 'Moderate', 'Busy'])
+                              Expanded(
+                                child: GestureDetector(
+                                  onTap: () =>
+                                      setSheet(() => busyLevel = level),
+                                  child: AnimatedContainer(
+                                    duration: const Duration(milliseconds: 130),
+                                    margin: EdgeInsets.only(
+                                      right: level != 'Busy' ? 8 : 0,
+                                    ),
+                                    height: 40,
+                                    decoration: BoxDecoration(
+                                      color: busyLevel == level
+                                          ? UniverseColors.accent
+                                          : UniverseColors.bgPage,
+                                      borderRadius: BorderRadius.circular(10),
+                                    ),
+                                    child: Center(
+                                      child: Text(
+                                        level,
+                                        style: TextStyle(
+                                          color: busyLevel == level
+                                              ? Colors.white
+                                              : UniverseColors.textSecondary,
+                                          fontSize: 13,
+                                          fontWeight: FontWeight.w600,
+                                        ),
+                                      ),
+                                    ),
+                                  ),
+                                ),
+                              ),
+                          ],
+                        ),
+                      ],
+                      const SizedBox(height: 24),
+                      // ── Drop Pin button
+                      GestureDetector(
+                        onTap: () {
+                          final cat = selectedCategory;
+                          final title = titleCtrl.text.trim();
+                          if (cat == null || title.isEmpty) return;
+                          Navigator.of(ctx).pop();
+                          _createPin(
+                            cat,
+                            title,
+                            locationCtrl.text.trim(),
+                            center,
+                          );
+                        },
+                        child: Container(
+                          height: 52,
+                          decoration: BoxDecoration(
+                            gradient: const LinearGradient(
+                              colors: [Color(0xFF6C63FF), Color(0xFF3D8BFF)],
+                              begin: Alignment.centerLeft,
+                              end: Alignment.centerRight,
+                            ),
+                            borderRadius: BorderRadius.circular(14),
+                            boxShadow: const [
+                              BoxShadow(
+                                color: Color(0x446C63FF),
+                                blurRadius: 16,
+                                offset: Offset(0, 4),
+                              ),
+                            ],
+                          ),
+                          child: const Center(
+                            child: Row(
+                              mainAxisSize: MainAxisSize.min,
+                              children: [
+                                Icon(
+                                  Icons.add_location_alt_rounded,
+                                  color: Colors.white,
+                                  size: 18,
+                                ),
+                                SizedBox(width: 8),
+                                Text(
+                                  'Drop Pin',
+                                  style: TextStyle(
+                                    color: Colors.white,
+                                    fontWeight: FontWeight.w700,
+                                    fontSize: 16,
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+
+  void _createPin(
+    EventCategory category,
+    String title,
+    String location,
+    LatLng position,
+  ) {
+    final id = 'u${DateTime.now().millisecondsSinceEpoch}';
+    final loc = location.isEmpty ? 'Campus' : location;
+    if (category == EventCategory.study) {
+      setState(() {
+        sampleStudySpots.add(
+          StudySpot(id: id, title: title, location: loc, position: position),
+        );
+      });
+    } else {
+      final ev = CampusEvent(
+        id: id,
+        title: title,
+        subtitle: 'You',
+        location: loc,
+        time: 'Now',
+        imageUrl: '',
+        category: category,
+        position: position,
+        attendees: 0,
+      );
+      setState(() {
+        sampleEvents.add(ev);
+        _tempExpiry[id] = DateTime.now().add(const Duration(hours: 2));
+      });
+      _scheduleExpiry(id, const Duration(hours: 2));
+    }
+    _animateCameraTo(position, 17.5);
   }
 
   // ═══════════════════════════════════════════════════
@@ -1227,6 +1774,161 @@ class _MapTabState extends State<MapTab> {
                   ],
                 ),
                 const SizedBox(height: 28),
+
+                // ── Community verification (crowd-reported pins only) ────────
+                if (_tempExpiry.containsKey(event.id)) ...[
+                  Container(
+                    padding: const EdgeInsets.all(14),
+                    decoration: BoxDecoration(
+                      color: const Color(0xFFFFF9F0),
+                      borderRadius: BorderRadius.circular(14),
+                      border: Border.all(
+                        color: const Color(0xFFFFE0A0),
+                        width: 0.5,
+                      ),
+                    ),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        const Text(
+                          'Is this still accurate?',
+                          style: TextStyle(
+                            color: Color(0xFF8B6000),
+                            fontSize: 13,
+                            fontWeight: FontWeight.w600,
+                          ),
+                        ),
+                        const SizedBox(height: 10),
+                        Row(
+                          children: [
+                            Expanded(
+                              child: GestureDetector(
+                                onTap: () => setState(
+                                  () => _confirmations[event.id] =
+                                      (_confirmations[event.id] ?? 0) + 1,
+                                ),
+                                child: Container(
+                                  height: 38,
+                                  decoration: BoxDecoration(
+                                    color: const Color(
+                                      0xFF22C55E,
+                                    ).withOpacity(0.10),
+                                    borderRadius: BorderRadius.circular(10),
+                                  ),
+                                  child: Row(
+                                    mainAxisAlignment: MainAxisAlignment.center,
+                                    children: [
+                                      const Icon(
+                                        Icons.check_circle_outline_rounded,
+                                        color: Color(0xFF22C55E),
+                                        size: 16,
+                                      ),
+                                      const SizedBox(width: 5),
+                                      Text(
+                                        'Still there (${_confirmations[event.id] ?? 0})',
+                                        style: const TextStyle(
+                                          color: Color(0xFF22C55E),
+                                          fontSize: 12,
+                                          fontWeight: FontWeight.w600,
+                                        ),
+                                      ),
+                                    ],
+                                  ),
+                                ),
+                              ),
+                            ),
+                            const SizedBox(width: 8),
+                            Expanded(
+                              child: GestureDetector(
+                                onTap: () => setState(
+                                  () => _outdatedVotes[event.id] =
+                                      (_outdatedVotes[event.id] ?? 0) + 1,
+                                ),
+                                child: Container(
+                                  height: 38,
+                                  decoration: BoxDecoration(
+                                    color: const Color(
+                                      0xFFEF4444,
+                                    ).withOpacity(0.10),
+                                    borderRadius: BorderRadius.circular(10),
+                                  ),
+                                  child: Row(
+                                    mainAxisAlignment: MainAxisAlignment.center,
+                                    children: [
+                                      const Icon(
+                                        Icons.cancel_outlined,
+                                        color: Color(0xFFEF4444),
+                                        size: 16,
+                                      ),
+                                      const SizedBox(width: 5),
+                                      Text(
+                                        'Gone (${_outdatedVotes[event.id] ?? 0})',
+                                        style: const TextStyle(
+                                          color: Color(0xFFEF4444),
+                                          fontSize: 12,
+                                          fontWeight: FontWeight.w600,
+                                        ),
+                                      ),
+                                    ],
+                                  ),
+                                ),
+                              ),
+                            ),
+                          ],
+                        ),
+                      ],
+                    ),
+                  ),
+                  const SizedBox(height: 16),
+                ],
+
+                // ── Like / Save / Share ──────────────────────────────────────
+                Row(
+                  children: [
+                    _ActionButton(
+                      icon: _likedItems.contains(event.id)
+                          ? Icons.favorite_rounded
+                          : Icons.favorite_border_rounded,
+                      color: _likedItems.contains(event.id)
+                          ? const Color(0xFFFF4D6D)
+                          : UniverseColors.textMuted,
+                      label: _likedItems.contains(event.id) ? 'Liked' : 'Like',
+                      onTap: () => setState(() {
+                        if (_likedItems.contains(event.id)) {
+                          _likedItems.remove(event.id);
+                        } else {
+                          _likedItems.add(event.id);
+                          _dislikedItems.remove(event.id);
+                        }
+                      }),
+                    ),
+                    const SizedBox(width: 8),
+                    _ActionButton(
+                      icon: _savedItems.contains(event.id)
+                          ? Icons.bookmark_rounded
+                          : Icons.bookmark_border_rounded,
+                      color: _savedItems.contains(event.id)
+                          ? UniverseColors.accent
+                          : UniverseColors.textMuted,
+                      label: _savedItems.contains(event.id) ? 'Saved' : 'Save',
+                      onTap: () => setState(() {
+                        if (_savedItems.contains(event.id)) {
+                          _savedItems.remove(event.id);
+                        } else {
+                          _savedItems.add(event.id);
+                        }
+                      }),
+                    ),
+                    const SizedBox(width: 8),
+                    _ActionButton(
+                      icon: Icons.share_rounded,
+                      color: UniverseColors.textMuted,
+                      label: 'Share',
+                      onTap: () {},
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 20),
 
                 // Going / Not Going
                 Row(
@@ -2035,6 +2737,176 @@ class _MapControlButton extends StatelessWidget {
             color: active ? activeColor : UniverseColors.textMuted,
           ),
           child: Center(child: child),
+        ),
+      ),
+    );
+  }
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// PLACEMENT MODE WIDGETS
+// ─────────────────────────────────────────────────────────────────────────────
+
+/// Instruction banner shown while the user is placing a pin.
+class _PlacementBanner extends StatelessWidget {
+  const _PlacementBanner();
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+      decoration: BoxDecoration(
+        color: Colors.black.withOpacity(0.62),
+        borderRadius: BorderRadius.circular(24),
+      ),
+      child: const Text(
+        'Move the map to position your pin',
+        style: TextStyle(
+          color: Colors.white,
+          fontSize: 13,
+          fontWeight: FontWeight.w500,
+        ),
+      ),
+    );
+  }
+}
+
+/// Animated pin shown fixed at the centre of the screen during placement mode.
+class _PlacementPin extends StatelessWidget {
+  final bool lifted;
+  const _PlacementPin({required this.lifted});
+
+  @override
+  Widget build(BuildContext context) {
+    return Column(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        AnimatedContainer(
+          duration: const Duration(milliseconds: 180),
+          curve: Curves.easeOut,
+          margin: EdgeInsets.only(bottom: lifted ? 14 : 0),
+          child: const _MapPin(
+            color: UniverseColors.accent,
+            icon: Icons.add_rounded,
+            width: 36,
+            height: 46,
+          ),
+        ),
+        // Drop shadow under pin — expands while being dragged
+        AnimatedContainer(
+          duration: const Duration(milliseconds: 180),
+          curve: Curves.easeOut,
+          width: lifted ? 22 : 14,
+          height: lifted ? 6 : 4,
+          decoration: BoxDecoration(
+            color: Colors.black.withOpacity(0.22),
+            borderRadius: BorderRadius.circular(8),
+          ),
+        ),
+      ],
+    );
+  }
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// SHEET HELPER WIDGETS
+// ─────────────────────────────────────────────────────────────────────────────
+
+/// Compact text field for use inside the pin customisation sheet.
+class _SheetTextField extends StatelessWidget {
+  final TextEditingController controller;
+  final String hint;
+  final IconData icon;
+
+  const _SheetTextField({
+    required this.controller,
+    required this.hint,
+    required this.icon,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      height: 44,
+      decoration: BoxDecoration(
+        color: UniverseColors.bgPage,
+        borderRadius: BorderRadius.circular(12),
+      ),
+      child: Row(
+        children: [
+          const SizedBox(width: 12),
+          Icon(icon, size: 16, color: UniverseColors.iosSysGray),
+          const SizedBox(width: 8),
+          Expanded(
+            child: TextField(
+              controller: controller,
+              style: const TextStyle(
+                color: UniverseColors.textPrimary,
+                fontSize: 14,
+                fontWeight: FontWeight.w400,
+                height: 1.0,
+              ),
+              decoration: InputDecoration(
+                hintText: hint,
+                hintStyle: const TextStyle(
+                  color: UniverseColors.iosSysGray,
+                  fontSize: 14,
+                  fontWeight: FontWeight.w400,
+                  height: 1.0,
+                ),
+                isDense: true,
+                border: InputBorder.none,
+                contentPadding: EdgeInsets.zero,
+              ),
+            ),
+          ),
+          const SizedBox(width: 12),
+        ],
+      ),
+    );
+  }
+}
+
+/// Small icon + label action button used in the event detail panel.
+class _ActionButton extends StatelessWidget {
+  final IconData icon;
+  final Color color;
+  final String label;
+  final VoidCallback onTap;
+
+  const _ActionButton({
+    required this.icon,
+    required this.color,
+    required this.label,
+    required this.onTap,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Expanded(
+      child: GestureDetector(
+        onTap: onTap,
+        child: Container(
+          height: 44,
+          decoration: BoxDecoration(
+            color: UniverseColors.bgPage,
+            borderRadius: BorderRadius.circular(12),
+          ),
+          child: Column(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              Icon(icon, color: color, size: 20),
+              const SizedBox(height: 3),
+              Text(
+                label,
+                style: TextStyle(
+                  color: color,
+                  fontSize: 11,
+                  fontWeight: FontWeight.w600,
+                ),
+              ),
+            ],
+          ),
         ),
       ),
     );

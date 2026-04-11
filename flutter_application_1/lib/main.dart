@@ -5,6 +5,8 @@ import 'map_tab.dart';
 import 'discover_tab.dart';
 import 'activity_tab.dart';
 import 'profile_tab.dart';
+import 'package:shared_preferences/shared_preferences.dart';
+import 'login_page.dart';
 
 void main() {
   WidgetsFlutterBinding.ensureInitialized();
@@ -27,7 +29,7 @@ class UniverseApp extends StatelessWidget {
       debugShowCheckedModeBanner: false,
       theme: UniverseTheme.lightTheme,
       scrollBehavior: const _NoOverscrollBehavior(),
-      home: const UniverseShell(),
+      home: const AuthGate(),
     );
   }
 }
@@ -150,5 +152,50 @@ class _NoOverscrollBehavior extends ScrollBehavior {
   @override
   ScrollPhysics getScrollPhysics(BuildContext context) {
     return const ClampingScrollPhysics();
+  }
+}
+
+
+
+
+class AuthGate extends StatefulWidget {
+  const AuthGate({super.key});
+
+  @override
+  State<AuthGate> createState() => _AuthGateState();
+}
+
+class _AuthGateState extends State<AuthGate> {
+  @override
+  void initState() {
+    super.initState();
+    _checkLogin();
+  }
+
+  Future<void> _checkLogin() async {
+    //check email existence
+    final prefs = await SharedPreferences.getInstance();
+    final email = prefs.getString('logged_in_email');
+
+    if (mounted) {
+      Navigator.of(context).pushReplacement(
+        MaterialPageRoute(
+          builder: (_) => email != null
+              ? const UniverseShell()  // go to app if logged in
+              : const LoginPage(),     //otherwise go to login
+        ),
+      );
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    //loading spinner
+    return const Scaffold(
+      backgroundColor: UniverseColors.bgPage,
+      body: Center(
+        child: CircularProgressIndicator(color: UniverseColors.accent),
+      ),
+    );
   }
 }
