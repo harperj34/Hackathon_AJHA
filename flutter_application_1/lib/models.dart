@@ -129,7 +129,7 @@ final List<CampusEvent> sampleEvents = [
   ),
   CampusEvent(
     id: '4',
-    title: 'Free Bubble Tea 🧋',
+    title: 'Free Bubble Tea',
     subtitle: 'Asian Society',
     location: 'Sir John Monash Drive',
     time: 'Today, 1:00 PM',
@@ -140,7 +140,7 @@ final List<CampusEvent> sampleEvents = [
   ),
   CampusEvent(
     id: '5',
-    title: 'Hackathon Kickoff 🚀',
+    title: 'Hackathon Kickoff',
     subtitle: 'WIRED Club',
     location: 'Learning & Teaching Building',
     time: 'Fri, 6:00 PM',
