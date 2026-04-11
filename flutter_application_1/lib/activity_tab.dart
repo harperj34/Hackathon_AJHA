@@ -16,13 +16,9 @@ class ActivityTab extends StatelessWidget {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.center,
               children: [
-                const Text(
+                Text(
                   'Activity',
-                  style: TextStyle(
-                    color: UniverseColors.textPrimary,
-                    fontSize: 30,
-                    fontWeight: FontWeight.w800,
-                  ),
+                  style: UniverseTextStyles.displayLarge,
                 ),
                 const SizedBox(height: 4),
                 const Text(

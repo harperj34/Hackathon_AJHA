@@ -306,7 +306,7 @@ class _MapTabState extends State<MapTab> {
                 child: Container(
                   decoration: BoxDecoration(
                     color: Colors.white,
-                    borderRadius: BorderRadius.circular(14),
+                    borderRadius: BorderRadius.circular(22),
                     boxShadow: const [
                       BoxShadow(
                         color: Color(0x14000000),
@@ -325,12 +325,12 @@ class _MapTabState extends State<MapTab> {
                     decoration: InputDecoration(
                       hintText: 'Search buildings, events, clubs...',
                       hintStyle: const TextStyle(
-                        color: UniverseColors.textLight,
+                        color: UniverseColors.textSecondary,
                         fontSize: 15,
                       ),
                       prefixIcon: const Icon(
                         Icons.search_rounded,
-                        color: UniverseColors.textLight,
+                        color: UniverseColors.textSecondary,
                       ),
                       suffixIcon: _searchQuery.isNotEmpty
                           ? IconButton(
@@ -406,6 +406,7 @@ class _MapTabState extends State<MapTab> {
                                         : UniverseColors.textPrimary,
                                     fontSize: 13,
                                     fontWeight: FontWeight.w600,
+                                    letterSpacing: 0.1,
                                   ),
                                 ),
                               ],
@@ -434,7 +435,7 @@ class _MapTabState extends State<MapTab> {
             return Container(
               decoration: const BoxDecoration(
                 color: Colors.white,
-                borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+                borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
                 boxShadow: [
                   BoxShadow(
                     color: Color(0x14000000),
@@ -506,13 +507,9 @@ class _MapTabState extends State<MapTab> {
                 padding: const EdgeInsets.fromLTRB(20, 0, 20, 12),
                 child: Row(
                   children: [
-                    const Text(
+                    Text(
                       'Happening Now',
-                      style: TextStyle(
-                        color: UniverseColors.textPrimary,
-                        fontSize: 18,
-                        fontWeight: FontWeight.w700,
-                      ),
+                      style: UniverseTextStyles.sectionHeader,
                     ),
                     const Spacer(),
                     Text(
@@ -544,15 +541,11 @@ class _MapTabState extends State<MapTab> {
                 color: UniverseColors.divider,
               ),
               const SizedBox(height: 14),
-              const Padding(
-                padding: EdgeInsets.symmetric(horizontal: 20),
+              Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 20),
                 child: Text(
                   'All Events',
-                  style: TextStyle(
-                    color: UniverseColors.textPrimary,
-                    fontSize: 16,
-                    fontWeight: FontWeight.w700,
-                  ),
+                  style: UniverseTextStyles.sectionHeader.copyWith(fontSize: 16),
                 ),
               ),
               const SizedBox(height: 8),
@@ -752,6 +745,7 @@ class _MapTabState extends State<MapTab> {
                     color: UniverseColors.textPrimary,
                     fontSize: 22,
                     fontWeight: FontWeight.w800,
+                    letterSpacing: -0.2,
                   ),
                 ),
                 const SizedBox(height: 4),
@@ -831,11 +825,30 @@ class _MapTabState extends State<MapTab> {
                           duration: const Duration(milliseconds: 180),
                           height: 50,
                           decoration: BoxDecoration(
-                            color: _isGoing
-                                ? UniverseColors.accent
-                                : Colors.white,
                             borderRadius: BorderRadius.circular(14),
-                            border: Border.all(color: UniverseColors.accent),
+                            gradient: _isGoing
+                                ? const LinearGradient(
+                                    colors: [
+                                      Color(0xFF6C63FF),
+                                      Color(0xFF3D8BFF),
+                                    ],
+                                    begin: Alignment.centerLeft,
+                                    end: Alignment.centerRight,
+                                  )
+                                : null,
+                            color: _isGoing ? null : Colors.white,
+                            border: _isGoing
+                                ? null
+                                : Border.all(color: UniverseColors.accent),
+                            boxShadow: _isGoing
+                                ? const [
+                                    BoxShadow(
+                                      color: Color(0x446C63FF),
+                                      blurRadius: 12,
+                                      offset: Offset(0, 3),
+                                    ),
+                                  ]
+                                : null,
                           ),
                           child: Center(
                             child: Text(
@@ -1083,6 +1096,18 @@ class _HappeningCard extends StatelessWidget {
                         color: UniverseColors.textPrimary,
                         fontSize: 14,
                         fontWeight: FontWeight.w700,
+                        height: 1.3,
+                      ),
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                    ),
+                    const SizedBox(height: 3),
+                    Text(
+                      event.subtitle,
+                      style: const TextStyle(
+                        color: UniverseColors.textSecondary,
+                        fontSize: 12,
+                        fontWeight: FontWeight.w500,
                       ),
                       maxLines: 1,
                       overflow: TextOverflow.ellipsis,

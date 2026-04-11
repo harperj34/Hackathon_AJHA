@@ -6,57 +6,71 @@ class ProfileTab extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return SafeArea(
-      child: SingleChildScrollView(
-        padding: const EdgeInsets.symmetric(horizontal: 20),
-        child: Column(
-          children: [
-            const SizedBox(height: 20),
-
-            // Avatar
-            Stack(
-              alignment: Alignment.center,
+    final topPad = MediaQuery.of(context).padding.top;
+    return SingleChildScrollView(
+      child: Column(
+        children: [
+          // ── Cosmic gradient header ─────────────────────────────────────────
+          Container(
+            width: double.infinity,
+            padding: EdgeInsets.fromLTRB(20, topPad + 24, 20, 36),
+            decoration: const BoxDecoration(
+              gradient: LinearGradient(
+                colors: [
+                  Color(0xFF6C63FF),
+                  Color(0xFF9B79FF),
+                  Color(0xFFFF7AD9),
+                ],
+                begin: Alignment.topLeft,
+                end: Alignment.bottomRight,
+              ),
+            ),
+            child: Column(
               children: [
+                // Avatar — white circle on gradient
                 Container(
                   width: 100,
                   height: 100,
                   decoration: BoxDecoration(
                     shape: BoxShape.circle,
-                    color: UniverseColors.accent,
+                    color: Colors.white,
+                    boxShadow: const [
+                      BoxShadow(
+                        color: Color(0x33000000),
+                        blurRadius: 24,
+                        offset: Offset(0, 6),
+                      ),
+                    ],
                   ),
-                  padding: const EdgeInsets.all(3),
-                  child: Container(
-                    decoration: const BoxDecoration(
-                      shape: BoxShape.circle,
-                      color: Colors.white,
-                    ),
-                    child: const Center(
-                      child: Text('🧑‍🚀', style: TextStyle(fontSize: 40)),
-                    ),
+                  child: const Center(
+                    child: Text('🧑‍🚀', style: TextStyle(fontSize: 42)),
+                  ),
+                ),
+                const SizedBox(height: 14),
+                Text(
+                  'Explorer',
+                  style: UniverseTextStyles.displayMedium.copyWith(
+                    color: Colors.white,
+                  ),
+                ),
+                const SizedBox(height: 4),
+                Text(
+                  '@universe_explorer',
+                  style: TextStyle(
+                    color: Colors.white.withOpacity(0.82),
+                    fontSize: 14,
+                    fontWeight: FontWeight.w400,
                   ),
                 ),
               ],
             ),
-            const SizedBox(height: 14),
+          ),
 
-            const Text(
-              'Explorer',
-              style: TextStyle(
-                color: UniverseColors.textPrimary,
-                fontSize: 24,
-                fontWeight: FontWeight.w800,
-              ),
-            ),
-            const SizedBox(height: 4),
-            const Text(
-              '@universe_explorer',
-              style: TextStyle(
-                color: UniverseColors.textMuted,
-                fontSize: 14,
-              ),
-            ),
-
-            const SizedBox(height: 24),
+          Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 20),
+            child: Column(
+              children: [
+                const SizedBox(height: 24),
 
             // Stats row
             Container(
@@ -118,19 +132,21 @@ class ProfileTab extends StatelessWidget {
               subtitle: '',
             ),
 
-            const SizedBox(height: 32),
+                const SizedBox(height: 32),
 
-            // Version
-            const Text(
-              'Universe v1.0.0',
-              style: TextStyle(
-                color: UniverseColors.textLight,
-                fontSize: 12,
-              ),
+                // Version
+                const Text(
+                  'Universe v1.0.0',
+                  style: TextStyle(
+                    color: UniverseColors.textLight,
+                    fontSize: 12,
+                  ),
+                ),
+                const SizedBox(height: 80),
+              ],
             ),
-            const SizedBox(height: 80),
-          ],
-        ),
+          ),
+        ],
       ),
     );
   }
