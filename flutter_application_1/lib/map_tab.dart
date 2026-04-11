@@ -789,7 +789,10 @@ class _MapTabState extends State<MapTab> with TickerProviderStateMixin {
     for (final e in sampleEvents) {
       final attendeeScore = (e.attendees / 150.0).clamp(0.0, 1.0);
       final liveBonus = _isEventLive(e) ? 0.25 : 0.0;
-      final intensity = (attendeeScore * 0.85 + 0.15 + liveBonus).clamp(0.0, 1.0);
+      final intensity = (attendeeScore * 0.85 + 0.15 + liveBonus).clamp(
+        0.0,
+        1.0,
+      );
       pts.add(HeatPoint(e.position, intensity));
     }
 
@@ -881,27 +884,9 @@ class _MapTabState extends State<MapTab> with TickerProviderStateMixin {
             ),
             // ── Heatmap blobs (above base map, below pins) ─────────────────
             if (_showHeatmap)
-              MarkerLayer(
-                markers: _heatPoints.map((pt) {
-                  // Zoom-responsive radius: blobs tighten when zoomed in,
-                  // merge into broader zones when zoomed out.
-                  // At zoom ~15 blobs are larger; at zoom ~18 they're tight.
-                  final zoomFactor = ((_currentZoom - 15.0) / 3.0).clamp(0.0, 1.0);
-                  final baseRadius = ui.lerpDouble(55.0, 22.0, zoomFactor)!;
-                  final radius = baseRadius + pt.intensity * ui.lerpDouble(30.0, 14.0, zoomFactor)!;
-                  final side = radius * 2;
-                  return Marker(
-                    point: pt.position,
-                    width: side,
-                    height: side,
-                    child: CustomPaint(
-                      size: Size(side, side),
-                      painter: _HeatBlobPainter(
-                        intensity: pt.intensity,
-                      ),
-                    ),
-                  );
-                }).toList(),
+              _HeatmapLayer(
+                points: _heatPoints,
+                zoom: _currentZoom,
               ),
             // ── Event pins (primary interactive layer) ─────────────────────
             MarkerLayer(
@@ -934,25 +919,39 @@ class _MapTabState extends State<MapTab> with TickerProviderStateMixin {
                       height: pinH,
                     );
                     if (isLive) {
+                      // Pulse ring drawn via Clip.none + Positioned so it never
+                      // affects layout size (prevents the pin from jumping).
                       pinWidget = AnimatedBuilder(
                         animation: _signalPulseController!,
                         builder: (_, child) {
                           final t = _signalPulseController!.value;
-                          final pulseRadius = 18.0 + t * 16.0;
-                          final pulseOpacity = (1.0 - t) * 0.4;
-                          return Stack(
-                            alignment: Alignment.center,
-                            children: [
-                              Container(
-                                width: pulseRadius * 2,
-                                height: pulseRadius * 2,
-                                decoration: BoxDecoration(
-                                  shape: BoxShape.circle,
-                                  color: info.color.withOpacity(pulseOpacity),
+                          final pulseRadius = pinW * 0.5 + t * (pinW * 0.55);
+                          final pulseOpacity = (1.0 - t) * 0.45;
+                          return SizedBox(
+                            width: pinW,
+                            height: pinH,
+                            child: Stack(
+                              clipBehavior: Clip.none,
+                              alignment: Alignment.topCenter,
+                              children: [
+                                Positioned(
+                                  // Centre the ring on the pin head
+                                  left: pinW / 2 - pulseRadius,
+                                  top: pinH * 0.28 - pulseRadius,
+                                  child: Container(
+                                    width: pulseRadius * 2,
+                                    height: pulseRadius * 2,
+                                    decoration: BoxDecoration(
+                                      shape: BoxShape.circle,
+                                      color: info.color.withOpacity(
+                                        pulseOpacity,
+                                      ),
+                                    ),
+                                  ),
                                 ),
-                              ),
-                              child!,
-                            ],
+                                child!,
+                              ],
+                            ),
                           );
                         },
                         child: pinWidget,
@@ -3772,59 +3771,96 @@ class _BusStopPin extends StatelessWidget {
   }
 }
 
-/// Snap Map–style radial heat blob.
+/// Full-map heatmap layer.
 ///
-/// Each blob paints its own full colour spectrum from the centre outward:
-///   centre  → bright red / orange core  (hottest)
-///   mid     → yellow / lime transition
-///   outer   → green / turquoise halo    (coolest visible edge)
-///   edge    → fully transparent
-///
-/// [intensity] (0–1) shifts the inner colours: low-intensity blobs start
-/// from yellow rather than red, mimicking Snap Map's cooler/quieter zones.
-class _HeatBlobPainter extends CustomPainter {
-  final double intensity;
+/// Draws ALL heat blobs onto a single canvas inside [saveLayer] using
+/// [BlendMode.screen], so overlapping blobs brighten and merge naturally —
+/// identical to the merging behaviour seen on Snap Map when zooming out.
+class _HeatmapLayer extends StatelessWidget {
+  final List<HeatPoint> points;
+  final double zoom;
 
-  const _HeatBlobPainter({required this.intensity});
+  const _HeatmapLayer({required this.points, required this.zoom});
 
   @override
-  void paint(Canvas canvas, Size size) {
-    final center = Offset(size.width / 2, size.height / 2);
-    final radius = size.width / 2;
+  Widget build(BuildContext context) {
+    final camera = MapCamera.of(context);
+    return SizedBox.expand(
+      child: CustomPaint(
+        painter: _HeatmapPainter(points: points, camera: camera, zoom: zoom),
+      ),
+    );
+  }
+}
 
-    // --- Colour stops (all fully opaque; transparency handled via stop positions)
-    // The core colour slides from yellow (low) to red (high) based on intensity.
-    final coreColor = Color.lerp(
-      const Color(0xFFFFE500), // yellow   — low activity
-      const Color(0xFFFF2200), // red      — high activity
-      intensity,
-    )!;
-    const midColor   = Color(0xFFFF8C00); // orange
-    const outerColor = Color(0xFF34C759); // green
-    const haloColor  = Color(0xFF00C7BE); // turquoise / cyan
+class _HeatmapPainter extends CustomPainter {
+  final List<HeatPoint> points;
+  final MapCamera camera;
+  final double zoom;
 
-    // Opacity of the solid core scales with intensity
-    final coreOpacity = (0.60 + intensity * 0.35).clamp(0.0, 1.0);
+  const _HeatmapPainter({
+    required this.points,
+    required this.camera,
+    required this.zoom,
+  });
 
-    final paint = Paint()
-      ..shader = ui.Gradient.radial(
-        center,
-        radius,
-        [
-          coreColor.withOpacity(coreOpacity),  // bright centre
-          midColor.withOpacity(coreOpacity * 0.85),
-          outerColor.withOpacity(0.55),
-          haloColor.withOpacity(0.25),
-          haloColor.withOpacity(0.0),          // transparent edge
-        ],
-        // Stop positions: core is tight, outer fades gently
-        [0.0, 0.28, 0.55, 0.78, 1.0],
-      );
-    canvas.drawCircle(center, radius, paint);
+  /// Radius of each blob in logical pixels, zoom-responsive.
+  double _radius(double intensity) {
+    final zoomFactor = ((zoom - 15.0) / 3.0).clamp(0.0, 1.0);
+    final base = ui.lerpDouble(70.0, 26.0, zoomFactor)!;
+    final scale = ui.lerpDouble(38.0, 16.0, zoomFactor)!;
+    return base + intensity * scale;
   }
 
   @override
-  bool shouldRepaint(_HeatBlobPainter old) => old.intensity != intensity;
+  void paint(Canvas canvas, Size size) {
+    if (points.isEmpty) return;
+
+    // Isolate the entire heatmap onto its own compositing layer so that
+    // BlendMode.screen blends blobs against each other (not the base map).
+    final layerPaint = Paint();
+    canvas.saveLayer(Offset.zero & size, layerPaint);
+
+    for (final pt in points) {
+      final screenPt = camera.latLngToScreenPoint(pt.position);
+      final center = Offset(screenPt.x, screenPt.y);
+      final radius = _radius(pt.intensity);
+
+      // Core colour: yellow (low) → red (high)
+      final coreColor = Color.lerp(
+        const Color(0xFFFFE500),
+        const Color(0xFFFF2200),
+        pt.intensity,
+      )!;
+      const midColor   = Color(0xFFFF8C00); // orange
+      const outerColor = Color(0xFF34C759); // green
+      const haloColor  = Color(0xFF00C7BE); // turquoise
+
+      final coreOpacity = (0.62 + pt.intensity * 0.33).clamp(0.0, 1.0);
+
+      final paint = Paint()
+        ..blendMode = BlendMode.screen
+        ..shader = ui.Gradient.radial(
+          center,
+          radius,
+          [
+            coreColor.withOpacity(coreOpacity),
+            midColor.withOpacity(coreOpacity * 0.82),
+            outerColor.withOpacity(0.50),
+            haloColor.withOpacity(0.22),
+            haloColor.withOpacity(0.0),
+          ],
+          [0.0, 0.25, 0.52, 0.76, 1.0],
+        );
+      canvas.drawCircle(center, radius, paint);
+    }
+
+    canvas.restore();
+  }
+
+  @override
+  bool shouldRepaint(_HeatmapPainter old) =>
+      old.points != points || old.zoom != zoom || old.camera != camera;
 }
 
 /// Reusable circular map control button (zoom +/-, heatmap toggle, etc.)
