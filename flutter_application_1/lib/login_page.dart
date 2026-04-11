@@ -3,6 +3,8 @@ import 'package:shared_preferences/shared_preferences.dart';
 import 'theme.dart';
 import 'neon_service.dart';
 import 'main.dart';
+import 'package:url_launcher/url_launcher.dart';
+import 'package:flutter/gestures.dart';
 
 class LoginPage extends StatefulWidget {
   const LoginPage({super.key});
@@ -81,7 +83,7 @@ class _LoginPageState extends State<LoginPage> {
 
               // Title
               const Text(
-                '👋 Welcome to\nUniverse',
+                'Sign In to Universe',
                 style: TextStyle(
                   color: UniverseColors.textPrimary,
                   fontSize: 36,
@@ -90,14 +92,42 @@ class _LoginPageState extends State<LoginPage> {
                 ),
               ),
               const SizedBox(height: 10),
+              RichText(
+                text: TextSpan(
+                  style: const TextStyle(
+                    color: UniverseColors.textMuted,
+                    fontSize: 15,
+                  ),
+                  children: [
+                    const TextSpan(
+                      text: 'Welcome to Clayton Campus, you are on Boonwurrung Land. ',
+                    ),
+                    TextSpan(
+                      text: 'Learn More →',
+                      style: const TextStyle(
+                        color: UniverseColors.accent,
+                        fontWeight: FontWeight.w600,
+                        decoration: TextDecoration.underline,
+                      ),
+                      recognizer: TapGestureRecognizer()
+                        ..onTap = () async {
+                          final url = Uri.parse('https://www.boonwurrung.org');
+                          if (await canLaunchUrl(url)) {
+                            await launchUrl(url, mode: LaunchMode.externalApplication);
+                          }
+                        },
+                    ),
+                  ],
+                ),
+              ),
+              const SizedBox(height: 10),
               const Text(
                 'Enter your email to get started',
                 style: TextStyle(
                   color: UniverseColors.textMuted,
-                  fontSize: 16,
+                  fontSize: 15,
                 ),
               ),
-              const SizedBox(height: 40),
 
               //Email input field
               Container(
