@@ -195,7 +195,8 @@ final List<CampusEvent> sampleEvents = [
     subtitle: 'Student Union',
     location: 'Campus Centre',
     time: _todayPlusMinutes(20),
-    imageUrl: 'https://images.unsplash.com/photo-1513104890138-7c749659a591?w=400',
+    imageUrl:
+        'https://images.unsplash.com/photo-1513104890138-7c749659a591?w=400',
     category: EventCategory.food,
     position: LatLng(-37.9109, 145.1330),
     attendees: 60,

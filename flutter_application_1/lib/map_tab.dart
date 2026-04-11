@@ -784,27 +784,32 @@ class _MapTabState extends State<MapTab> with TickerProviderStateMixin {
 
   List<HeatPoint> get _heatPoints {
     final pts = <HeatPoint>[];
+
+    // Events — attendance-weighted, live events get a bonus
     for (final e in sampleEvents) {
-      final intensity = (e.attendees / 200.0).clamp(0.0, 1.0);
+      final attendeeScore = (e.attendees / 150.0).clamp(0.0, 1.0);
+      final liveBonus = _isEventLive(e) ? 0.25 : 0.0;
+      final intensity = (attendeeScore * 0.85 + 0.15 + liveBonus).clamp(0.0, 1.0);
       pts.add(HeatPoint(e.position, intensity));
     }
+
+    // Signals — moderate heat
+    for (final s in activeSignals) {
+      pts.add(HeatPoint(s.position, 0.45));
+    }
+
+    // Study spots — very low heat, never dominates
+    for (final sp in sampleStudySpots) {
+      pts.add(HeatPoint(sp.position, 0.12));
+    }
+
     return pts;
   }
 
-  Color _heatColor(double intensity) {
-    if (intensity < 0.4) {
-      return Color.lerp(
-        const Color(0x556C63FF),
-        const Color(0x88A855F7),
-        intensity / 0.4,
-      )!;
-    }
-    return Color.lerp(
-      const Color(0x88A855F7),
-      const Color(0xAAFF7AD9),
-      (intensity - 0.4) / 0.6,
-    )!;
-  }
+  /// Returns the hotspot intensity bucket (0.0–1.0) passed straight to the
+  /// painter which drives its own full-spectrum Snap Map–style gradient.
+  /// Kept as a pass-through so the MarkerLayer call site stays unchanged.
+  double _heatIntensity(double intensity) => intensity;
 
   @override
   void dispose() {
@@ -878,15 +883,20 @@ class _MapTabState extends State<MapTab> with TickerProviderStateMixin {
             if (_showHeatmap)
               MarkerLayer(
                 markers: _heatPoints.map((pt) {
-                  final radius = 60.0 + pt.intensity * 40.0;
+                  // Zoom-responsive radius: blobs tighten when zoomed in,
+                  // merge into broader zones when zoomed out.
+                  // At zoom ~15 blobs are larger; at zoom ~18 they're tight.
+                  final zoomFactor = ((_currentZoom - 15.0) / 3.0).clamp(0.0, 1.0);
+                  final baseRadius = ui.lerpDouble(55.0, 22.0, zoomFactor)!;
+                  final radius = baseRadius + pt.intensity * ui.lerpDouble(30.0, 14.0, zoomFactor)!;
+                  final side = radius * 2;
                   return Marker(
                     point: pt.position,
-                    width: radius * 2,
-                    height: radius * 2,
+                    width: side,
+                    height: side,
                     child: CustomPaint(
-                      size: Size(radius * 2, radius * 2),
+                      size: Size(side, side),
                       painter: _HeatBlobPainter(
-                        color: _heatColor(pt.intensity),
                         intensity: pt.intensity,
                       ),
                     ),
@@ -903,19 +913,18 @@ class _MapTabState extends State<MapTab> with TickerProviderStateMixin {
                     final isLive = _isEventLive(event);
                     final countdown = _getEventCountdown(event);
                     final hasCountdown = countdown != null;
-                    final showLabel = _currentZoom >= 16.5 && !isLive && !hasCountdown;
+                    // Show title label whenever zoomed in enough OR countdown is active
+                    final showLabel = (_currentZoom >= 16.5) && !isLive;
                     final double pinW = isSelected ? 34.0 : 28.0;
                     final double pinH = isSelected ? 44.0 : 36.0;
+                    // Extra height: title (18) + countdown (20) when both show
+                    final double extraH = showLabel && hasCountdown
+                        ? 40.0
+                        : (showLabel || hasCountdown ? 20.0 : 0.0);
                     final double markerW = isLive
                         ? 70.0
-                        : hasCountdown
-                            ? 66.0
-                            : (showLabel ? 90.0 : pinW);
-                    final double markerH = isLive
-                        ? 72.0
-                        : hasCountdown
-                            ? pinH + 22.0
-                            : (showLabel ? pinH + 20.0 : pinH);
+                        : (showLabel || hasCountdown ? 90.0 : pinW);
+                    final double markerH = isLive ? 72.0 : pinH + extraH;
 
                     Widget pinWidget = _MapPin(
                       color: info.color,
@@ -966,7 +975,8 @@ class _MapTabState extends State<MapTab> with TickerProviderStateMixin {
                             mainAxisAlignment: MainAxisAlignment.end,
                             crossAxisAlignment: CrossAxisAlignment.center,
                             children: [
-                              if (showLabel)
+                              // Title: always show when label is active OR countdown is showing
+                              if (showLabel || hasCountdown)
                                 Padding(
                                   padding: const EdgeInsets.only(bottom: 2),
                                   child: _PinLabel(
@@ -974,6 +984,7 @@ class _MapTabState extends State<MapTab> with TickerProviderStateMixin {
                                     color: info.color,
                                   ),
                                 ),
+                              // Countdown: below title
                               if (hasCountdown)
                                 Padding(
                                   padding: const EdgeInsets.only(bottom: 3),
@@ -3761,30 +3772,59 @@ class _BusStopPin extends StatelessWidget {
   }
 }
 
-/// Soft radial gradient blob rendered for the heatmap layer.
+/// Snap Map–style radial heat blob.
+///
+/// Each blob paints its own full colour spectrum from the centre outward:
+///   centre  → bright red / orange core  (hottest)
+///   mid     → yellow / lime transition
+///   outer   → green / turquoise halo    (coolest visible edge)
+///   edge    → fully transparent
+///
+/// [intensity] (0–1) shifts the inner colours: low-intensity blobs start
+/// from yellow rather than red, mimicking Snap Map's cooler/quieter zones.
 class _HeatBlobPainter extends CustomPainter {
-  final Color color;
   final double intensity;
 
-  const _HeatBlobPainter({required this.color, required this.intensity});
+  const _HeatBlobPainter({required this.intensity});
 
   @override
   void paint(Canvas canvas, Size size) {
     final center = Offset(size.width / 2, size.height / 2);
     final radius = size.width / 2;
+
+    // --- Colour stops (all fully opaque; transparency handled via stop positions)
+    // The core colour slides from yellow (low) to red (high) based on intensity.
+    final coreColor = Color.lerp(
+      const Color(0xFFFFE500), // yellow   — low activity
+      const Color(0xFFFF2200), // red      — high activity
+      intensity,
+    )!;
+    const midColor   = Color(0xFFFF8C00); // orange
+    const outerColor = Color(0xFF34C759); // green
+    const haloColor  = Color(0xFF00C7BE); // turquoise / cyan
+
+    // Opacity of the solid core scales with intensity
+    final coreOpacity = (0.60 + intensity * 0.35).clamp(0.0, 1.0);
+
     final paint = Paint()
       ..shader = ui.Gradient.radial(
         center,
         radius,
-        [color, color.withOpacity(0.0)],
-        [0.0, 1.0],
+        [
+          coreColor.withOpacity(coreOpacity),  // bright centre
+          midColor.withOpacity(coreOpacity * 0.85),
+          outerColor.withOpacity(0.55),
+          haloColor.withOpacity(0.25),
+          haloColor.withOpacity(0.0),          // transparent edge
+        ],
+        // Stop positions: core is tight, outer fades gently
+        [0.0, 0.28, 0.55, 0.78, 1.0],
       );
     canvas.drawCircle(center, radius, paint);
   }
 
   @override
-  bool shouldRepaint(_HeatBlobPainter old) =>
-      old.color != color || old.intensity != intensity;
+  bool shouldRepaint(_HeatBlobPainter old) => old.intensity != intensity;
 }
 
 /// Reusable circular map control button (zoom +/-, heatmap toggle, etc.)
