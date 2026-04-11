@@ -19,32 +19,32 @@ final Map<EventCategory, EventCategoryInfo> categoryInfo = {
   EventCategory.food: const EventCategoryInfo(
     label: 'Food',
     icon: Icons.restaurant_rounded,
-    color: Color(0xFFFF9F43),
+    color: Color(0xFFFF9F43), // warm orange
   ),
   EventCategory.events: const EventCategoryInfo(
     label: 'Events',
-    icon: Icons.celebration_rounded,
-    color: Color(0xFF6C63FF),
+    icon: Icons.bolt_rounded,
+    color: Color(0xFF6C63FF), // universe purple
   ),
   EventCategory.study: const EventCategoryInfo(
-    label: 'Study Spot',
+    label: 'Study',
     icon: Icons.menu_book_rounded,
-    color: Color(0xFF00B894),
+    color: Color(0xFF3D8BFF), // cosmic blue
   ),
   EventCategory.deals: const EventCategoryInfo(
     label: 'Deals',
     icon: Icons.local_offer_rounded,
-    color: Color(0xFFFFC107),
+    color: Color(0xFF34D399), // muted emerald
   ),
   EventCategory.social: const EventCategoryInfo(
     label: 'Social',
-    icon: Icons.emoji_people_rounded,
-    color: Color(0xFFFF7AD9),
+    icon: Icons.people_rounded,
+    color: Color(0xFFF472B6), // soft pink
   ),
   EventCategory.myki: const EventCategoryInfo(
-    label: 'Myki Inspectors',
-    icon: Icons.security_rounded,
-    color: Color(0xFFEF5350),
+    label: 'Myki',
+    icon: Icons.shield_rounded,
+    color: Color(0xFFF87171), // soft red
   ),
 };
 

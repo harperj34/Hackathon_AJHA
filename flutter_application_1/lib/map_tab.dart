@@ -3,6 +3,7 @@ import 'dart:convert';
 import 'dart:math' show pow;
 import 'dart:ui' as ui;
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:http/http.dart' as http;
 import 'package:flutter_map/flutter_map.dart';
 import 'package:latlong2/latlong.dart';
@@ -917,6 +918,16 @@ class _MapTabState extends State<MapTab> with TickerProviderStateMixin {
                   'https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}@2x.png',
               subdomains: const ['a', 'b', 'c', 'd'],
               userAgentPackageName: 'com.universe.app',
+              // Slight desaturation for a refined, editorial map feel
+              tileBuilder: (context, tileWidget, tile) => ColorFiltered(
+                colorFilter: const ColorFilter.matrix([
+                  0.88, 0.10, 0.02, 0, 6,
+                  0.04, 0.90, 0.06, 0, 6,
+                  0.04, 0.10, 0.86, 0, 10,
+                  0, 0, 0, 1, 0,
+                ]),
+                child: tileWidget,
+              ),
             ),
             // ── Heatmap blobs (above base map, below pins) ─────────────────
             if (_showHeatmap && !_showPlaces)
@@ -1333,21 +1344,24 @@ class _MapTabState extends State<MapTab> with TickerProviderStateMixin {
           ],
         ),
 
-        // ── Search Bar + Filter Chips (opaque underlay, top-pinned) ────────
+        // ── Search Bar + Filter Chips (glass header, top-pinned) ─────────
         Positioned(
           top: 0,
           left: 0,
           right: 0,
-          child: Container(
-            decoration: const BoxDecoration(
-              color: Color(0xFFF5F6FA),
-              border: Border(
-                bottom: BorderSide(color: Color(0x18000000), width: 0.5),
-              ),
-            ),
-            child: SafeArea(
-              bottom: false,
-              child: Column(
+          child: ClipRect(
+            child: BackdropFilter(
+              filter: ui.ImageFilter.blur(sigmaX: 24, sigmaY: 24),
+              child: Container(
+                decoration: BoxDecoration(
+                  color: UniverseColors.glassWhite,
+                  border: const Border(
+                    bottom: BorderSide(color: Color(0x14000000), width: 0.5),
+                  ),
+                ),
+                child: SafeArea(
+                  bottom: false,
+                  child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 mainAxisSize: MainAxisSize.min,
                 children: [
@@ -1373,38 +1387,34 @@ class _MapTabState extends State<MapTab> with TickerProviderStateMixin {
                                   crossAxisAlignment: CrossAxisAlignment.center,
                                   children: [
                                     Text(
-                                      'Live Campus Map',
-                                      style: UniverseTextStyles.displayLarge
-                                          .copyWith(fontSize: 26),
+                                      'Discover',
+                                      style: UniverseTextStyles.displayLarge,
                                     ),
                                     const Spacer(),
                                     GestureDetector(
                                       onTap: () {},
                                       child: Container(
-                                        width: 38,
-                                        height: 38,
-                                        decoration: const BoxDecoration(
-                                          color: Colors.white,
+                                        width: 36,
+                                        height: 36,
+                                        decoration: BoxDecoration(
+                                          color: Colors.white.withOpacity(0.80),
                                           shape: BoxShape.circle,
-                                          boxShadow: [
-                                            BoxShadow(
-                                              color: Color(0x14000000),
-                                              blurRadius: 8,
-                                              offset: Offset(0, 2),
-                                            ),
-                                          ],
+                                          border: Border.all(
+                                            color: UniverseColors.borderColor,
+                                            width: 0.5,
+                                          ),
                                         ),
                                         child: const Icon(
                                           Icons.tune_rounded,
-                                          size: 18,
-                                          color: UniverseColors.textPrimary,
+                                          size: 16,
+                                          color: UniverseColors.textSecondary,
                                         ),
                                       ),
                                     ),
                                   ],
                                 ),
                               ),
-                              // iOS-style search bar
+                              // Search bar — glass pill
                               Padding(
                                 padding: const EdgeInsets.fromLTRB(
                                   16,
@@ -1413,19 +1423,16 @@ class _MapTabState extends State<MapTab> with TickerProviderStateMixin {
                                   0,
                                 ),
                                 child: Container(
-                                  height: 36,
-                                  decoration: const BoxDecoration(
-                                    color: Colors.white,
-                                    borderRadius: BorderRadius.all(
-                                      Radius.circular(14),
+                                  height: 38,
+                                  decoration: BoxDecoration(
+                                    color: Colors.white.withOpacity(0.85),
+                                    borderRadius: const BorderRadius.all(
+                                      Radius.circular(12),
                                     ),
-                                    boxShadow: [
-                                      BoxShadow(
-                                        color: Color(0x1A000000),
-                                        blurRadius: 12,
-                                        offset: Offset(0, 2),
-                                      ),
-                                    ],
+                                    border: Border.all(
+                                      color: UniverseColors.borderColor,
+                                      width: 0.5,
+                                    ),
                                   ),
                                   child: Row(
                                     crossAxisAlignment:
@@ -1511,24 +1518,21 @@ class _MapTabState extends State<MapTab> with TickerProviderStateMixin {
                                   setState(() => _headerCollapsed = false),
                               child: Container(
                                 padding: const EdgeInsets.symmetric(
-                                  horizontal: 12,
+                                  horizontal: 10,
                                   vertical: 6,
                                 ),
                                 decoration: BoxDecoration(
-                                  color: Colors.white,
+                                  color: Colors.white.withOpacity(0.80),
                                   borderRadius: BorderRadius.circular(20),
-                                  boxShadow: const [
-                                    BoxShadow(
-                                      color: Color(0x14000000),
-                                      blurRadius: 6,
-                                      offset: Offset(0, 1),
-                                    ),
-                                  ],
+                                  border: Border.all(
+                                    color: UniverseColors.borderColor,
+                                    width: 0.5,
+                                  ),
                                 ),
                                 child: const Icon(
                                   Icons.search_rounded,
-                                  size: 16,
-                                  color: UniverseColors.iosSysGray,
+                                  size: 15,
+                                  color: UniverseColors.textMuted,
                                 ),
                               ),
                             ),
@@ -1550,16 +1554,15 @@ class _MapTabState extends State<MapTab> with TickerProviderStateMixin {
                                     ),
                                     decoration: BoxDecoration(
                                       color: isActive
-                                          ? info.color
-                                          : Colors.white,
+                                          ? info.color.withOpacity(0.10)
+                                          : Colors.white.withOpacity(0.80),
                                       borderRadius: BorderRadius.circular(20),
-                                      boxShadow: const [
-                                        BoxShadow(
-                                          color: Color(0x14000000),
-                                          blurRadius: 6,
-                                          offset: Offset(0, 1),
-                                        ),
-                                      ],
+                                      border: Border.all(
+                                        color: isActive
+                                            ? info.color.withOpacity(0.30)
+                                            : UniverseColors.borderColor,
+                                        width: 0.5,
+                                      ),
                                     ),
                                     child: Row(
                                       mainAxisSize: MainAxisSize.min,
@@ -1568,18 +1571,20 @@ class _MapTabState extends State<MapTab> with TickerProviderStateMixin {
                                           info.icon,
                                           size: 13,
                                           color: isActive
-                                              ? Colors.white
-                                              : info.color,
+                                              ? info.color
+                                              : UniverseColors.textMuted,
                                         ),
                                         const SizedBox(width: 5),
                                         Text(
                                           info.label,
                                           style: TextStyle(
                                             color: isActive
-                                                ? Colors.white
-                                                : UniverseColors.textPrimary,
+                                                ? info.color
+                                                : UniverseColors.textSecondary,
                                             fontSize: 13,
-                                            fontWeight: FontWeight.w500,
+                                            fontWeight: isActive
+                                                ? FontWeight.w600
+                                                : FontWeight.w400,
                                           ),
                                         ),
                                       ],
@@ -1604,16 +1609,15 @@ class _MapTabState extends State<MapTab> with TickerProviderStateMixin {
                               ),
                               decoration: BoxDecoration(
                                 color: _showPlaces
-                                    ? const Color(0xFFFF7043)
-                                    : Colors.white,
+                                    ? const Color(0xFFFF7043).withOpacity(0.10)
+                                    : Colors.white.withOpacity(0.80),
                                 borderRadius: BorderRadius.circular(20),
-                                boxShadow: const [
-                                  BoxShadow(
-                                    color: Color(0x14000000),
-                                    blurRadius: 6,
-                                    offset: Offset(0, 1),
-                                  ),
-                                ],
+                                border: Border.all(
+                                  color: _showPlaces
+                                      ? const Color(0xFFFF7043).withOpacity(0.30)
+                                      : UniverseColors.borderColor,
+                                  width: 0.5,
+                                ),
                               ),
                               child: Row(
                                 mainAxisSize: MainAxisSize.min,
@@ -1622,18 +1626,20 @@ class _MapTabState extends State<MapTab> with TickerProviderStateMixin {
                                     Icons.storefront_rounded,
                                     size: 13,
                                     color: _showPlaces
-                                        ? Colors.white
-                                        : const Color(0xFFFF7043),
+                                        ? const Color(0xFFFF7043)
+                                        : UniverseColors.textMuted,
                                   ),
                                   const SizedBox(width: 5),
                                   Text(
                                     'Restaurants',
                                     style: TextStyle(
                                       color: _showPlaces
-                                          ? Colors.white
-                                          : UniverseColors.textPrimary,
+                                          ? const Color(0xFFFF7043)
+                                          : UniverseColors.textSecondary,
                                       fontSize: 13,
-                                      fontWeight: FontWeight.w500,
+                                      fontWeight: _showPlaces
+                                          ? FontWeight.w600
+                                          : FontWeight.w400,
                                     ),
                                   ),
                                 ],
@@ -1649,6 +1655,8 @@ class _MapTabState extends State<MapTab> with TickerProviderStateMixin {
               ),
             ),
           ),
+            ),
+          ),
         ),
 
         // ── Bottom Draggable Panel ─────────────────────────
@@ -1660,19 +1668,27 @@ class _MapTabState extends State<MapTab> with TickerProviderStateMixin {
           snap: true,
           snapSizes: const [_kCollapsed, _kPreview, _kExpanded],
           builder: (context, scrollController) {
-            return Container(
-              decoration: const BoxDecoration(
-                color: Colors.white,
-                borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
-                boxShadow: [
-                  BoxShadow(
-                    color: Color(0x14000000),
-                    blurRadius: 24,
-                    offset: Offset(0, -4),
+            return ClipRRect(
+              borderRadius: const BorderRadius.vertical(top: Radius.circular(20)),
+              child: BackdropFilter(
+                filter: ui.ImageFilter.blur(sigmaX: 28, sigmaY: 28),
+                child: Container(
+                  decoration: BoxDecoration(
+                    color: UniverseColors.glassWhite,
+                    borderRadius: const BorderRadius.vertical(top: Radius.circular(20)),
+                    border: Border.all(
+                      color: UniverseColors.glassBorder,
+                      width: 0.5,
+                    ),
+                    boxShadow: const [
+                      BoxShadow(
+                        color: Color(0x0C000000),
+                        blurRadius: 32,
+                        offset: Offset(0, -8),
+                      ),
+                    ],
                   ),
-                ],
-              ),
-              child: _selectedSignal != null
+                  child: _selectedSignal != null
                   ? _buildSignalPanel(scrollController, _selectedSignal!)
                   : _selectedPlace != null
                   ? _buildPlacePanel(scrollController, _selectedPlace!)
@@ -1681,6 +1697,8 @@ class _MapTabState extends State<MapTab> with TickerProviderStateMixin {
                   : _selectedEvent == null
                   ? _buildHappeningNow(scrollController)
                   : _buildEventPanel(scrollController, _selectedEvent!),
+                ),
+              ),
             );
           },
         ),
@@ -2977,8 +2995,12 @@ class _MapTabState extends State<MapTab> with TickerProviderStateMixin {
                         vertical: 4,
                       ),
                       decoration: BoxDecoration(
-                        color: info.color.withOpacity(0.10),
-                        borderRadius: BorderRadius.circular(8),
+                        color: info.color.withOpacity(0.08),
+                        borderRadius: BorderRadius.circular(6),
+                        border: Border.all(
+                          color: info.color.withOpacity(0.15),
+                          width: 0.5,
+                        ),
                       ),
                       child: Row(
                         mainAxisSize: MainAxisSize.min,
@@ -2990,7 +3012,7 @@ class _MapTabState extends State<MapTab> with TickerProviderStateMixin {
                             style: TextStyle(
                               color: info.color,
                               fontSize: 12,
-                              fontWeight: FontWeight.w700,
+                              fontWeight: FontWeight.w600,
                             ),
                           ),
                         ],
@@ -3018,72 +3040,86 @@ class _MapTabState extends State<MapTab> with TickerProviderStateMixin {
 
                 const SizedBox(height: 12),
 
-                // ── Preview card ─────────────────────────
+                // ── Preview card with accent bar ─────────────────
                 Container(
                   height: 108,
+                  clipBehavior: Clip.antiAlias,
                   decoration: BoxDecoration(
                     color: Colors.white,
-                    borderRadius: BorderRadius.circular(18),
-                    border: Border.all(color: UniverseColors.borderColor),
+                    borderRadius: BorderRadius.circular(16),
+                    border: Border.all(color: UniverseColors.borderColor, width: 0.5),
                     boxShadow: const [
                       BoxShadow(
-                        color: Color(0x0C000000),
-                        blurRadius: 12,
-                        offset: Offset(0, 2),
+                        color: Color(0x08000000),
+                        blurRadius: 16,
+                        offset: Offset(0, 4),
                       ),
                     ],
                   ),
-                  child: Row(
-                    children: [
-                      ClipRRect(
-                        borderRadius: const BorderRadius.horizontal(
-                          left: Radius.circular(18),
+                  child: IntrinsicHeight(
+                    child: Row(
+                      crossAxisAlignment: CrossAxisAlignment.stretch,
+                      children: [
+                        Container(
+                          width: 4,
+                          decoration: BoxDecoration(
+                            gradient: LinearGradient(
+                              colors: [info.color, info.color.withOpacity(0.3)],
+                              begin: Alignment.topCenter,
+                              end: Alignment.bottomCenter,
+                            ),
+                          ),
                         ),
-                        child: Image.network(
-                          event.imageUrl,
-                          width: 108,
-                          height: 108,
-                          fit: BoxFit.cover,
-                          errorBuilder: (_, __, ___) => Container(
-                            width: 108,
+                        ClipRRect(
+                          borderRadius: BorderRadius.zero,
+                          child: Image.network(
+                            event.imageUrl,
+                            width: 104,
                             height: 108,
-                            color: info.color.withOpacity(0.1),
-                            child: Icon(info.icon, color: info.color, size: 36),
+                            fit: BoxFit.cover,
+                            errorBuilder: (_, __, ___) => Container(
+                              width: 104,
+                              height: 108,
+                              color: info.color.withOpacity(0.06),
+                              child: Icon(info.icon, color: info.color.withOpacity(0.3), size: 32),
+                            ),
                           ),
                         ),
-                      ),
-                      Expanded(
-                        child: Padding(
-                          padding: const EdgeInsets.all(14),
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            mainAxisAlignment: MainAxisAlignment.center,
-                            children: [
-                              Text(
-                                event.title,
-                                style: const TextStyle(
-                                  color: UniverseColors.textPrimary,
-                                  fontSize: 15,
-                                  fontWeight: FontWeight.w700,
+                        Expanded(
+                          child: Padding(
+                            padding: const EdgeInsets.all(14),
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              mainAxisAlignment: MainAxisAlignment.center,
+                              children: [
+                                Text(
+                                  event.title,
+                                  style: const TextStyle(
+                                    color: UniverseColors.textPrimary,
+                                    fontSize: 15,
+                                    fontWeight: FontWeight.w600,
+                                    letterSpacing: -0.2,
+                                  ),
+                                  maxLines: 2,
+                                  overflow: TextOverflow.ellipsis,
                                 ),
-                                maxLines: 2,
-                                overflow: TextOverflow.ellipsis,
-                              ),
-                              const SizedBox(height: 6),
-                              _MiniRow(
-                                icon: Icons.location_on_rounded,
-                                label: event.location,
-                              ),
-                              const SizedBox(height: 3),
-                              _MiniRow(
-                                icon: Icons.access_time_rounded,
-                                label: event.time,
-                              ),
-                            ],
+                                const SizedBox(height: 6),
+                                Text(
+                                  '${event.location}  ·  ${event.time}',
+                                  style: const TextStyle(
+                                    color: UniverseColors.textMuted,
+                                    fontSize: 12,
+                                    fontWeight: FontWeight.w400,
+                                  ),
+                                  maxLines: 1,
+                                  overflow: TextOverflow.ellipsis,
+                                ),
+                              ],
+                            ),
                           ),
                         ),
-                      ),
-                    ],
+                      ],
+                    ),
                   ),
                 ),
 
@@ -3771,10 +3807,10 @@ class _DragHandle extends StatelessWidget {
         padding: const EdgeInsets.symmetric(vertical: 10),
         child: Center(
           child: Container(
-            width: 36,
-            height: 4,
+            width: 32,
+            height: 3,
             decoration: BoxDecoration(
-              color: UniverseColors.borderColor,
+              color: const Color(0xFFD1D5DB),
               borderRadius: BorderRadius.circular(2),
             ),
           ),
@@ -3809,7 +3845,7 @@ class _MapPin extends StatelessWidget {
         width: width,
         height: height,
         child: Align(
-          alignment: const Alignment(0, -0.18),
+          alignment: const Alignment(0, -0.24),
           child: Icon(icon, color: Colors.white, size: width * 0.44),
         ),
       ),
@@ -3828,57 +3864,54 @@ class _MapPinPainter extends CustomPainter {
     final w = size.width;
     final h = size.height;
     final cx = w / 2;
-    final tipY = h;
-    final shoulderY = h * 0.68;
-    final topInset = w * 0.07;
-    final sideInset = w * 0.08;
 
-    // Smooth teardrop with a rounded head and a centered pointed tail.
-    final path = ui.Path()
-      ..moveTo(cx, topInset)
-      ..cubicTo(
-        w - sideInset,
-        topInset,
-        w - sideInset * 0.3,
-        h * 0.42,
-        cx + w * 0.26,
-        shoulderY,
-      )
-      ..quadraticBezierTo(cx + w * 0.12, h * 0.86, cx, tipY)
-      ..quadraticBezierTo(cx - w * 0.12, h * 0.86, cx - w * 0.26, shoulderY)
-      ..cubicTo(sideInset * 0.3, h * 0.42, sideInset, topInset, cx, topInset)
+    // ── Sleek circle pin with subtle stem (Linear-style) ────────────────
+    final headR = w * 0.42;
+    final headCY = w * 0.06 + headR;
+
+    // Tiny stem connecting circle to point
+    final stemHW = w * 0.09;
+    final stemTopY = headCY + headR * 0.80;
+    final stemPath = ui.Path()
+      ..moveTo(cx - stemHW, stemTopY)
+      ..quadraticBezierTo(cx, h + 1, cx + stemHW, stemTopY)
       ..close();
 
-    // Shadow
-    canvas.drawShadow(path, const Color(0x55000000), isSelected ? 5 : 3, false);
-
-    // Fill
-    canvas.drawPath(
-      path,
-      Paint()
-        ..color = color
-        ..style = PaintingStyle.fill,
+    // Soft shadow
+    canvas.drawShadow(
+      ui.Path()..addOval(Rect.fromCircle(center: Offset(cx, headCY), radius: headR)),
+      color.withOpacity(0.30),
+      isSelected ? 6 : 3,
+      false,
     );
 
-    // Subtle top highlight to keep the pin looking crisp without changing the palette.
-    canvas.drawOval(
-      Rect.fromCenter(
-        center: Offset(cx, h * 0.27),
-        width: w * 0.58,
-        height: h * 0.34,
-      ),
+    // Stem fill
+    canvas.drawPath(stemPath, Paint()..color = color..style = PaintingStyle.fill);
+
+    // Circle fill
+    canvas.drawCircle(
+      Offset(cx, headCY),
+      headR,
+      Paint()..color = color..style = PaintingStyle.fill,
+    );
+
+    // Subtle gloss — minimal highlight
+    canvas.drawCircle(
+      Offset(cx - w * 0.10, headCY - headR * 0.28),
+      w * 0.10,
       Paint()
-        ..color = Colors.white.withOpacity(isSelected ? 0.16 : 0.10)
+        ..color = Colors.white.withOpacity(isSelected ? 0.20 : 0.12)
         ..style = PaintingStyle.fill,
     );
 
     // White ring when selected
     if (isSelected) {
-      canvas.drawPath(
-        path,
+      canvas.drawCircle(
+        Offset(cx, headCY),
+        headR,
         Paint()
           ..color = Colors.white
-          ..strokeWidth = 2.5
+          ..strokeWidth = 2.0
           ..style = PaintingStyle.stroke,
       );
     }
@@ -3903,101 +3936,119 @@ class _HappeningCard extends StatelessWidget {
       onTap: onTap,
       child: Container(
         margin: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+        clipBehavior: Clip.antiAlias,
         decoration: BoxDecoration(
           color: Colors.white,
-          borderRadius: BorderRadius.circular(18),
-          border: Border.all(color: UniverseColors.borderColor),
+          borderRadius: BorderRadius.circular(16),
+          border: Border.all(color: UniverseColors.borderColor, width: 0.5),
           boxShadow: const [
             BoxShadow(
-              color: Color(0x0A000000),
-              blurRadius: 10,
-              offset: Offset(0, 2),
+              color: Color(0x08000000),
+              blurRadius: 16,
+              offset: Offset(0, 4),
             ),
           ],
         ),
-        child: Row(
-          children: [
-            ClipRRect(
-              borderRadius: const BorderRadius.horizontal(
-                left: Radius.circular(18),
-              ),
-              child: Image.network(
-                event.imageUrl,
-                width: 90,
-                height: double.infinity,
-                fit: BoxFit.cover,
-                errorBuilder: (_, __, ___) => Container(
-                  width: 90,
-                  color: info.color.withOpacity(0.1),
-                  child: Icon(info.icon, color: info.color),
-                ),
-              ),
-            ),
-            Expanded(
-              child: Padding(
-                padding: const EdgeInsets.symmetric(
-                  horizontal: 12,
-                  vertical: 10,
-                ),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  mainAxisAlignment: MainAxisAlignment.center,
-                  children: [
-                    Text(
-                      event.title,
-                      style: const TextStyle(
-                        color: UniverseColors.textPrimary,
-                        fontSize: 14,
-                        fontWeight: FontWeight.w700,
-                        height: 1.3,
-                      ),
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
-                    ),
-                    const SizedBox(height: 3),
-                    Text(
-                      event.subtitle,
-                      style: const TextStyle(
-                        color: UniverseColors.textSecondary,
-                        fontSize: 12,
-                        fontWeight: FontWeight.w500,
-                      ),
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
-                    ),
-                    const SizedBox(height: 4),
-                    _MiniRow(
-                      icon: Icons.location_on_rounded,
-                      label: event.location,
-                    ),
-                    const SizedBox(height: 2),
-                    _MiniRow(
-                      icon: Icons.access_time_rounded,
-                      label: event.time.split(', ').last,
-                    ),
-                  ],
-                ),
-              ),
-            ),
-            Padding(
-              padding: const EdgeInsets.only(right: 14),
-              child: Container(
-                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+        child: IntrinsicHeight(
+          child: Row(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              // Accent gradient bar
+              Container(
+                width: 4,
                 decoration: BoxDecoration(
-                  color: info.color.withOpacity(0.10),
-                  borderRadius: BorderRadius.circular(8),
-                ),
-                child: Text(
-                  '${event.attendees}',
-                  style: TextStyle(
-                    color: info.color,
-                    fontWeight: FontWeight.w700,
-                    fontSize: 12,
+                  gradient: LinearGradient(
+                    colors: [info.color, info.color.withOpacity(0.4)],
+                    begin: Alignment.topCenter,
+                    end: Alignment.bottomCenter,
                   ),
                 ),
               ),
-            ),
-          ],
+              ClipRRect(
+                borderRadius: BorderRadius.zero,
+                child: Image.network(
+                  event.imageUrl,
+                  width: 88,
+                  height: double.infinity,
+                  fit: BoxFit.cover,
+                  errorBuilder: (_, __, ___) => Container(
+                    width: 88,
+                    color: info.color.withOpacity(0.06),
+                    child: Icon(info.icon, color: info.color.withOpacity(0.3), size: 28),
+                  ),
+                ),
+              ),
+              Expanded(
+                child: Padding(
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 12,
+                    vertical: 10,
+                  ),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                      Text(
+                        event.title,
+                        style: const TextStyle(
+                          color: UniverseColors.textPrimary,
+                          fontSize: 14,
+                          fontWeight: FontWeight.w600,
+                          height: 1.3,
+                          letterSpacing: -0.2,
+                        ),
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                      const SizedBox(height: 2),
+                      Text(
+                        event.subtitle,
+                        style: const TextStyle(
+                          color: UniverseColors.textSecondary,
+                          fontSize: 12,
+                          fontWeight: FontWeight.w400,
+                        ),
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                      const SizedBox(height: 6),
+                      Text(
+                        '${event.location}  ·  ${event.time.split(', ').last}',
+                        style: const TextStyle(
+                          color: UniverseColors.textMuted,
+                          fontSize: 11,
+                          fontWeight: FontWeight.w400,
+                          letterSpacing: 0.1,
+                        ),
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+              Padding(
+                padding: const EdgeInsets.only(right: 12),
+                child: Center(
+                  child: Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                    decoration: BoxDecoration(
+                      color: info.color.withOpacity(0.08),
+                      borderRadius: BorderRadius.circular(6),
+                    ),
+                    child: Text(
+                      '${event.attendees}',
+                      style: TextStyle(
+                        color: info.color,
+                        fontWeight: FontWeight.w600,
+                        fontSize: 11,
+                      ),
+                    ),
+                  ),
+                ),
+              ),
+            ],
+          ),
         ),
       ),
     );
@@ -4019,79 +4070,105 @@ class _EventRow extends StatelessWidget {
       child: GestureDetector(
         onTap: onTap,
         child: Container(
-          padding: const EdgeInsets.all(12),
+          clipBehavior: Clip.antiAlias,
           decoration: BoxDecoration(
             color: Colors.white,
-            borderRadius: BorderRadius.circular(16),
-            border: Border.all(color: UniverseColors.borderColor),
+            borderRadius: BorderRadius.circular(14),
+            border: Border.all(color: UniverseColors.borderColor, width: 0.5),
             boxShadow: const [
               BoxShadow(
-                color: Color(0x08000000),
-                blurRadius: 8,
+                color: Color(0x06000000),
+                blurRadius: 10,
                 offset: Offset(0, 2),
               ),
             ],
           ),
-          child: Row(
-            children: [
-              ClipRRect(
-                borderRadius: BorderRadius.circular(12),
-                child: Image.network(
-                  event.imageUrl,
-                  width: 56,
-                  height: 56,
-                  fit: BoxFit.cover,
-                  errorBuilder: (_, __, ___) => Container(
-                    width: 56,
-                    height: 56,
-                    color: info.color.withOpacity(0.1),
-                    child: Icon(info.icon, color: info.color),
+          child: IntrinsicHeight(
+            child: Row(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                // Accent gradient bar
+                Container(
+                  width: 4,
+                  decoration: BoxDecoration(
+                    gradient: LinearGradient(
+                      colors: [info.color, info.color.withOpacity(0.3)],
+                      begin: Alignment.topCenter,
+                      end: Alignment.bottomCenter,
+                    ),
                   ),
                 ),
-              ),
-              const SizedBox(width: 12),
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      event.title,
-                      style: const TextStyle(
-                        color: UniverseColors.textPrimary,
-                        fontSize: 14,
-                        fontWeight: FontWeight.w600,
-                      ),
+                Expanded(
+                  child: Padding(
+                    padding: const EdgeInsets.all(12),
+                    child: Row(
+                      children: [
+                        ClipRRect(
+                          borderRadius: BorderRadius.circular(10),
+                          child: Image.network(
+                            event.imageUrl,
+                            width: 52,
+                            height: 52,
+                            fit: BoxFit.cover,
+                            errorBuilder: (_, __, ___) => Container(
+                              width: 52,
+                              height: 52,
+                              color: info.color.withOpacity(0.06),
+                              child: Icon(info.icon, color: info.color.withOpacity(0.3), size: 20),
+                            ),
+                          ),
+                        ),
+                        const SizedBox(width: 12),
+                        Expanded(
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            mainAxisAlignment: MainAxisAlignment.center,
+                            children: [
+                              Text(
+                                event.title,
+                                style: const TextStyle(
+                                  color: UniverseColors.textPrimary,
+                                  fontSize: 14,
+                                  fontWeight: FontWeight.w600,
+                                  letterSpacing: -0.1,
+                                ),
+                              ),
+                              const SizedBox(height: 3),
+                              Text(
+                                '${event.location}  ·  ${event.time}',
+                                style: const TextStyle(
+                                  color: UniverseColors.textMuted,
+                                  fontSize: 12,
+                                  fontWeight: FontWeight.w400,
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                        Container(
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 8,
+                            vertical: 4,
+                          ),
+                          decoration: BoxDecoration(
+                            color: info.color.withOpacity(0.08),
+                            borderRadius: BorderRadius.circular(6),
+                          ),
+                          child: Text(
+                            '${event.attendees}',
+                            style: TextStyle(
+                              color: info.color,
+                              fontWeight: FontWeight.w600,
+                              fontSize: 11,
+                            ),
+                          ),
+                        ),
+                      ],
                     ),
-                    const SizedBox(height: 3),
-                    Text(
-                      '${event.location} · ${event.time}',
-                      style: const TextStyle(
-                        color: UniverseColors.textLight,
-                        fontSize: 12,
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-              Container(
-                padding: const EdgeInsets.symmetric(
-                  horizontal: 10,
-                  vertical: 4,
-                ),
-                decoration: BoxDecoration(
-                  color: info.color.withOpacity(0.10),
-                  borderRadius: BorderRadius.circular(10),
-                ),
-                child: Text(
-                  '${event.attendees}',
-                  style: TextStyle(
-                    color: info.color,
-                    fontWeight: FontWeight.w700,
-                    fontSize: 12,
                   ),
                 ),
-              ),
-            ],
+              ],
+            ),
           ),
         ),
       ),
@@ -4469,19 +4546,19 @@ class _MapControlButton extends StatelessWidget {
       onTap: onTap,
       child: AnimatedContainer(
         duration: const Duration(milliseconds: 180),
-        width: 44,
-        height: 44,
+        width: 40,
+        height: 40,
         decoration: BoxDecoration(
-          color: Colors.white,
+          color: Colors.white.withOpacity(0.85),
           shape: BoxShape.circle,
           border: Border.all(
-            color: active ? activeColor : UniverseColors.borderColor,
-            width: 1.5,
+            color: active ? activeColor.withOpacity(0.30) : UniverseColors.borderColor,
+            width: 0.5,
           ),
           boxShadow: const [
             BoxShadow(
-              color: Color(0x1A000000),
-              blurRadius: 8,
+              color: Color(0x0C000000),
+              blurRadius: 12,
               offset: Offset(0, 2),
             ),
           ],
@@ -4489,6 +4566,7 @@ class _MapControlButton extends StatelessWidget {
         child: IconTheme(
           data: IconThemeData(
             color: active ? activeColor : UniverseColors.textMuted,
+            size: 18,
           ),
           child: Center(child: child),
         ),
@@ -4561,8 +4639,9 @@ class _SignalPin extends StatelessWidget {
             animation: pulseController,
             builder: (_, child) {
               final t = pulseController.value;
+              // Single soft pulse ring — understated radar effect
               final pulseRadius = circleSize / 2 + t * 14.0;
-              final pulseOpacity = (1.0 - t) * 0.4;
+              final pulseOpacity = (1.0 - t) * 0.25;
               return SizedBox(
                 width: circleSize,
                 height: circleSize,
@@ -4570,7 +4649,6 @@ class _SignalPin extends StatelessWidget {
                   alignment: Alignment.center,
                   clipBehavior: Clip.none,
                   children: [
-                    // Pulse ring — drawn outside bounds, doesn't affect layout
                     Positioned(
                       left: circleSize / 2 - pulseRadius,
                       top: circleSize / 2 - pulseRadius,
@@ -4579,8 +4657,9 @@ class _SignalPin extends StatelessWidget {
                         height: pulseRadius * 2,
                         decoration: BoxDecoration(
                           shape: BoxShape.circle,
-                          color: UniverseColors.accent.withOpacity(
-                            pulseOpacity,
+                          border: Border.all(
+                            color: UniverseColors.accent.withOpacity(pulseOpacity),
+                            width: 1.5,
                           ),
                         ),
                       ),
@@ -4595,23 +4674,17 @@ class _SignalPin extends StatelessWidget {
               height: circleSize,
               clipBehavior: Clip.antiAlias,
               decoration: BoxDecoration(
-                gradient: hasImage
-                    ? null
-                    : LinearGradient(
-                        colors: [color, color.withOpacity(0.7)],
-                        begin: Alignment.topLeft,
-                        end: Alignment.bottomRight,
-                      ),
+                color: hasImage ? null : color,
                 shape: BoxShape.circle,
                 border: Border.all(
-                  color: UniverseColors.accent,
-                  width: isSelected ? 3 : 2,
+                  color: Colors.white,
+                  width: isSelected ? 2.5 : 1.5,
                 ),
                 boxShadow: [
                   BoxShadow(
-                    color: UniverseColors.accent.withOpacity(0.45),
-                    blurRadius: isSelected ? 14 : 8,
-                    offset: const Offset(0, 3),
+                    color: color.withOpacity(0.20),
+                    blurRadius: isSelected ? 10 : 6,
+                    offset: const Offset(0, 2),
                   ),
                 ],
               ),
@@ -4628,20 +4701,14 @@ class _SignalPin extends StatelessWidget {
                   : Icon(icon, color: Colors.white, size: isSelected ? 20 : 16),
             ),
           ),
-          const SizedBox(height: 3),
-          // Dot tail
+          const SizedBox(height: 2),
+          // Dot tail — minimal
           Container(
-            width: isSelected ? 6 : 5,
-            height: isSelected ? 6 : 5,
+            width: 4,
+            height: 4,
             decoration: BoxDecoration(
-              color: UniverseColors.accent,
+              color: UniverseColors.textMuted,
               shape: BoxShape.circle,
-              boxShadow: [
-                BoxShadow(
-                  color: UniverseColors.accent.withOpacity(0.35),
-                  blurRadius: 4,
-                ),
-              ],
             ),
           ),
         ],

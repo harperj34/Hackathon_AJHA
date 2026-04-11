@@ -13,22 +13,34 @@ class UniverseColors {
   static const darkNavy = Color(0xFF12121B);
   static const blushPink = Color(0xFFFFD1D1);
 
-  // Light palette
-  static const accent = Color(0xFF6C63FF); // primary purple
-  static const accentBlue = Color(0xFF3D8BFF); // secondary blue
+  // ── Modern minimal palette (Linear / Stripe vibe) ──────────────────
+  // Accent used sparingly — pins, active states, small highlights
+  static const accent = Color(0xFF6C63FF);       // Universe Purple
+  static const accentBlue = Color(0xFF3D8BFF);   // Cosmic Blue
   static const accentOrange = Color(0xFFFF9F43); // food/orange
-  static const accentPink = Color(0xFFFF7AD9); // social/pink
-  static const textPrimary = Color(0xFF0E0F1A);
-  static const textMuted = Color(0xFF9094A5);
-  static const textLight = Color(0xFFABAFC7);
-  static const bgPage = Color(0xFFF2F2F7);     // iOS systemGray6
+  static const accentPink = Color(0xFFFF7AD9);   // social/pink
+
+  // Neutral-forward text hierarchy
+  static const textPrimary = Color(0xFF0F172A);   // near-black, editorial
+  static const textSecondary = Color(0xFF6B7280); // cool grey
+  static const textMuted = Color(0xFF9CA3AF);     // light meta text
+  static const textLight = Color(0xFFB0B7C3);     // placeholder / hint
+
+  // Surfaces
+  static const bgPage = Color(0xFFF5F6F8);        // soft neutral grey
   static const bgCard = Colors.white;
-  static const borderColor = Color(0xFFE6E8EE);
-  static const divider = Color(0xFFF0F2F8);
-  static const textSecondary = Color(0xFF6B7280);
-  static const iosSysGray = Color(0xFF8E8E93);  // iOS systemGray
-  static const iosSysGray2 = Color(0xFFAEAEB2); // iOS systemGray2
-  static const iosSysGray6 = Color(0xFFF2F2F7); // iOS systemGray6 — chip/field bg
+  static const borderColor = Color(0xFFE5E7EB);   // subtle border
+  static const divider = Color(0xFFF0F1F3);
+
+  // iOS system greys (still useful)
+  static const iosSysGray = Color(0xFF8E8E93);
+  static const iosSysGray2 = Color(0xFFAEAEB2);
+  static const iosSysGray6 = Color(0xFFF2F2F7);
+
+  // Glass constants  — used for floating panels & overlays
+  static const glassWhite = Color(0xBFFFFFFF);         // 75% white
+  static const glassBorder = Color(0x66FFFFFF);        // 40% white
+  static const glassShadow = Color(0x0F000000);        // ~6% black
 
   static const primaryGradient = LinearGradient(
     colors: [accent, accentBlue],
@@ -117,30 +129,33 @@ class UniverseTheme {
 // ─────────────────────────────────────────────────────────────────────────────
 
 class UniverseTextStyles {
-  /// Large page / screen titles.
-  static final TextStyle displayLarge = GoogleFonts.spaceGrotesk(
-    fontSize: 30,
+  /// Large page / screen titles — Inter bold, editorial.
+  static final TextStyle displayLarge = GoogleFonts.inter(
+    fontSize: 28,
     fontWeight: FontWeight.w700,
     color: UniverseColors.textPrimary,
-    letterSpacing: -0.5,
+    letterSpacing: -0.6,
+    height: 1.15,
   );
 
   /// Medium display (e.g. profile name).
-  static final TextStyle displayMedium = GoogleFonts.spaceGrotesk(
-    fontSize: 24,
+  static final TextStyle displayMedium = GoogleFonts.inter(
+    fontSize: 22,
     fontWeight: FontWeight.w700,
     color: UniverseColors.textPrimary,
-    letterSpacing: -0.3,
+    letterSpacing: -0.4,
+    height: 1.2,
   );
 
   /// Section headers inside panels.
-  static final TextStyle sectionHeader = GoogleFonts.spaceGrotesk(
-    fontSize: 18,
-    fontWeight: FontWeight.w700,
+  static final TextStyle sectionHeader = GoogleFonts.inter(
+    fontSize: 16,
+    fontWeight: FontWeight.w600,
     color: UniverseColors.textPrimary,
+    letterSpacing: -0.2,
   );
 
-  /// Bottom nav bar tab labels — SF Pro Text (inherits system font).
+  /// Bottom nav bar tab labels.
   static const TextStyle tabLabel = TextStyle(
     fontSize: 10,
     fontWeight: FontWeight.w500,
