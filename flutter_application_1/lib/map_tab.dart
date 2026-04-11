@@ -241,7 +241,7 @@ class _MapTabState extends State<MapTab> {
               ),
             // ── Event pins (primary interactive layer) ─────────────────────
             MarkerLayer(
-                markers: _filteredEvents.map((event) {
+              markers: _filteredEvents.map((event) {
                 final info = categoryInfo[event.category]!;
                 final isSelected = _selectedEvent?.id == event.id;
                 final showLabel = _currentZoom >= 16.5;
@@ -361,59 +361,59 @@ class _MapTabState extends State<MapTab> {
                   padding: const EdgeInsets.symmetric(horizontal: 12),
                   children: [
                     ...EventCategory.values.map((cat) {
-                    final info = categoryInfo[cat]!;
-                    final isActive = _activeFilter == cat;
-                    return Padding(
-                      padding: const EdgeInsets.only(right: 8),
-                      child: GestureDetector(
-                        onTap: () => _onFilterTap(cat),
-                        child: AnimatedContainer(
-                          duration: const Duration(milliseconds: 180),
-                          padding: const EdgeInsets.symmetric(
-                            horizontal: 14,
-                            vertical: 5,
-                          ),
-                          decoration: BoxDecoration(
-                            color: isActive ? info.color : Colors.white,
-                            borderRadius: BorderRadius.circular(20),
-                            border: Border.all(
-                              color: isActive
-                                  ? info.color
-                                  : UniverseColors.borderColor,
+                      final info = categoryInfo[cat]!;
+                      final isActive = _activeFilter == cat;
+                      return Padding(
+                        padding: const EdgeInsets.only(right: 8),
+                        child: GestureDetector(
+                          onTap: () => _onFilterTap(cat),
+                          child: AnimatedContainer(
+                            duration: const Duration(milliseconds: 180),
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: 14,
+                              vertical: 5,
                             ),
-                            boxShadow: const [
-                              BoxShadow(
-                                color: Color(0x0A000000),
-                                blurRadius: 6,
-                                offset: Offset(0, 1),
+                            decoration: BoxDecoration(
+                              color: isActive ? info.color : Colors.white,
+                              borderRadius: BorderRadius.circular(20),
+                              border: Border.all(
+                                color: isActive
+                                    ? info.color
+                                    : UniverseColors.borderColor,
                               ),
-                            ],
-                          ),
-                          child: Row(
-                            mainAxisSize: MainAxisSize.min,
-                            children: [
-                              Icon(
-                                info.icon,
-                                size: 13,
-                                color: isActive ? Colors.white : info.color,
-                              ),
-                              const SizedBox(width: 5),
-                              Text(
-                                info.label,
-                                style: TextStyle(
-                                  color: isActive
-                                      ? Colors.white
-                                      : UniverseColors.textPrimary,
-                                  fontSize: 13,
-                                  fontWeight: FontWeight.w600,
+                              boxShadow: const [
+                                BoxShadow(
+                                  color: Color(0x0A000000),
+                                  blurRadius: 6,
+                                  offset: Offset(0, 1),
                                 ),
-                              ),
-                            ],
+                              ],
+                            ),
+                            child: Row(
+                              mainAxisSize: MainAxisSize.min,
+                              children: [
+                                Icon(
+                                  info.icon,
+                                  size: 13,
+                                  color: isActive ? Colors.white : info.color,
+                                ),
+                                const SizedBox(width: 5),
+                                Text(
+                                  info.label,
+                                  style: TextStyle(
+                                    color: isActive
+                                        ? Colors.white
+                                        : UniverseColors.textPrimary,
+                                    fontSize: 13,
+                                    fontWeight: FontWeight.w600,
+                                  ),
+                                ),
+                              ],
+                            ),
                           ),
                         ),
-                      ),
-                    );
-                  }).toList(),
+                      );
+                    }).toList(),
                     _buildTransportChip(),
                   ],
                 ),
@@ -980,23 +980,11 @@ class _MapPinPainter extends CustomPainter {
       )
       ..quadraticBezierTo(cx + w * 0.12, h * 0.86, cx, tipY)
       ..quadraticBezierTo(cx - w * 0.12, h * 0.86, cx - w * 0.26, shoulderY)
-      ..cubicTo(
-        sideInset * 0.3,
-        h * 0.42,
-        sideInset,
-        topInset,
-        cx,
-        topInset,
-      )
+      ..cubicTo(sideInset * 0.3, h * 0.42, sideInset, topInset, cx, topInset)
       ..close();
 
     // Shadow
-    canvas.drawShadow(
-      path,
-      const Color(0x55000000),
-      isSelected ? 5 : 3,
-      false,
-    );
+    canvas.drawShadow(path, const Color(0x55000000), isSelected ? 5 : 3, false);
 
     // Fill
     canvas.drawPath(
