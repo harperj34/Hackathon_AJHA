@@ -35,6 +35,7 @@ class _MapTabState extends State<MapTab> {
   bool _showHeatmap = false;
   double _currentZoom = 15.5;
   bool _headerCollapsed = false;
+  double _sheetExtent = _kCollapsed;
   StreamSubscription<MapEvent>? _mapEventSub;
   final Map<String, DateTime> _tempExpiry = {};
   final List<Timer> _expiryTimers = [];
@@ -43,10 +44,19 @@ class _MapTabState extends State<MapTab> {
   static const double _kPreview = 0.38;
   static const double _kExpanded = 0.85;
 
+  bool get _hideFloatingMapControls => _sheetExtent >= (_kExpanded - 0.01);
+
   @override
   void initState() {
     super.initState();
     _mapController = MapController();
+    _sheetController.addListener(() {
+      if (!mounted || !_sheetController.isAttached) return;
+      final extent = _sheetController.size.clamp(0.10, _kExpanded);
+      if ((extent - _sheetExtent).abs() > 0.005) {
+        setState(() => _sheetExtent = extent);
+      }
+    });
     WidgetsBinding.instance.addPostFrameCallback((_) {
       _mapEventSub = _mapController.mapEventStream.listen((event) {
         if (!mounted) return;
@@ -273,6 +283,12 @@ class _MapTabState extends State<MapTab> {
 
   @override
   Widget build(BuildContext context) {
+    final screenHeight = MediaQuery.of(context).size.height;
+    final safeTop = MediaQuery.of(context).padding.top;
+    final sheetTop = screenHeight * (1 - _sheetExtent);
+    final rightControlsTop = (sheetTop - 132).clamp(safeTop + 12, screenHeight);
+    final addPinTop = (sheetTop - 72).clamp(safeTop + 12, screenHeight);
+
     return Stack(
       children: [
         // ── Light Map ──────────────────────────────────────
@@ -755,146 +771,159 @@ class _MapTabState extends State<MapTab> {
         // ── Map controls (right side) — heatmap + zoom
         Positioned(
           right: 16,
-          bottom: MediaQuery.of(context).size.height * _kCollapsed + 16,
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              _MapControlButton(
-                onTap: () => setState(() => _showHeatmap = !_showHeatmap),
-                active: _showHeatmap,
-                activeColor: UniverseColors.accentPink,
-                child: const Icon(Icons.whatshot_rounded, size: 20),
+          top: rightControlsTop,
+          child: IgnorePointer(
+            ignoring: _hideFloatingMapControls,
+            child: AnimatedOpacity(
+              duration: const Duration(milliseconds: 180),
+              opacity: _hideFloatingMapControls ? 0 : 1,
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  _MapControlButton(
+                    onTap: () => setState(() => _showHeatmap = !_showHeatmap),
+                    active: _showHeatmap,
+                    activeColor: UniverseColors.accentPink,
+                    child: const Icon(Icons.whatshot_rounded, size: 20),
+                  ),
+                  const SizedBox(height: 8),
+                  _MapControlButton(
+                    onTap: () => _mapController.move(
+                      _mapController.camera.center,
+                      (_mapController.camera.zoom + 1).clamp(13.5, 19.0),
+                    ),
+                    child: const Icon(Icons.add_rounded, size: 20),
+                  ),
+                  const SizedBox(height: 4),
+                  _MapControlButton(
+                    onTap: () => _mapController.move(
+                      _mapController.camera.center,
+                      (_mapController.camera.zoom - 1).clamp(13.5, 19.0),
+                    ),
+                    child: const Icon(Icons.remove_rounded, size: 20),
+                  ),
+                ],
               ),
-              const SizedBox(height: 8),
-              _MapControlButton(
-                onTap: () => _mapController.move(
-                  _mapController.camera.center,
-                  (_mapController.camera.zoom + 1).clamp(13.5, 19.0),
-                ),
-                child: const Icon(Icons.add_rounded, size: 20),
-              ),
-              const SizedBox(height: 4),
-              _MapControlButton(
-                onTap: () => _mapController.move(
-                  _mapController.camera.center,
-                  (_mapController.camera.zoom - 1).clamp(13.5, 19.0),
-                ),
-                child: const Icon(Icons.remove_rounded, size: 20),
-              ),
-            ],
+            ),
           ),
         ),
-        // ── Create study spot (big purple FAB on the left)
+
+        // ── Create post/pin FAB (floats above the panel)
         Positioned(
           left: 16,
-          bottom: MediaQuery.of(context).size.height * _kCollapsed - 40 < 16
-              ? 16
-              : MediaQuery.of(context).size.height * _kCollapsed - 40,
-          child: FloatingActionButton(
-            backgroundColor: UniverseColors.accent,
-            onPressed: () async {
-              // Present a creation menu
-              final choice = await showModalBottomSheet<String?>(
-                context: context,
-                builder: (ctx) => Column(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    ListTile(
-                      leading: const Icon(Icons.menu_book_rounded),
-                      title: const Text('Study Spot'),
-                      onTap: () => Navigator.of(ctx).pop('study'),
-                    ),
-                    ListTile(
-                      leading: const Icon(Icons.restaurant_rounded),
-                      title: const Text('Food (timed)'),
-                      onTap: () => Navigator.of(ctx).pop('food'),
-                    ),
-                    ListTile(
-                      leading: const Icon(Icons.card_giftcard_rounded),
-                      title: const Text('Free Stuff (timed)'),
-                      onTap: () => Navigator.of(ctx).pop('free'),
-                    ),
-                    ListTile(
-                      leading: const Icon(Icons.security_rounded),
-                      title: const Text('Myki Inspectors (timed)'),
-                      onTap: () => Navigator.of(ctx).pop('myki'),
-                    ),
-                    const SizedBox(height: 8),
-                  ],
-                ),
-              );
-              
-              if (choice == null) return;
-              if (choice == 'study') {
-                final titleController = TextEditingController();
-                final locController = TextEditingController();
-                final result = await showDialog<bool>(
-                  context: context,
-                  builder: (ctx) => AlertDialog(
-                    title: const Text('Add Study Spot'),
-                    content: Column(
+          top: addPinTop,
+          child: IgnorePointer(
+            ignoring: _hideFloatingMapControls,
+            child: AnimatedOpacity(
+              duration: const Duration(milliseconds: 180),
+              opacity: _hideFloatingMapControls ? 0 : 1,
+              child: FloatingActionButton(
+                backgroundColor: UniverseColors.accent,
+                onPressed: () async {
+                  // Present a creation menu
+                  final choice = await showModalBottomSheet<String?>(
+                    context: context,
+                    builder: (ctx) => Column(
                       mainAxisSize: MainAxisSize.min,
                       children: [
-                        TextField(
-                          controller: titleController,
-                          decoration: const InputDecoration(labelText: 'Title'),
+                        ListTile(
+                          leading: const Icon(Icons.menu_book_rounded),
+                          title: const Text('Study Spot'),
+                          onTap: () => Navigator.of(ctx).pop('study'),
                         ),
-                        TextField(
-                          controller: locController,
-                          decoration: const InputDecoration(labelText: 'Location'),
+                        ListTile(
+                          leading: const Icon(Icons.restaurant_rounded),
+                          title: const Text('Food (timed)'),
+                          onTap: () => Navigator.of(ctx).pop('food'),
                         ),
+                        ListTile(
+                          leading: const Icon(Icons.card_giftcard_rounded),
+                          title: const Text('Free Stuff (timed)'),
+                          onTap: () => Navigator.of(ctx).pop('free'),
+                        ),
+                        ListTile(
+                          leading: const Icon(Icons.security_rounded),
+                          title: const Text('Myki Inspectors (timed)'),
+                          onTap: () => Navigator.of(ctx).pop('myki'),
+                        ),
+                        const SizedBox(height: 8),
                       ],
                     ),
-                    actions: [
-                      TextButton(onPressed: () => Navigator.of(ctx).pop(false), child: const Text('Cancel')),
-                      ElevatedButton(onPressed: () => Navigator.of(ctx).pop(true), child: const Text('Add')),
-                    ],
-                  ),
-                );
-                if (result == true && titleController.text.trim().isNotEmpty) {
-                  final center = _mapController.camera.center ?? const LatLng(-37.9110, 145.1335);
-                  final id = DateTime.now().millisecondsSinceEpoch.toString();
-                  setState(() {
-                    sampleStudySpots.add(StudySpot(
-                      id: id,
-                      title: titleController.text.trim(),
-                      location: locController.text.trim().isEmpty ? 'Campus' : locController.text.trim(),
-                      position: center,
-                    ));
-                  });
-                }
-              } else {
-                // Timed event types
-                final titleController = TextEditingController();
-                final locController = TextEditingController();
-                final category = choice == 'food'
-                    ? EventCategory.food
-                    : choice == 'free'
+                  );
+
+                  if (choice == null) return;
+                  if (choice == 'study') {
+                    final titleController = TextEditingController();
+                    final locController = TextEditingController();
+                    final result = await showDialog<bool>(
+                      context: context,
+                      builder: (ctx) => AlertDialog(
+                        title: const Text('Add Study Spot'),
+                        content: Column(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            TextField(
+                              controller: titleController,
+                              decoration: const InputDecoration(labelText: 'Title'),
+                            ),
+                            TextField(
+                              controller: locController,
+                              decoration: const InputDecoration(labelText: 'Location'),
+                            ),
+                          ],
+                        ),
+                        actions: [
+                          TextButton(onPressed: () => Navigator.of(ctx).pop(false), child: const Text('Cancel')),
+                          ElevatedButton(onPressed: () => Navigator.of(ctx).pop(true), child: const Text('Add')),
+                        ],
+                      ),
+                    );
+                    if (result == true && titleController.text.trim().isNotEmpty) {
+                      final center = _mapController.camera.center;
+                      final id = DateTime.now().millisecondsSinceEpoch.toString();
+                      setState(() {
+                        sampleStudySpots.add(StudySpot(
+                          id: id,
+                          title: titleController.text.trim(),
+                          location: locController.text.trim().isEmpty ? 'Campus' : locController.text.trim(),
+                          position: center,
+                        ));
+                      });
+                    }
+                  } else {
+                    // Timed event types
+                    final titleController = TextEditingController();
+                    final locController = TextEditingController();
+                    final category = choice == 'food'
+                        ? EventCategory.food
+                        : choice == 'free'
                         ? EventCategory.freeStuff
                         : EventCategory.myki;
-                final result = await showDialog<bool>(
-                  context: context,
-                  builder: (ctx) => AlertDialog(
-                    title: Text('Add ${categoryInfo[category]!.label}'),
-                    content: Column(
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        TextField(controller: titleController, decoration: const InputDecoration(labelText: 'Title')),
-                        TextField(controller: locController, decoration: const InputDecoration(labelText: 'Location')),
-                      ],
-                    ),
-                    actions: [
-                      TextButton(onPressed: () => Navigator.of(ctx).pop(false), child: const Text('Cancel')),
-                      ElevatedButton(onPressed: () => Navigator.of(ctx).pop(true), child: const Text('Add')),
-                    ],
-                  ),
-                );
-                if (result == true && titleController.text.trim().isNotEmpty) {
-                  _addTemporaryEvent(category, titleController.text.trim(), locController.text.trim());
-                }
-              }
-            },
-            child: const Icon(Icons.add_rounded),
+                    final result = await showDialog<bool>(
+                      context: context,
+                      builder: (ctx) => AlertDialog(
+                        title: Text('Add ${categoryInfo[category]!.label}'),
+                        content: Column(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            TextField(controller: titleController, decoration: const InputDecoration(labelText: 'Title')),
+                            TextField(controller: locController, decoration: const InputDecoration(labelText: 'Location')),
+                          ],
+                        ),
+                        actions: [
+                          TextButton(onPressed: () => Navigator.of(ctx).pop(false), child: const Text('Cancel')),
+                          ElevatedButton(onPressed: () => Navigator.of(ctx).pop(true), child: const Text('Add')),
+                        ],
+                      ),
+                    );
+                    if (result == true && titleController.text.trim().isNotEmpty) {
+                      _addTemporaryEvent(category, titleController.text.trim(), locController.text.trim());
+                    }
+                  }
+                },
+                child: const Icon(Icons.add_location_alt_rounded),
+              ),
+            ),
           ),
         ),
       ],
