@@ -7,6 +7,7 @@ import 'activity_tab.dart';
 import 'profile_tab.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'login_page.dart';
+import 'onboarding_overlay.dart';
 
 void main() {
   WidgetsFlutterBinding.ensureInitialized();
@@ -34,7 +35,8 @@ class UniverseApp extends StatelessWidget {
 }
 
 class UniverseShell extends StatefulWidget {
-  const UniverseShell({super.key});
+  final bool showOnboarding;
+  const UniverseShell({super.key, this.showOnboarding = false});
 
   @override
   State<UniverseShell> createState() => _UniverseShellState();
@@ -42,6 +44,7 @@ class UniverseShell extends StatefulWidget {
 
 class _UniverseShellState extends State<UniverseShell> {
   int _currentIndex = 0;
+  bool _showOnboarding = false;
 
   final List<Widget> _tabs = const [
     MapTab(),
@@ -51,59 +54,80 @@ class _UniverseShellState extends State<UniverseShell> {
   ];
 
   @override
+  void initState() {
+    super.initState();
+    _showOnboarding = widget.showOnboarding;
+  }
+
+  @override
   Widget build(BuildContext context) {
     return Scaffold(
       extendBody: true,
-      body: IndexedStack(index: _currentIndex, children: _tabs),
-      bottomNavigationBar: Container(
-        decoration: BoxDecoration(
-          color: Colors.white,
-          border: const Border(
-            top: BorderSide(color: UniverseColors.borderColor, width: 0.5),
-          ),
-          boxShadow: const [
-            BoxShadow(
-              color: Color(0x0A000000),
-              blurRadius: 20,
-              offset: Offset(0, -3),
+      body: Stack(
+        children: [
+          // Main app content
+          IndexedStack(index: _currentIndex, children: _tabs),
+
+          // Onboarding overlay shown on top if new user
+          if (_showOnboarding)
+            OnboardingOverlay(
+              onComplete: () {
+                setState(() => _showOnboarding = false);
+              },
             ),
-          ],
-        ),
-        child: SafeArea(
-          child: Padding(
-            padding: const EdgeInsets.symmetric(vertical: 6),
-            child: Row(
-              mainAxisAlignment: MainAxisAlignment.spaceAround,
-              children: [
-                _NavItem(
-                  icon: Icons.map_outlined,
-                  label: 'Map',
-                  isActive: _currentIndex == 0,
-                  onTap: () => setState(() => _currentIndex = 0),
-                ),
-                _NavItem(
-                  icon: Icons.explore_outlined,
-                  label: 'Discover',
-                  isActive: _currentIndex == 1,
-                  onTap: () => setState(() => _currentIndex = 1),
-                ),
-                _NavItem(
-                  icon: Icons.notifications_none,
-                  label: 'Activity',
-                  isActive: _currentIndex == 2,
-                  onTap: () => setState(() => _currentIndex = 2),
-                ),
-                _NavItem(
-                  icon: Icons.person_outline,
-                  label: 'Profile',
-                  isActive: _currentIndex == 3,
-                  onTap: () => setState(() => _currentIndex = 3),
-                ),
-              ],
-            ),
-          ),
-        ),
+        ],
       ),
+      bottomNavigationBar: _showOnboarding
+          ? null // hide nav bar during onboarding
+          : Container(
+              decoration: BoxDecoration(
+                color: Colors.white,
+                border: const Border(
+                  top: BorderSide(color: UniverseColors.borderColor, width: 0.5),
+                ),
+                boxShadow: const [
+                  BoxShadow(
+                    color: Color(0x0A000000),
+                    blurRadius: 20,
+                    offset: Offset(0, -3),
+                  ),
+                ],
+              ),
+              child: SafeArea(
+                child: Padding(
+                  padding: const EdgeInsets.symmetric(vertical: 6),
+                  child: Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceAround,
+                    children: [
+                      _NavItem(
+                        icon: Icons.map_outlined,
+                        label: 'Map',
+                        isActive: _currentIndex == 0,
+                        onTap: () => setState(() => _currentIndex = 0),
+                      ),
+                      _NavItem(
+                        icon: Icons.explore_outlined,
+                        label: 'Discover',
+                        isActive: _currentIndex == 1,
+                        onTap: () => setState(() => _currentIndex = 1),
+                      ),
+                      _NavItem(
+                        icon: Icons.notifications_none,
+                        label: 'Activity',
+                        isActive: _currentIndex == 2,
+                        onTap: () => setState(() => _currentIndex = 2),
+                      ),
+                      _NavItem(
+                        icon: Icons.person_outline,
+                        label: 'Profile',
+                        isActive: _currentIndex == 3,
+                        onTap: () => setState(() => _currentIndex = 3),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+            ),
     );
   }
 }
@@ -145,10 +169,6 @@ class _NavItem extends StatelessWidget {
   }
 }
 
-
-
-
-
 class AuthGate extends StatefulWidget {
   const AuthGate({super.key});
 
@@ -164,7 +184,6 @@ class _AuthGateState extends State<AuthGate> {
   }
 
   Future<void> _checkLogin() async {
-    //check email existence
     final prefs = await SharedPreferences.getInstance();
     final email = prefs.getString('logged_in_email');
 
@@ -172,8 +191,8 @@ class _AuthGateState extends State<AuthGate> {
       Navigator.of(context).pushReplacement(
         MaterialPageRoute(
           builder: (_) => email != null
-              ? const UniverseShell()  // go to app if logged in
-              : const LoginPage(),     //otherwise go to login
+              ? const UniverseShell()   // already logged in, no onboarding
+              : const LoginPage(),      // not logged in, go to login
         ),
       );
     }
@@ -181,7 +200,6 @@ class _AuthGateState extends State<AuthGate> {
 
   @override
   Widget build(BuildContext context) {
-    //loading spinner
     return const Scaffold(
       backgroundColor: UniverseColors.bgPage,
       body: Center(
