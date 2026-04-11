@@ -3,6 +3,7 @@ import 'theme.dart';
 import 'models.dart';
 import 'event_detail.dart';
 import 'discover_see_all.dart';
+import 'category_events.dart';
 
 class DiscoverTab extends StatelessWidget {
   const DiscoverTab({super.key});
@@ -249,8 +250,14 @@ class DiscoverTab extends StatelessWidget {
                     child: GestureDetector(
                       onTap: () => Navigator.push(
                         context,
-                        MaterialPageRoute(
-                          builder: (_) => CategoryListPage(category: cat),
+                        PageRouteBuilder(
+                          pageBuilder: (_, __, ___) => CategoryEvents(category: cat),
+                          transitionsBuilder: (_, animation, __, child) => SlideTransition(
+                            position: Tween<Offset>(
+                              begin: const Offset(1.0, 0.0),
+                              end: Offset.zero,).animate(CurvedAnimation(parent: animation, curve: Curves.easeOut)),
+                              child: child,
+                            )
                         ),
                       ),
                       child: Padding(
