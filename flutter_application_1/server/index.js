@@ -67,8 +67,53 @@ app.post('/user', async (req, res) => {
   }
 });
 
+// GET /events — fetch all events from DB
+app.get('/events', async (req, res) => {
+  try {
+    const result = await pool.query('SELECT * FROM events ORDER BY created_at DESC');
+    res.json({ events: result.rows });
+  } catch (err) {
+    console.error('Error fetching events:', err.message);
+    res.status(500).json({ error: 'Database error' });
+  }
+});
+
+// POST /events — save a new user-created event
+app.post('/events', async (req, res) => {
+  const {
+    id, title, subtitle, location, display_time,
+    duration_minutes, image_url, category,
+    lat, lng, attendees, is_seed
+  } = req.body;
+
+  try {
+    await pool.query(
+      `INSERT INTO events 
+        (id, title, subtitle, location, display_time, duration_minutes, image_url, category, lat, lng, attendees, is_seed)
+       VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12)`,
+      [
+        id, title, subtitle, location, display_time,
+        duration_minutes ?? 60,
+        image_url ?? '',
+        category, lat, lng,
+        attendees ?? 0,
+        is_seed ?? false
+      ]
+    );
+    res.json({ success: true });
+  } catch (err) {
+    if (err.code === '23505') {
+      res.json({ success: true, note: 'Already exists' });
+    } else {
+      console.error('Error saving event:', err.message);
+      res.status(500).json({ error: 'Database error' });
+    }
+  }
+});
+
 // ── START SERVER ─────────────────────────────────────────────────────────────
 
 app.listen(PORT, '0.0.0.0', () => {
   console.log('Server running at http://localhost:3000');
 });
+
