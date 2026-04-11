@@ -22,6 +22,7 @@ class _MapTabState extends State<MapTab> {
 
   EventCategory? _activeFilter;
   CampusEvent? _selectedEvent;
+  StudySpot? _selectedStudySpot;
   bool _isGoing = false;
   String _searchQuery = '';
   bool _showTransport = false;
@@ -59,10 +60,19 @@ class _MapTabState extends State<MapTab> {
     }).toList();
   }
 
+  List<StudySpot> get _filteredStudySpots {
+    return sampleStudySpots.where((s) {
+      final matchesFilter = _activeFilter == null || _activeFilter == EventCategory.study;
+      final matchesSearch = _searchQuery.isEmpty || s.title.toLowerCase().contains(_searchQuery.toLowerCase()) || s.location.toLowerCase().contains(_searchQuery.toLowerCase());
+      return matchesFilter && matchesSearch;
+    }).toList();
+  }
+
   void _onFilterTap(EventCategory cat) {
     setState(() {
       _activeFilter = _activeFilter == cat ? null : cat;
       _selectedEvent = null;
+      _selectedStudySpot = null;
     });
     _sheetController.animateTo(
       _kCollapsed,
@@ -74,6 +84,7 @@ class _MapTabState extends State<MapTab> {
   void _onPinTap(CampusEvent event) {
     setState(() {
       _selectedEvent = event;
+      _selectedStudySpot = null;
       _isGoing = false;
     });
     _mapController.move(event.position, 17.0);
@@ -84,8 +95,25 @@ class _MapTabState extends State<MapTab> {
     );
   }
 
+  void _onStudyPinTap(StudySpot spot) {
+    setState(() {
+      _selectedStudySpot = spot;
+      _selectedEvent = null;
+      _isGoing = false;
+    });
+    _mapController.move(spot.position, 17.0);
+    _sheetController.animateTo(
+      _kPreview,
+      duration: const Duration(milliseconds: 350),
+      curve: Curves.easeOut,
+    );
+  }
+
   void _dismissPreview() {
-    setState(() => _selectedEvent = null);
+    setState(() {
+      _selectedEvent = null;
+      _selectedStudySpot = null;
+    });
     _sheetController.animateTo(
       _kCollapsed,
       duration: const Duration(milliseconds: 300),
@@ -220,6 +248,44 @@ class _MapTabState extends State<MapTab> {
                           isSelected: isSelected,
                           width: pinW,
                           height: pinH,
+                        ),
+                      ],
+                    ),
+                  ),
+                );
+              }).toList(),
+            ),
+            // Study spot markers
+            MarkerLayer(
+              markers: _filteredStudySpots.map((spot) {
+                final info = categoryInfo[EventCategory.study]!;
+                final showLabel = _currentZoom >= 16.5;
+                return Marker(
+                  point: spot.position,
+                  width: showLabel ? 90.0 : 28.0,
+                  height: showLabel ? 56.0 : 36.0,
+                  alignment: Alignment.bottomCenter,
+                  child: GestureDetector(
+                    onTap: () => _onStudyPinTap(spot),
+                    behavior: HitTestBehavior.opaque,
+                    child: Column(
+                      mainAxisSize: MainAxisSize.min,
+                      crossAxisAlignment: CrossAxisAlignment.center,
+                      children: [
+                        if (showLabel)
+                          Padding(
+                            padding: const EdgeInsets.only(bottom: 2),
+                            child: _PinLabel(
+                              text: spot.title,
+                              color: info.color,
+                            ),
+                          ),
+                        _MapPin(
+                          color: info.color,
+                          icon: info.icon,
+                          isSelected: _selectedStudySpot?.id == spot.id,
+                          width: 28.0,
+                          height: 36.0,
                         ),
                       ],
                     ),
@@ -390,11 +456,68 @@ class _MapTabState extends State<MapTab> {
                   ),
                 ],
               ),
-              child: _selectedEvent == null
-                  ? _buildHappeningNow(scrollController)
-                  : _buildEventPanel(scrollController, _selectedEvent!),
+              child: _selectedStudySpot != null
+                  ? _buildStudySpotPanel(scrollController, _selectedStudySpot!)
+                  : _selectedEvent == null
+                      ? _buildHappeningNow(scrollController)
+                      : _buildEventPanel(scrollController, _selectedEvent!),
             );
           },
+        ),
+        // Floating button to add a study spot (on top of the pullup bar)
+        Positioned(
+          right: 16,
+          bottom: MediaQuery.of(context).size.height * _kCollapsed - 40 < 16
+              ? 16
+              : MediaQuery.of(context).size.height * _kCollapsed - 40,
+          child: FloatingActionButton(
+            onPressed: () async {
+              final titleController = TextEditingController();
+              final locController = TextEditingController();
+              final result = await showDialog<bool>(
+                context: context,
+                builder: (ctx) => AlertDialog(
+                  title: const Text('Add Study Spot'),
+                  content: Column(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      TextField(
+                        controller: titleController,
+                        decoration: const InputDecoration(labelText: 'Title'),
+                      ),
+                      TextField(
+                        controller: locController,
+                        decoration: const InputDecoration(labelText: 'Location'),
+                      ),
+                    ],
+                  ),
+                  actions: [
+                    TextButton(
+                        onPressed: () => Navigator.of(ctx).pop(false),
+                        child: const Text('Cancel')),
+                    ElevatedButton(
+                        onPressed: () => Navigator.of(ctx).pop(true),
+                        child: const Text('Add')),
+                  ],
+                ),
+              );
+              if (result == true && titleController.text.trim().isNotEmpty) {
+                final center = _mapController.camera.center ?? const LatLng(-37.9110, 145.1335);
+                final id = DateTime.now().millisecondsSinceEpoch.toString();
+                setState(() {
+                  sampleStudySpots.add(StudySpot(
+                    id: id,
+                    title: titleController.text.trim(),
+                    location: locController.text.trim().isEmpty
+                        ? 'Campus'
+                        : locController.text.trim(),
+                    position: center,
+                  ));
+                });
+              }
+            },
+            child: const Icon(Icons.add_rounded),
+          ),
         ),
       ],
     );
@@ -795,6 +918,93 @@ class _MapTabState extends State<MapTab> {
                   ],
                 ),
                 const SizedBox(height: 120),
+              ],
+            ),
+          ),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildStudySpotPanel(ScrollController scrollController, StudySpot spot) {
+    final info = categoryInfo[EventCategory.study]!;
+    return CustomScrollView(
+      controller: scrollController,
+      physics: const ClampingScrollPhysics(),
+      slivers: [
+        SliverToBoxAdapter(
+          child: Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 16),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                const _DragHandle(),
+                Row(
+                  children: [
+                    Container(
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 10,
+                        vertical: 4,
+                      ),
+                      decoration: BoxDecoration(
+                        color: info.color.withOpacity(0.10),
+                        borderRadius: BorderRadius.circular(8),
+                      ),
+                      child: Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          Icon(info.icon, size: 13, color: info.color),
+                          const SizedBox(width: 5),
+                          Text(
+                            info.label,
+                            style: TextStyle(
+                              color: info.color,
+                              fontSize: 12,
+                              fontWeight: FontWeight.w700,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                    const Spacer(),
+                    GestureDetector(
+                      onTap: () {
+                        setState(() => _selectedStudySpot = null);
+                        _dismissPreview();
+                      },
+                      child: Container(
+                        width: 30,
+                        height: 30,
+                        decoration: const BoxDecoration(
+                          color: UniverseColors.bgPage,
+                          shape: BoxShape.circle,
+                        ),
+                        child: const Icon(
+                          Icons.close_rounded,
+                          size: 16,
+                          color: UniverseColors.textMuted,
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 12),
+                Text(
+                  spot.title,
+                  style: const TextStyle(
+                    color: UniverseColors.textPrimary,
+                    fontSize: 22,
+                    fontWeight: FontWeight.w800,
+                  ),
+                ),
+                const SizedBox(height: 8),
+                _MiniRow(icon: Icons.location_on_rounded, label: spot.location),
+                const SizedBox(height: 20),
+                const Text(
+                  'This study spot does not expire and has no attendance controls.',
+                  style: TextStyle(color: UniverseColors.textLight, fontSize: 12),
+                ),
+                const SizedBox(height: 220),
               ],
             ),
           ),
