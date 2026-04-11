@@ -670,27 +670,7 @@ class _MapTabState extends State<MapTab> {
                   ],
                 ),
               );
-<<<<<<< HEAD
-              if (result == true && titleController.text.trim().isNotEmpty) {
-                LatLng center;
-                try {
-                  center = _mapController.camera.center;
-                } catch (_) {
-                  center = const LatLng(-37.9110, 145.1335);
-                }
-                final id = DateTime.now().millisecondsSinceEpoch.toString();
-                setState(() {
-                  sampleStudySpots.add(StudySpot(
-                    id: id,
-                    title: titleController.text.trim(),
-                    location: locController.text.trim().isEmpty
-                        ? 'Campus'
-                        : locController.text.trim(),
-                    position: center,
-                  ));
-                });
-=======
-
+              
               if (choice == null) return;
               if (choice == 'study') {
                 final titleController = TextEditingController();
@@ -759,7 +739,6 @@ class _MapTabState extends State<MapTab> {
                 if (result == true && titleController.text.trim().isNotEmpty) {
                   _addTemporaryEvent(category, titleController.text.trim(), locController.text.trim());
                 }
->>>>>>> events_creation
               }
             },
             child: const Icon(Icons.add_rounded),
