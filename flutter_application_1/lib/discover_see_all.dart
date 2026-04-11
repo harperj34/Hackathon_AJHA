@@ -8,6 +8,8 @@ class DiscoverSeeAll extends StatelessWidget {
  
   @override
   Widget build(BuildContext context) {
+    final sortedEvents = [... sampleEvents]
+      ..sort((a,b) => b.attendees.compareTo(a.attendees));
     return Scaffold(
       backgroundColor: Colors.white,
       appBar: AppBar(
@@ -41,11 +43,12 @@ class DiscoverSeeAll extends StatelessWidget {
       ),
       body: ListView.separated(
         padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-        itemCount: sampleEvents.length,
+        itemCount: sortedEvents.length,
         separatorBuilder: (_, __) => const SizedBox(height: 10),
         itemBuilder: (context, index) {
-          final event = sampleEvents[index];
-          final info = categoryInfo[event.category]!;
+          final event = sortedEvents[index];
+          final info = categoryInfo[event.category];
+          if (info == null) return const SizedBox();
  
           return GestureDetector(
             onTap: () => Navigator.push(
