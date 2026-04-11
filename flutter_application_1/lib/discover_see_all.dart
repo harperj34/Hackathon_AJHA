@@ -33,7 +33,7 @@ class DiscoverSeeAll extends StatelessWidget {
           '🔥 Trending',
           style: TextStyle(
             color: UniverseColors.textPrimary,
-            fontSize: 18,
+            fontSize: 30,
             fontWeight: FontWeight.w700,
           ),
         ),
