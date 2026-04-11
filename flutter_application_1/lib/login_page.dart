@@ -39,9 +39,29 @@ class _LoginPageState extends State<LoginPage> {
 
       if (exists) {
         setState(() => _statusMessage = '👋 Welcome back!');
+        await Future.delayed(const Duration(milliseconds: 800));
+        final prefs = await SharedPreferences.getInstance();
+        await prefs.setString('logged_in_email', email);
+        if (mounted) {
+          Navigator.of(context).pushReplacement(
+            MaterialPageRoute(
+              builder: (_) => const UniverseShell(showOnboarding: false), // existing user
+            ),
+          );
+        }
       } else {
         await NeonService.createUser(email);
         setState(() => _statusMessage = '🎉 Account created!');
+        await Future.delayed(const Duration(milliseconds: 800));
+        final prefs = await SharedPreferences.getInstance();
+        await prefs.setString('logged_in_email', email);
+        if (mounted) {
+          Navigator.of(context).pushReplacement(
+            MaterialPageRoute(
+              builder: (_) => const UniverseShell(showOnboarding: true), // new user
+            ),
+          );
+        }
       }
 
       await Future.delayed(const Duration(milliseconds: 800));
