@@ -435,30 +435,35 @@ class _MapTabState extends State<MapTab> with TickerProviderStateMixin {
                       point: event.position,
                       width: showLabel ? 90.0 : pinW,
                       height: showLabel ? pinH + 20.0 : pinH,
-                      alignment: Alignment.bottomCenter,
+                      alignment: Alignment.topCenter,
+                      rotate: true,
                       child: GestureDetector(
                         onTap: () => _onPinTap(event),
                         behavior: HitTestBehavior.opaque,
-                        child: Column(
-                          mainAxisSize: MainAxisSize.min,
-                          crossAxisAlignment: CrossAxisAlignment.center,
-                          children: [
-                            if (showLabel)
-                              Padding(
-                                padding: const EdgeInsets.only(bottom: 2),
-                                child: _PinLabel(
-                                  text: event.title,
-                                  color: info.color,
+                        child: SizedBox(
+                          width: showLabel ? 90.0 : pinW,
+                          height: showLabel ? pinH + 20.0 : pinH,
+                          child: Column(
+                            mainAxisAlignment: MainAxisAlignment.end,
+                            crossAxisAlignment: CrossAxisAlignment.center,
+                            children: [
+                              if (showLabel)
+                                Padding(
+                                  padding: const EdgeInsets.only(bottom: 2),
+                                  child: _PinLabel(
+                                    text: event.title,
+                                    color: info.color,
+                                  ),
                                 ),
+                              _MapPin(
+                                color: info.color,
+                                icon: info.icon,
+                                isSelected: isSelected,
+                                width: pinW,
+                                height: pinH,
                               ),
-                            _MapPin(
-                              color: info.color,
-                              icon: info.icon,
-                              isSelected: isSelected,
-                              width: pinW,
-                              height: pinH,
-                            ),
-                          ],
+                            ],
+                          ),
                         ),
                       ),
                     );
@@ -516,30 +521,35 @@ class _MapTabState extends State<MapTab> with TickerProviderStateMixin {
                       point: spot.position,
                       width: showLabel ? 90.0 : pinW,
                       height: showLabel ? pinH + 20.0 : pinH,
-                      alignment: Alignment.bottomCenter,
+                      alignment: Alignment.topCenter,
+                      rotate: true,
                       child: GestureDetector(
                         onTap: () => _onStudyPinTap(spot),
                         behavior: HitTestBehavior.opaque,
-                        child: Column(
-                          mainAxisSize: MainAxisSize.min,
-                          crossAxisAlignment: CrossAxisAlignment.center,
-                          children: [
-                            if (showLabel)
-                              Padding(
-                                padding: const EdgeInsets.only(bottom: 2),
-                                child: _PinLabel(
-                                  text: spot.title,
-                                  color: info.color,
+                        child: SizedBox(
+                          width: showLabel ? 90.0 : pinW,
+                          height: showLabel ? pinH + 20.0 : pinH,
+                          child: Column(
+                            mainAxisAlignment: MainAxisAlignment.end,
+                            crossAxisAlignment: CrossAxisAlignment.center,
+                            children: [
+                              if (showLabel)
+                                Padding(
+                                  padding: const EdgeInsets.only(bottom: 2),
+                                  child: _PinLabel(
+                                    text: spot.title,
+                                    color: info.color,
+                                  ),
                                 ),
+                              _MapPin(
+                                color: info.color,
+                                icon: info.icon,
+                                isSelected: _selectedStudySpot?.id == spot.id,
+                                width: pinW,
+                                height: pinH,
                               ),
-                            _MapPin(
-                              color: info.color,
-                              icon: info.icon,
-                              isSelected: _selectedStudySpot?.id == spot.id,
-                              width: pinW,
-                              height: pinH,
-                            ),
-                          ],
+                            ],
+                          ),
                         ),
                       ),
                     );
@@ -554,7 +564,8 @@ class _MapTabState extends State<MapTab> with TickerProviderStateMixin {
                     point: stop.position,
                     width: showLabel ? 80.0 : 36.0,
                     height: showLabel ? 54.0 : 36.0,
-                    alignment: Alignment.bottomCenter,
+                    alignment: Alignment.topCenter,
+                    rotate: true,
                     child: _BusStopPin(stop: stop, showLabel: showLabel),
                   );
                 }).toList(),
@@ -2183,7 +2194,7 @@ class _MapPinPainter extends CustomPainter {
     final w = size.width;
     final h = size.height;
     final cx = w / 2;
-    final tipY = h - 1;
+    final tipY = h;
     final shoulderY = h * 0.68;
     final topInset = w * 0.07;
     final sideInset = w * 0.08;
