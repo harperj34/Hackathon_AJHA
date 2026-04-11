@@ -86,6 +86,15 @@ class StudySpot {
   });
 }
 
+// Returns "Today, H:MM AM/PM" for a time [minutesFromNow] minutes in the future.
+String _todayPlusMinutes(int minutesFromNow) {
+  final t = DateTime.now().add(Duration(minutes: minutesFromNow));
+  final isPm = t.hour >= 12;
+  final displayHour = t.hour % 12 == 0 ? 12 : t.hour % 12;
+  final minuteStr = t.minute.toString().padLeft(2, '0');
+  return 'Today, $displayHour:$minuteStr ${isPm ? 'PM' : 'AM'}';
+}
+
 // Sample campus data — using Monash University Clayton campus as example
 final List<CampusEvent> sampleEvents = [
   CampusEvent(
@@ -179,6 +188,17 @@ final List<CampusEvent> sampleEvents = [
     category: EventCategory.events,
     position: LatLng(-37.9142, 145.1335),
     attendees: 28,
+  ),
+  CampusEvent(
+    id: '9',
+    title: 'Free Pizza Giveaway',
+    subtitle: 'Student Union',
+    location: 'Campus Centre',
+    time: _todayPlusMinutes(20),
+    imageUrl: 'https://images.unsplash.com/photo-1513104890138-7c749659a591?w=400',
+    category: EventCategory.food,
+    position: LatLng(-37.9109, 145.1330),
+    attendees: 60,
   ),
 ];
 

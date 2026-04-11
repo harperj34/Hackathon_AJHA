@@ -57,6 +57,7 @@ class _MapTabState extends State<MapTab> with TickerProviderStateMixin {
   static const Duration _signalCooldown = Duration(minutes: 5);
   static const Duration _signalLifetime = Duration(minutes: 30);
   AnimationController? _signalPulseController;
+  Timer? _countdownTimer;
 
   static const double _kCollapsed = 0.20;
   static const double _kPreview = 0.38;
@@ -72,6 +73,9 @@ class _MapTabState extends State<MapTab> with TickerProviderStateMixin {
       vsync: this,
       duration: const Duration(milliseconds: 1400),
     )..repeat();
+    _countdownTimer = Timer.periodic(const Duration(minutes: 1), (_) {
+      if (mounted) setState(() {});
+    });
     _sheetController.addListener(() {
       if (!mounted || !_sheetController.isAttached) return;
       final extent = _sheetController.size.clamp(0.10, _kExpanded);
@@ -803,6 +807,13 @@ class _MapTabState extends State<MapTab> with TickerProviderStateMixin {
   }
 
   @override
+  void dispose() {
+    _countdownTimer?.cancel();
+    _signalPulseController?.dispose();
+    super.dispose();
+  }
+
+  @override
   Widget build(BuildContext context) {
     final screenHeight = MediaQuery.of(context).size.height;
     final safeTop = MediaQuery.of(context).padding.top;
@@ -890,15 +901,21 @@ class _MapTabState extends State<MapTab> with TickerProviderStateMixin {
                     final info = categoryInfo[event.category]!;
                     final isSelected = _selectedEvent?.id == event.id;
                     final isLive = _isEventLive(event);
-                    final showLabel = _currentZoom >= 16.5 && !isLive;
+                    final countdown = _getEventCountdown(event);
+                    final hasCountdown = countdown != null;
+                    final showLabel = _currentZoom >= 16.5 && !isLive && !hasCountdown;
                     final double pinW = isSelected ? 34.0 : 28.0;
                     final double pinH = isSelected ? 44.0 : 36.0;
                     final double markerW = isLive
                         ? 70.0
-                        : (showLabel ? 90.0 : pinW);
+                        : hasCountdown
+                            ? 66.0
+                            : (showLabel ? 90.0 : pinW);
                     final double markerH = isLive
                         ? 72.0
-                        : (showLabel ? pinH + 20.0 : pinH);
+                        : hasCountdown
+                            ? pinH + 22.0
+                            : (showLabel ? pinH + 20.0 : pinH);
 
                     Widget pinWidget = _MapPin(
                       color: info.color,
@@ -954,6 +971,14 @@ class _MapTabState extends State<MapTab> with TickerProviderStateMixin {
                                   padding: const EdgeInsets.only(bottom: 2),
                                   child: _PinLabel(
                                     text: event.title,
+                                    color: info.color,
+                                  ),
+                                ),
+                              if (hasCountdown)
+                                Padding(
+                                  padding: const EdgeInsets.only(bottom: 3),
+                                  child: _CountdownBadge(
+                                    text: _formatCountdown(countdown!),
                                     color: info.color,
                                   ),
                                 ),
@@ -1746,6 +1771,36 @@ class _MapTabState extends State<MapTab> with TickerProviderStateMixin {
     } catch (_) {
       return false;
     }
+  }
+
+  /// Returns remaining duration until the event starts if it's today and in the future.
+  Duration? _getEventCountdown(CampusEvent event) {
+    if (event.time == 'Now') return null;
+    if (!event.time.startsWith('Today')) return null;
+    try {
+      final timePart = event.time.replaceFirst('Today, ', '');
+      final parts = timePart.split(' ');
+      final hhmm = parts[0].split(':');
+      var hour = int.parse(hhmm[0]);
+      final minute = int.parse(hhmm[1]);
+      final isPm = parts[1].toUpperCase() == 'PM';
+      if (isPm && hour != 12) hour += 12;
+      if (!isPm && hour == 12) hour = 0;
+      final now = DateTime.now();
+      final eventTime = DateTime(now.year, now.month, now.day, hour, minute);
+      final diff = eventTime.difference(now);
+      return diff.inSeconds > 0 ? diff : null;
+    } catch (_) {
+      return null;
+    }
+  }
+
+  String _formatCountdown(Duration d) {
+    final h = d.inHours;
+    final m = d.inMinutes.remainder(60);
+    if (h > 0) return '${h}h ${m}m';
+    if (m > 0) return '${m}m';
+    return '< 1m';
   }
 
   // ═══════════════════════════════════════════════════
@@ -3592,6 +3647,49 @@ class _PinLabel extends StatelessWidget {
         maxLines: 1,
         overflow: TextOverflow.ellipsis,
         textAlign: TextAlign.center,
+      ),
+    );
+  }
+}
+
+/// Small countdown badge shown above a pin for today's upcoming events.
+class _CountdownBadge extends StatelessWidget {
+  final String text;
+  final Color color;
+
+  const _CountdownBadge({required this.text, required this.color});
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 2),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(8),
+        border: Border.all(color: color, width: 1.2),
+        boxShadow: const [
+          BoxShadow(
+            color: Color(0x22000000),
+            blurRadius: 4,
+            offset: Offset(0, 1),
+          ),
+        ],
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Icon(Icons.timer_outlined, size: 9, color: color),
+          const SizedBox(width: 2),
+          Text(
+            text,
+            style: TextStyle(
+              fontSize: 9.5,
+              fontWeight: FontWeight.w700,
+              color: color,
+              height: 1.2,
+            ),
+          ),
+        ],
       ),
     );
   }

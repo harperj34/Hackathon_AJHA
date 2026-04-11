@@ -45,11 +45,7 @@ class _UniverseShellState extends State<UniverseShell> {
   int _currentIndex = 0;
   bool _showOnboarding = false;
 
-  final List<Widget> _tabs = const [
-    MapTab(),
-    DiscoverTab(),
-    ProfileTab(),
-  ];
+  final List<Widget> _tabs = const [MapTab(), DiscoverTab(), ProfileTab()];
 
   @override
   void initState() {
@@ -81,9 +77,7 @@ class _UniverseShellState extends State<UniverseShell> {
         children: [
           IndexedStack(index: _currentIndex, children: _tabs),
           if (_showOnboarding)
-            OnboardingOverlay(
-              onComplete: _completeOnboarding,
-            ),
+            OnboardingOverlay(onComplete: _completeOnboarding),
         ],
       ),
       bottomNavigationBar: _showOnboarding
@@ -92,7 +86,10 @@ class _UniverseShellState extends State<UniverseShell> {
               decoration: BoxDecoration(
                 color: Colors.white,
                 border: const Border(
-                  top: BorderSide(color: UniverseColors.borderColor, width: 0.5),
+                  top: BorderSide(
+                    color: UniverseColors.borderColor,
+                    width: 0.5,
+                  ),
                 ),
                 boxShadow: const [
                   BoxShadow(
@@ -194,8 +191,8 @@ class _AuthGateState extends State<AuthGate> {
       Navigator.of(context).pushReplacement(
         MaterialPageRoute(
           builder: (_) => email != null
-              ? const UniverseShell()   // already logged in, no onboarding
-              : const LoginPage(),      // not logged in, go to login
+              ? const UniverseShell() // already logged in, no onboarding
+              : const LoginPage(), // not logged in, go to login
         ),
       );
     }
