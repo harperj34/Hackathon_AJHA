@@ -1,9 +1,24 @@
 import 'dart:convert';
 import 'package:http/http.dart' as http;
+import 'dart:io';
+import 'package:flutter/foundation.dart';
 
 class NeonService {
-  // This points to our local Node.js server
-  static const String _baseUrl = 'http://localhost:3000';
+  static String get _baseUrl {
+    if (kIsWeb) {
+      //in chrome
+      return 'http://localhost:3000';
+    } else if (Platform.isAndroid) {
+      // Android emulator uses 10.0.2.2
+      return 'http://10.0.2.2:3000';
+    } else if (Platform.isIOS) {
+      // iOS simulator can use localhost
+      return 'http://localhost:3000';
+    } else {
+      //Windows/Mac/Linux desktop
+      return 'http://localhost:3000';
+    }
+  }
 
   //returning user
   static Future<bool> emailExists(String email) async {

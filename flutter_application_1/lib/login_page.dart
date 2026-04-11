@@ -214,6 +214,30 @@ class _LoginPageState extends State<LoginPage> {
                         ),
                 ),
               ),
+              // Dev bypass button
+              const SizedBox(height: 12),
+              SizedBox(
+                width: double.infinity,
+                height: 44,
+                child: TextButton(
+                  onPressed: () async {
+                    final prefs = await SharedPreferences.getInstance();
+                    await prefs.setString('logged_in_email', 'dev@bypass.com');
+                    if (mounted) {
+                      Navigator.of(context).pushReplacement(
+                        MaterialPageRoute(builder: (_) => const UniverseShell()),
+                      );
+                    }
+                  },
+                  style: TextButton.styleFrom(
+                    foregroundColor: Colors.white60,
+                  ),
+                  child: const Text(
+                    '🛠️ Dev Bypass',
+                    style: TextStyle(fontSize: 13),
+                  ),
+                ),
+              ),
             ],
           ),
         ),
