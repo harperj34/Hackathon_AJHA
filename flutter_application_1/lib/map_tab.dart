@@ -1,10 +1,12 @@
 import 'dart:async';
 import 'dart:convert';
+import 'dart:math' show pow;
 import 'dart:ui' as ui;
 import 'package:flutter/material.dart';
 import 'package:http/http.dart' as http;
 import 'package:flutter_map/flutter_map.dart';
 import 'package:latlong2/latlong.dart';
+import 'package:url_launcher/url_launcher.dart';
 import 'theme.dart';
 import 'models.dart';
 
@@ -12,6 +14,12 @@ class HeatPoint {
   final LatLng position;
   final double intensity; // 0.0 – 1.0
   const HeatPoint(this.position, this.intensity);
+}
+
+class _PlaceCluster {
+  final LatLng center;
+  final List<CampusPlace> places;
+  const _PlaceCluster({required this.center, required this.places});
 }
 
 class MapTab extends StatefulWidget {
@@ -53,6 +61,9 @@ class _MapTabState extends State<MapTab> with TickerProviderStateMixin {
 
   // ── Signal state ────────────────────────────────────────────────────────
   CampusSignal? _selectedSignal;
+  CampusPlace? _selectedPlace;
+  bool _addMenuOpen = false;
+  bool _showPlaces = false;
   DateTime? _lastSignalDropTime;
   static const Duration _signalCooldown = Duration(minutes: 5);
   static const Duration _signalLifetime = Duration(minutes: 30);
@@ -148,6 +159,7 @@ class _MapTabState extends State<MapTab> with TickerProviderStateMixin {
       _activeFilter = _activeFilter == cat ? null : cat;
       _selectedEvent = null;
       _selectedStudySpot = null;
+      _showPlaces = false;
     });
     _sheetController.animateTo(
       _kCollapsed,
@@ -199,6 +211,7 @@ class _MapTabState extends State<MapTab> with TickerProviderStateMixin {
       _selectedEvent = null;
       _selectedStudySpot = null;
       _selectedSignal = null;
+      _selectedPlace = null;
     });
     _sheetController.animateTo(
       _kCollapsed,
@@ -498,6 +511,7 @@ class _MapTabState extends State<MapTab> with TickerProviderStateMixin {
                               .where(
                                 (cat) => signalCategoryMeta.containsKey(cat),
                               )
+                              .where((cat) => cat != SignalCategory.study)
                               .map((cat) {
                                 final meta = signalCategoryMeta[cat]!;
                                 final sel = selectedCategory == cat;
@@ -814,6 +828,24 @@ class _MapTabState extends State<MapTab> with TickerProviderStateMixin {
   /// Kept as a pass-through so the MarkerLayer call site stays unchanged.
   double _heatIntensity(double intensity) => intensity;
 
+  /// Groups [places] into geographic clusters for zoom levels below the
+  /// individual-pin threshold. Grid cell size scales with zoom so clusters
+  /// naturally break apart as the user zooms in.
+  List<_PlaceCluster> _computeClusters(List<CampusPlace> places, double zoom) {
+    final cellSize = 0.005 * pow(2.0, (15.5 - zoom).clamp(0.0, 6.0));
+    final Map<String, List<CampusPlace>> cells = {};
+    for (final place in places) {
+      final cx = (place.position.longitude / cellSize).floor();
+      final cy = (place.position.latitude / cellSize).floor();
+      cells.putIfAbsent('$cx,$cy', () => []).add(place);
+    }
+    return cells.values.map((group) {
+      final lat = group.map((p) => p.position.latitude).reduce((a, b) => a + b) / group.length;
+      final lng = group.map((p) => p.position.longitude).reduce((a, b) => a + b) / group.length;
+      return _PlaceCluster(center: LatLng(lat, lng), places: group);
+    }).toList();
+  }
+
   @override
   void dispose() {
     _countdownTimer?.cancel();
@@ -883,10 +915,10 @@ class _MapTabState extends State<MapTab> with TickerProviderStateMixin {
               userAgentPackageName: 'com.universe.app',
             ),
             // ── Heatmap blobs (above base map, below pins) ─────────────────
-            if (_showHeatmap)
+            if (_showHeatmap && !_showPlaces)
               _HeatmapLayer(points: _heatPoints, zoom: _currentZoom),
             // ── Event pins (primary interactive layer) ─────────────────────
-            MarkerLayer(
+            if (!_showPlaces) MarkerLayer(
               markers: _filteredEvents
                   .where((event) => categoryInfo[event.category] != null)
                   .map((event) {
@@ -999,8 +1031,184 @@ class _MapTabState extends State<MapTab> with TickerProviderStateMixin {
                   })
                   .toList(),
             ),
+            // ── Place clusters (zoomed out) ────────────────────────────────
+            if (_showPlaces && _currentZoom < 15.5)
+              MarkerLayer(
+                markers: _computeClusters(campusPlaces, _currentZoom).map((cluster) {
+                  final isSingle = cluster.places.length == 1;
+                  return Marker(
+                    point: cluster.center,
+                    width: 44,
+                    height: 44,
+                    rotate: true,
+                    alignment: Alignment.center,
+                    child: GestureDetector(
+                      onTap: () {
+                        final targetZoom = (_currentZoom + 2.0).clamp(0.0, 18.0);
+                        _animateCameraTo(cluster.center, targetZoom);
+                      },
+                      child: Container(
+                        width: 44,
+                        height: 44,
+                        decoration: BoxDecoration(
+                          color: UniverseColors.accent,
+                          shape: BoxShape.circle,
+                          boxShadow: const [
+                            BoxShadow(
+                              color: Color(0x44000000),
+                              blurRadius: 6,
+                              offset: Offset(0, 2),
+                            ),
+                          ],
+                        ),
+                        child: isSingle
+                            ? Icon(cluster.places.first.icon, size: 20, color: Colors.white)
+                            : Center(
+                                child: Text(
+                                  '${cluster.places.length}',
+                                  style: const TextStyle(
+                                    fontSize: 15,
+                                    fontWeight: FontWeight.w800,
+                                    color: Colors.white,
+                                    height: 1.0,
+                                  ),
+                                ),
+                              ),
+                      ),
+                    ),
+                  );
+                }).toList(),
+              ),
+            // ── Permanent places layer (zoomed in) ────────────────────────
+            if (_currentZoom >= 15.5 && _showPlaces)
+              MarkerLayer(
+                markers: campusPlaces.map((place) {
+                  final isSelected = _selectedPlace?.id == place.id;
+                  final showLabel = isSelected || _currentZoom >= 16.5;
+                  return Marker(
+                    point: place.position,
+                    width: showLabel ? 200 : 34,
+                    height: 34,
+                    rotate: true,
+                    alignment: Alignment.topCenter,
+                    child: GestureDetector(
+                      onTap: () {
+                        setState(() {
+                          _selectedPlace = place;
+                          _selectedEvent = null;
+                          _selectedStudySpot = null;
+                          _selectedSignal = null;
+                        });
+                        _animateCameraTo(place.position, 17.5);
+                        _sheetController.animateTo(
+                          _kPreview,
+                          duration: const Duration(milliseconds: 350),
+                          curve: Curves.easeOut,
+                        );
+                      },
+                      child: Stack(
+                        clipBehavior: Clip.none,
+                        children: [
+                          // Circle icon — anchored at the lat/lng point
+                          AnimatedContainer(
+                            duration: const Duration(milliseconds: 160),
+                            width: 34,
+                            height: 34,
+                            decoration: BoxDecoration(
+                              color: Colors.white,
+                              shape: BoxShape.circle,
+                              border: Border.all(
+                                color: isSelected
+                                    ? UniverseColors.accent
+                                    : UniverseColors.borderColor,
+                                width: isSelected ? 2.0 : 1.0,
+                              ),
+                              boxShadow: [
+                                BoxShadow(
+                                  color: isSelected
+                                      ? UniverseColors.accent.withOpacity(0.25)
+                                      : const Color(0x22000000),
+                                  blurRadius: isSelected ? 8 : 4,
+                                  offset: const Offset(0, 2),
+                                ),
+                              ],
+                            ),
+                            child: Icon(
+                              place.icon,
+                              size: 17,
+                              color: isSelected
+                                  ? UniverseColors.accent
+                                  : const Color(0xFF888888),
+                            ),
+                          ),
+                          // Label bubble — shown for selected place or when zoomed in
+                          if (showLabel)
+                            Positioned(
+                              left: 38,
+                              top: 2,
+                              child: Container(
+                                padding: const EdgeInsets.symmetric(
+                                    horizontal: 6, vertical: 3),
+                                decoration: BoxDecoration(
+                                  color: Colors.white,
+                                  borderRadius: BorderRadius.circular(8),
+                                  border: Border.all(
+                                    color: UniverseColors.accent,
+                                    width: 1.5,
+                                  ),
+                                  boxShadow: const [
+                                    BoxShadow(
+                                      color: Color(0x22000000),
+                                      blurRadius: 4,
+                                      offset: Offset(0, 1),
+                                    ),
+                                  ],
+                                ),
+                                child: Column(
+                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                  mainAxisSize: MainAxisSize.min,
+                                  children: [
+                                    Text(
+                                      place.name,
+                                      style: TextStyle(
+                                        fontSize: 10,
+                                        fontWeight: FontWeight.w700,
+                                        color: UniverseColors.textPrimary,
+                                        height: 1.2,
+                                      ),
+                                    ),
+                                    const SizedBox(height: 1),
+                                    Row(
+                                      mainAxisSize: MainAxisSize.min,
+                                      children: [
+                                        const Icon(
+                                          Icons.star_rounded,
+                                          size: 9,
+                                          color: Color(0xFFFFB800),
+                                        ),
+                                        const SizedBox(width: 2),
+                                        Text(
+                                          place.rating.toStringAsFixed(1),
+                                          style: TextStyle(
+                                            fontSize: 9,
+                                            fontWeight: FontWeight.w600,
+                                            color: UniverseColors.textPrimary,
+                                          ),
+                                        ),
+                                      ],
+                                    ),
+                                  ],
+                                ),
+                              ),
+                            ),
+                        ],
+                      ),
+                    ),
+                  );
+                }).toList(),
+              ),
             // Study spot markers — circles, not teardrop pins.
-            MarkerLayer(
+            if (!_showPlaces) MarkerLayer(
               markers: _filteredStudySpots.map((spot) {
                 final color = categoryInfo[EventCategory.study]!.color;
                 final bool isSelected = _selectedStudySpot?.id == spot.id;
@@ -1061,7 +1269,7 @@ class _MapTabState extends State<MapTab> with TickerProviderStateMixin {
                 );
               }).toList(),
             ),
-            if (_showTransport)
+            if (_showTransport && !_showPlaces)
               MarkerLayer(
                 markers: sampleBusStops.map((stop) {
                   final showLabel = _currentZoom >= 16.0;
@@ -1076,7 +1284,7 @@ class _MapTabState extends State<MapTab> with TickerProviderStateMixin {
                 }).toList(),
               ),
             // ── Signal pins layer ────────────────────────────────────────────
-            if (activeSignals.isNotEmpty)
+            if (activeSignals.isNotEmpty && !_showPlaces)
               MarkerLayer(
                 markers: activeSignals.map((signal) {
                   final meta = signalCategoryMeta[signal.category]!;
@@ -1361,6 +1569,56 @@ class _MapTabState extends State<MapTab> with TickerProviderStateMixin {
                             })
                             .toList(),
                         _buildTransportChip(),
+                        // ── Restaurants filter chip ────────────────────────
+                        Padding(
+                          padding: const EdgeInsets.only(right: 8),
+                          child: GestureDetector(
+                            onTap: () => setState(() => _showPlaces = !_showPlaces),
+                            child: AnimatedContainer(
+                              duration: const Duration(milliseconds: 160),
+                              padding: const EdgeInsets.symmetric(
+                                horizontal: 14,
+                                vertical: 6,
+                              ),
+                              decoration: BoxDecoration(
+                                color: _showPlaces
+                                    ? const Color(0xFFFF7043)
+                                    : Colors.white,
+                                borderRadius: BorderRadius.circular(20),
+                                boxShadow: const [
+                                  BoxShadow(
+                                    color: Color(0x14000000),
+                                    blurRadius: 6,
+                                    offset: Offset(0, 1),
+                                  ),
+                                ],
+                              ),
+                              child: Row(
+                                mainAxisSize: MainAxisSize.min,
+                                children: [
+                                  Icon(
+                                    Icons.storefront_rounded,
+                                    size: 13,
+                                    color: _showPlaces
+                                        ? Colors.white
+                                        : const Color(0xFFFF7043),
+                                  ),
+                                  const SizedBox(width: 5),
+                                  Text(
+                                    'Restaurants',
+                                    style: TextStyle(
+                                      color: _showPlaces
+                                          ? Colors.white
+                                          : UniverseColors.textPrimary,
+                                      fontSize: 13,
+                                      fontWeight: FontWeight.w500,
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ),
+                          ),
+                        ),
                       ],
                     ),
                   ),
@@ -1394,6 +1652,8 @@ class _MapTabState extends State<MapTab> with TickerProviderStateMixin {
               ),
               child: _selectedSignal != null
                   ? _buildSignalPanel(scrollController, _selectedSignal!)
+                  : _selectedPlace != null
+                  ? _buildPlacePanel(scrollController, _selectedPlace!)
                   : _selectedStudySpot != null
                   ? _buildStudySpotPanel(scrollController, _selectedStudySpot!)
                   : _selectedEvent == null
@@ -1438,93 +1698,6 @@ class _MapTabState extends State<MapTab> with TickerProviderStateMixin {
                     child: const Icon(Icons.remove_rounded, size: 20),
                   ),
                 ],
-              ),
-            ),
-          ),
-        ),
-
-        // ── Create post/pin FAB (floats above the panel)
-        Positioned(
-          left: 16,
-          top: addPinTop,
-          child: IgnorePointer(
-            ignoring: _hideFloatingMapControls || _placementMode,
-            child: AnimatedOpacity(
-              duration: const Duration(milliseconds: 180),
-              opacity: (_hideFloatingMapControls || _placementMode) ? 0 : 1,
-              child: FloatingActionButton(
-                backgroundColor: UniverseColors.accent,
-                onPressed: () {
-                  setState(() {
-                    _placementMode = true;
-                    _pinLifted = false;
-                  });
-                  // Collapse the bottom sheet so it doesn't overlap controls
-                  _sheetController.animateTo(
-                    _kCollapsed,
-                    duration: const Duration(milliseconds: 320),
-                    curve: Curves.easeOut,
-                  );
-                },
-                child: const Icon(Icons.add_location_alt_rounded),
-              ),
-            ),
-          ),
-        ),
-
-        // ── Drop a Signal FAB
-        Positioned(
-          left: 80,
-          top: addPinTop,
-          child: IgnorePointer(
-            ignoring:
-                _hideFloatingMapControls ||
-                _placementMode ||
-                _signalPlacementMode,
-            child: AnimatedOpacity(
-              duration: const Duration(milliseconds: 180),
-              opacity:
-                  (_hideFloatingMapControls ||
-                      _placementMode ||
-                      _signalPlacementMode)
-                  ? 0
-                  : 1,
-              child: FloatingActionButton(
-                heroTag: 'signal_fab',
-                backgroundColor: _canDropSignal
-                    ? const Color(0xFFFF7AD9)
-                    : UniverseColors.iosSysGray2,
-                onPressed: () {
-                  if (!_canDropSignal) {
-                    final rem = _signalCooldownRemaining;
-                    ScaffoldMessenger.of(context).showSnackBar(
-                      SnackBar(
-                        content: Text(
-                          'You can drop another signal in ${rem.inMinutes}m ${rem.inSeconds % 60}s',
-                          style: const TextStyle(
-                            color: Colors.white,
-                            fontWeight: FontWeight.w600,
-                          ),
-                        ),
-                        backgroundColor: const Color(0xFF6C63FF),
-                        behavior: SnackBarBehavior.floating,
-                        shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(12),
-                        ),
-                        duration: const Duration(seconds: 3),
-                        margin: const EdgeInsets.fromLTRB(16, 0, 16, 12),
-                      ),
-                    );
-                    return;
-                  }
-                  setState(() {
-                    _signalPlacementMode = true;
-                    _pinLifted = false;
-                    _headerCollapsed = true;
-                  });
-                  _reverseGeocode(_mapController.camera.center);
-                },
-                child: const Icon(Icons.sensors_rounded),
               ),
             ),
           ),
@@ -1752,6 +1925,131 @@ class _MapTabState extends State<MapTab> with TickerProviderStateMixin {
             ),
           ),
         ],
+
+        // ── Add menu items — anchored above the + button ────────────────────
+        Positioned(
+          left: 16,
+          top: addPinTop - 130,
+          child: IgnorePointer(
+            ignoring: !_addMenuOpen || _hideFloatingMapControls || _placementMode || _signalPlacementMode,
+            child: AnimatedOpacity(
+              duration: const Duration(milliseconds: 180),
+              opacity: (_addMenuOpen && !_hideFloatingMapControls && !_placementMode && !_signalPlacementMode) ? 1.0 : 0.0,
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  // ── Quick Signal option ──────────────────────────────────
+                  Padding(
+                    padding: const EdgeInsets.only(bottom: 10),
+                    child: _AddMenuOption(
+                      label: 'Quick Signal',
+                      icon: Icons.sensors_rounded,
+                      color: _canDropSignal
+                          ? const Color(0xFFFF7AD9)
+                          : UniverseColors.iosSysGray2,
+                      onTap: () {
+                        setState(() { _addMenuOpen = false; });
+                        if (!_canDropSignal) {
+                          final rem = _signalCooldownRemaining;
+                          ScaffoldMessenger.of(context).showSnackBar(
+                            SnackBar(
+                              content: Text(
+                                'You can drop another signal in ${rem.inMinutes}m ${rem.inSeconds % 60}s',
+                                style: const TextStyle(
+                                  color: Colors.white,
+                                  fontWeight: FontWeight.w600,
+                                ),
+                              ),
+                              backgroundColor: const Color(0xFF6C63FF),
+                              behavior: SnackBarBehavior.floating,
+                              shape: RoundedRectangleBorder(
+                                borderRadius: BorderRadius.circular(12),
+                              ),
+                              duration: const Duration(seconds: 3),
+                              margin: const EdgeInsets.fromLTRB(16, 0, 16, 12),
+                            ),
+                          );
+                          return;
+                        }
+                        setState(() {
+                          _signalPlacementMode = true;
+                          _pinLifted = false;
+                          _headerCollapsed = true;
+                        });
+                        _reverseGeocode(_mapController.camera.center);
+                      },
+                    ),
+                  ),
+                  // ── Create Event option ──────────────────────────────────
+                  Padding(
+                    padding: const EdgeInsets.only(bottom: 10),
+                    child: _AddMenuOption(
+                      label: 'Create Event',
+                      icon: Icons.add_location_alt_rounded,
+                      color: UniverseColors.accent,
+                      onTap: () {
+                        setState(() {
+                          _addMenuOpen = false;
+                          _placementMode = true;
+                          _pinLifted = false;
+                        });
+                        _sheetController.animateTo(
+                          _kCollapsed,
+                          duration: const Duration(milliseconds: 320),
+                          curve: Curves.easeOut,
+                        );
+                      },
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ),
+        ),
+
+        // ── + / × button — always at addPinTop, never shifts ────────────────
+        Positioned(
+          left: 16,
+          top: addPinTop,
+          child: IgnorePointer(
+            ignoring: _hideFloatingMapControls || _placementMode || _signalPlacementMode,
+            child: AnimatedOpacity(
+              duration: const Duration(milliseconds: 180),
+              opacity: (_hideFloatingMapControls || _placementMode || _signalPlacementMode) ? 0 : 1,
+              child: GestureDetector(
+                onTap: () { setState(() { _addMenuOpen = !_addMenuOpen; }); },
+                child: AnimatedContainer(
+                  duration: const Duration(milliseconds: 200),
+                  width: 56,
+                  height: 56,
+                  decoration: BoxDecoration(
+                    shape: BoxShape.circle,
+                    color: _addMenuOpen
+                        ? const Color(0xFF2D2D2D)
+                        : UniverseColors.accent,
+                    boxShadow: const [
+                      BoxShadow(
+                        color: Color(0x44000000),
+                        blurRadius: 12,
+                        offset: Offset(0, 4),
+                      ),
+                    ],
+                  ),
+                  child: AnimatedRotation(
+                    turns: _addMenuOpen ? 0.125 : 0,
+                    duration: const Duration(milliseconds: 200),
+                    child: Icon(
+                      _addMenuOpen ? Icons.close_rounded : Icons.add_rounded,
+                      color: Colors.white,
+                      size: 26,
+                    ),
+                  ),
+                ),
+              ),
+            ),
+          ),
+        ),
       ],
     );
   }
@@ -1781,23 +2079,49 @@ class _MapTabState extends State<MapTab> with TickerProviderStateMixin {
     }
   }
 
-  /// Returns remaining duration until the event starts if it's today and in the future.
+  /// Returns remaining duration until the event starts if it's within 12 hours.
+  /// Handles 'Today, H:MM AM/PM', 'Tomorrow, H:MM AM/PM', and day-name formats.
   Duration? _getEventCountdown(CampusEvent event) {
     if (event.time == 'Now') return null;
-    if (!event.time.startsWith('Today')) return null;
+    final now = DateTime.now();
     try {
-      final timePart = event.time.replaceFirst('Today, ', '');
-      final parts = timePart.split(' ');
+      DateTime? eventDt;
+      if (event.time.startsWith('Today, ')) {
+        final timePart = event.time.replaceFirst('Today, ', '');
+        eventDt = _parseTimePartToday(timePart, now);
+      } else if (event.time.startsWith('Tomorrow, ')) {
+        final timePart = event.time.replaceFirst('Tomorrow, ', '');
+        final base = _parseTimePartToday(timePart, now);
+        if (base != null) eventDt = base.add(const Duration(days: 1));
+      } else {
+        // Try parsing 'DayName, H:MM AM/PM' — treat as today if time is in future
+        final comma = event.time.indexOf(', ');
+        if (comma >= 0) {
+          final timePart = event.time.substring(comma + 2);
+          final base = _parseTimePartToday(timePart, now);
+          if (base != null && base.isAfter(now)) eventDt = base;
+        }
+      }
+      if (eventDt == null) return null;
+      final diff = eventDt.difference(now);
+      if (diff.inSeconds <= 0) return null;
+      if (diff.inHours >= 12) return null; // only show within 12h
+      return diff;
+    } catch (_) {
+      return null;
+    }
+  }
+
+  DateTime? _parseTimePartToday(String timePart, DateTime base) {
+    try {
+      final parts = timePart.trim().split(' ');
       final hhmm = parts[0].split(':');
       var hour = int.parse(hhmm[0]);
       final minute = int.parse(hhmm[1]);
       final isPm = parts[1].toUpperCase() == 'PM';
       if (isPm && hour != 12) hour += 12;
       if (!isPm && hour == 12) hour = 0;
-      final now = DateTime.now();
-      final eventTime = DateTime(now.year, now.month, now.day, hour, minute);
-      final diff = eventTime.difference(now);
-      return diff.inSeconds > 0 ? diff : null;
+      return DateTime(base.year, base.month, base.day, hour, minute);
     } catch (_) {
       return null;
     }
@@ -2978,6 +3302,22 @@ class _MapTabState extends State<MapTab> with TickerProviderStateMixin {
                       label: 'Share',
                       onTap: () {},
                     ),
+                    const SizedBox(width: 8),
+                    _ActionButton(
+                      icon: Icons.directions_rounded,
+                      color: UniverseColors.textMuted,
+                      label: 'Directions',
+                      onTap: () async {
+                        final lat = event.position.latitude;
+                        final lng = event.position.longitude;
+                        final uri = Uri.parse(
+                            'https://www.google.com/maps/dir/?api=1&destination=$lat,$lng');
+                        if (await canLaunchUrl(uri)) {
+                          await launchUrl(uri,
+                              mode: LaunchMode.externalApplication);
+                        }
+                      },
+                    ),
                   ],
                 ),
                 const SizedBox(height: 20),
@@ -3062,6 +3402,184 @@ class _MapTabState extends State<MapTab> with TickerProviderStateMixin {
                       ),
                     ),
                   ],
+                ),
+                const SizedBox(height: 120),
+              ],
+            ),
+          ),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildPlacePanel(ScrollController scrollController, CampusPlace place) {
+    return CustomScrollView(
+      controller: scrollController,
+      physics: const ClampingScrollPhysics(),
+      slivers: [
+        SliverToBoxAdapter(
+          child: Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 16),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                _DragHandle(onTap: _onDragHandleTap),
+                // ── Header row ─────────────────────────────────────────────
+                Row(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    // Category pill
+                    Container(
+                      padding: const EdgeInsets.symmetric(
+                          horizontal: 10, vertical: 4),
+                      decoration: BoxDecoration(
+                        color: UniverseColors.accent.withOpacity(0.10),
+                        borderRadius: BorderRadius.circular(8),
+                      ),
+                      child: Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          Icon(place.icon,
+                              size: 13, color: UniverseColors.accent),
+                          const SizedBox(width: 5),
+                          Text(
+                            place.category,
+                            style: const TextStyle(
+                              color: UniverseColors.accent,
+                              fontSize: 12,
+                              fontWeight: FontWeight.w700,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                    const Spacer(),
+                    // Close button
+                    GestureDetector(
+                      onTap: () {
+                        setState(() => _selectedPlace = null);
+                        _dismissPreview();
+                      },
+                      child: Container(
+                        width: 30,
+                        height: 30,
+                        decoration: const BoxDecoration(
+                          color: UniverseColors.bgPage,
+                          shape: BoxShape.circle,
+                        ),
+                        child: const Icon(Icons.close,
+                            size: 16, color: UniverseColors.textMuted),
+                      ),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 10),
+                // ── Place name ─────────────────────────────────────────────
+                Text(
+                  place.name,
+                  style: const TextStyle(
+                    fontSize: 22,
+                    fontWeight: FontWeight.w800,
+                    color: UniverseColors.textPrimary,
+                    height: 1.2,
+                  ),
+                ),
+                const SizedBox(height: 8),
+                // ── Rating row ─────────────────────────────────────────────
+                Row(
+                  children: [
+                    ...List.generate(5, (i) {
+                      final full = i < place.rating.floor();
+                      final half = !full &&
+                          i < place.rating &&
+                          (place.rating - i) >= 0.5;
+                      return Icon(
+                        full
+                            ? Icons.star_rounded
+                            : half
+                                ? Icons.star_half_rounded
+                                : Icons.star_outline_rounded,
+                        size: 16,
+                        color: const Color(0xFFFFB800),
+                      );
+                    }),
+                    const SizedBox(width: 6),
+                    Text(
+                      place.rating.toStringAsFixed(1),
+                      style: const TextStyle(
+                        fontSize: 13,
+                        fontWeight: FontWeight.w600,
+                        color: UniverseColors.textPrimary,
+                      ),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 6),
+                // ── Hours ──────────────────────────────────────────────────
+                Row(
+                  children: [
+                    const Icon(Icons.schedule_rounded,
+                        size: 14, color: UniverseColors.textMuted),
+                    const SizedBox(width: 4),
+                    Text(
+                      place.hours,
+                      style: const TextStyle(
+                        fontSize: 13,
+                        color: UniverseColors.textMuted,
+                      ),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 20),
+                // ── Get Directions button ──────────────────────────────────
+                SizedBox(
+                  width: double.infinity,
+                  height: 50,
+                  child: GestureDetector(
+                    onTap: () async {
+                      final lat = place.position.latitude;
+                      final lng = place.position.longitude;
+                      final uri = Uri.parse(
+                          'https://www.google.com/maps/dir/?api=1&destination=$lat,$lng');
+                      if (await canLaunchUrl(uri)) {
+                        await launchUrl(uri,
+                            mode: LaunchMode.externalApplication);
+                      }
+                    },
+                    child: Container(
+                      decoration: BoxDecoration(
+                        gradient: const LinearGradient(
+                          colors: [Color(0xFF6C63FF), Color(0xFF3D8BFF)],
+                          begin: Alignment.centerLeft,
+                          end: Alignment.centerRight,
+                        ),
+                        borderRadius: BorderRadius.circular(14),
+                        boxShadow: const [
+                          BoxShadow(
+                            color: Color(0x446C63FF),
+                            blurRadius: 12,
+                            offset: Offset(0, 3),
+                          ),
+                        ],
+                      ),
+                      child: const Row(
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        children: [
+                          Icon(Icons.directions_rounded,
+                              color: Colors.white, size: 20),
+                          SizedBox(width: 8),
+                          Text(
+                            'Get Directions',
+                            style: TextStyle(
+                              color: Colors.white,
+                              fontWeight: FontWeight.w700,
+                              fontSize: 15,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ),
                 ),
                 const SizedBox(height: 120),
               ],
@@ -4196,6 +4714,61 @@ class _SheetTextField extends StatelessWidget {
           ),
           const SizedBox(width: 12),
         ],
+      ),
+    );
+  }
+}
+
+/// Expandable add-menu option (Signal / Event).
+class _AddMenuOption extends StatelessWidget {
+  final String label;
+  final IconData icon;
+  final Color color;
+  final VoidCallback onTap;
+
+  const _AddMenuOption({
+    required this.label,
+    required this.icon,
+    required this.color,
+    required this.onTap,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return GestureDetector(
+      onTap: onTap,
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+        decoration: BoxDecoration(
+          color: Colors.white,
+          borderRadius: BorderRadius.circular(24),
+          boxShadow: const [
+            BoxShadow(color: Color(0x22000000), blurRadius: 8, offset: Offset(0, 2)),
+          ],
+        ),
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Container(
+              width: 30,
+              height: 30,
+              decoration: BoxDecoration(
+                color: color.withOpacity(0.15),
+                shape: BoxShape.circle,
+              ),
+              child: Icon(icon, color: color, size: 17),
+            ),
+            const SizedBox(width: 8),
+            Text(
+              label,
+              style: TextStyle(
+                color: color,
+                fontSize: 13,
+                fontWeight: FontWeight.w700,
+              ),
+            ),
+          ],
+        ),
       ),
     );
   }

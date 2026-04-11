@@ -362,3 +362,75 @@ class CampusSignal {
 
 /// Live list of active signals — managed by MapTab state.
 final List<CampusSignal> activeSignals = [];
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Campus Places — permanent restaurants / cafés / businesses
+// ─────────────────────────────────────────────────────────────────────────────
+
+class CampusPlace {
+  final String id;
+  final String name;
+  final String category;   // e.g. 'Mexican', 'Café', 'Grocery'
+  final String hours;      // e.g. 'Open until 9:30 PM'
+  final double rating;     // 0.0 – 5.0
+  final IconData icon;
+  final LatLng position;
+
+  const CampusPlace({
+    required this.id,
+    required this.name,
+    required this.category,
+    required this.hours,
+    required this.rating,
+    required this.icon,
+    required this.position,
+  });
+}
+
+final List<CampusPlace> campusPlaces = [
+  CampusPlace(
+    id: 'p1',
+    name: 'GYG',
+    category: 'Mexican',
+    hours: 'Open until 9:30 PM',
+    rating: 4.2,
+    icon: Icons.lunch_dining_rounded,
+    position: LatLng(-37.9112, 145.1326),
+  ),
+  CampusPlace(
+    id: 'p2',
+    name: 'Boost Juice',
+    category: 'Juice Bar',
+    hours: 'Open until 5:00 PM',
+    rating: 4.4,
+    icon: Icons.local_drink_rounded,
+    position: LatLng(-37.9108, 145.1328),
+  ),
+  CampusPlace(
+    id: 'p3',
+    name: 'Wholefoods Café',
+    category: 'Café',
+    hours: 'Open until 4:00 PM',
+    rating: 4.1,
+    icon: Icons.coffee_rounded,
+    position: LatLng(-37.9118, 145.1345),
+  ),
+  CampusPlace(
+    id: 'p4',
+    name: 'Sir John\'s Bar',
+    category: 'Bar & Grill',
+    hours: 'Open until 11:00 PM',
+    rating: 4.0,
+    icon: Icons.sports_bar_rounded,
+    position: LatLng(-37.9104, 145.1358),
+  ),
+  CampusPlace(
+    id: 'p5',
+    name: 'Campus Centre Food Court',
+    category: 'Food Court',
+    hours: 'Open until 6:00 PM',
+    rating: 3.9,
+    icon: Icons.store_mall_directory_rounded,
+    position: LatLng(-37.9106, 145.1331),
+  ),
+];
