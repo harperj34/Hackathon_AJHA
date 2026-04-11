@@ -25,6 +25,7 @@ class _MapTabState extends State<MapTab> {
   String _searchQuery = '';
   List<StudySpot> _studySpots = sampleStudySpots;
   LatLng _mapCenter = const LatLng(-37.9110, 145.1335);
+  double _mapZoom = 15.5;
 
   static const double _kCollapsed = 0.20;
   static const double _kPreview = 0.38;
@@ -191,8 +192,11 @@ class _MapTabState extends State<MapTab> {
               if (_selectedEvent != null) _dismissPreview();
             },
             onPositionChanged: (position, _) {
-              if (position.center != null) {
-                setState(() => _mapCenter = position.center!);
+              if (position.center != null || position.zoom != null) {
+                setState(() {
+                  if (position.center != null) _mapCenter = position.center!;
+                  if (position.zoom != null) _mapZoom = position.zoom!;
+                });
               }
             },
           ),
@@ -225,16 +229,20 @@ class _MapTabState extends State<MapTab> {
             MarkerLayer(
               markers: _filteredStudySpots.map((spot) {
                 final isSelected = _selectedStudySpot?.id == spot.id;
+                // Marker box uses max expected size so child can animate smoothly inside it
+                const double markerBoxSize = 64.0;
                 return Marker(
                   point: spot.position,
-                  width: isSelected ? 52 : 44,
-                  height: isSelected ? 52 : 44,
+                  width: markerBoxSize,
+                  height: markerBoxSize,
                   child: GestureDetector(
                     onTap: () => _onStudyPinTap(spot),
                     child: _StudyPin(
-                      color: categoryInfo[EventCategory.study]!.color,
-                      isSelected: isSelected,
-                    ),
+                          color: categoryInfo[EventCategory.study]!.color,
+                          isSelected: isSelected,
+                          zoom: _mapZoom,
+                          forceFull: _activeFilter == EventCategory.study,
+                        ),
                   ),
                 );
               }).toList(),
@@ -978,33 +986,95 @@ class _FlatPin extends StatelessWidget {
   }
 }
 
-/// Study spot pin — distinct visual (book icon)
-class _StudyPin extends StatelessWidget {
+/// Base class for pins that adapt size/visibility to the map zoom level.
+abstract class ZoomResponsivePin extends StatelessWidget {
   final Color color;
   final bool isSelected;
+  final double zoom;
+  final IconData icon;
+  final bool forceFull;
 
-  const _StudyPin({required this.color, this.isSelected = false});
+  ZoomResponsivePin({
+    required this.color,
+    required this.zoom,
+    required this.icon,
+    this.isSelected = false,
+    this.forceFull = false,
+  });
+
+  double sizeForZoom();
 
   @override
   Widget build(BuildContext context) {
-    final size = isSelected ? 46.0 : 38.0;
-    return Container(
-      width: size,
-      height: size,
-      decoration: BoxDecoration(
-        color: color,
-        shape: BoxShape.circle,
-        border: Border.all(color: Colors.white, width: isSelected ? 3 : 2),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withOpacity(0.12),
-            blurRadius: 6,
-            offset: const Offset(0, 2),
+    final double pinSize = sizeForZoom();
+    const double maxPinSize = 46.0;
+    final double opacity = (pinSize / maxPinSize).clamp(0.0, 1.0);
+
+    return SizedBox(
+      width: 64,
+      height: 64,
+      child: Center(
+        child: AnimatedOpacity(
+          duration: const Duration(milliseconds: 160),
+          curve: Curves.easeInOut,
+          opacity: opacity,
+          child: AnimatedContainer(
+            duration: const Duration(milliseconds: 160),
+            width: pinSize,
+            height: pinSize,
+            decoration: BoxDecoration(
+              color: color,
+              shape: BoxShape.circle,
+              border: Border.all(color: Colors.white, width: isSelected ? 3 : 2),
+              boxShadow: [
+                BoxShadow(
+                  color: Colors.black.withOpacity(0.12),
+                  blurRadius: 6,
+                  offset: const Offset(0, 2),
+                ),
+              ],
+            ),
+            child: Icon(icon, color: Colors.white, size: (pinSize * 0.48).clamp(0.0, 28.0)),
           ),
-        ],
+        ),
       ),
-      child: Icon(Icons.book_rounded, color: Colors.white, size: isSelected ? 22 : 17),
     );
+  }
+}
+
+/// Study spot pin — scales smoothly with zoom and fades in/out.
+class _StudyPin extends ZoomResponsivePin {
+  _StudyPin({required Color color, required double zoom, bool isSelected = false, bool forceFull = false})
+      : super(color: color, zoom: zoom, icon: Icons.book_rounded, isSelected: isSelected, forceFull: forceFull);
+
+  @override
+  double sizeForZoom() {
+    // Tuning knobs
+    const double hideZoom = 18.0; // fully hidden below this
+    const double smallZoom = 18.4; // start small visibility here
+    const double fullZoom = 21.0; // fully grown by this
+    const double minSize = 17.0; // smallest size that the pin will be
+    const double maxSize = 50.0; // largest
+
+    final z = zoom;
+    if (forceFull) {
+      final fullSize = maxSize + (isSelected ? 6.0 : 0.0);
+      return fullSize;
+    }
+    if (z <= hideZoom) return 0.0;
+
+    if (z < smallZoom) {
+      // grow from 0 -> minSize between hideZoom..smallZoom
+      final t = ((z - hideZoom) / (smallZoom - hideZoom)).clamp(0.0, 1.0);
+      return minSize * Curves.easeOut.transform(t);
+    }
+
+    // grow smoothly from minSize -> maxSize between smallZoom..fullZoom
+    final t = ((z - smallZoom) / (fullZoom - smallZoom)).clamp(0.0, 1.0);
+    final eased = Curves.easeOut.transform(t);
+    var size = minSize + (maxSize - minSize) * eased;
+    if (isSelected) size += 6.0;
+    return size;
   }
 }
 
