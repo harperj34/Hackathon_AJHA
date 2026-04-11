@@ -358,12 +358,22 @@ class _MapTabState extends State<MapTab> with TickerProviderStateMixin {
     // Both widgets use (sheetTop - controlsGap - ownHeight) so their bottom edges
     // sit at the same y-position — identical gap from the panel.
     final mapControlsTop = _placementMode
-        ? (screenHeight - safeBottom - confirmBarHeight - controlsGap - controlsHeight)
+        ? (screenHeight -
+                  safeBottom -
+                  confirmBarHeight -
+                  controlsGap -
+                  controlsHeight)
               .clamp(safeTop + 12, screenHeight)
-        : (sheetTop - controlsGap - controlsHeight).clamp(safeTop + 12, screenHeight);
+        : (sheetTop - controlsGap - controlsHeight).clamp(
+            safeTop + 12,
+            screenHeight,
+          );
     final addPinTop = _placementMode
         ? screenHeight // off screen — hidden
-        : (sheetTop - controlsGap - fabHeight).clamp(safeTop + 12, screenHeight);
+        : (sheetTop - controlsGap - fabHeight).clamp(
+            safeTop + 12,
+            screenHeight,
+          );
 
     return Stack(
       children: [
@@ -371,14 +381,14 @@ class _MapTabState extends State<MapTab> with TickerProviderStateMixin {
         FlutterMap(
           mapController: _mapController,
           options: MapOptions(
-            initialCenter: const LatLng(-37.9110, 145.1335),
-            initialZoom: 15.5,
-            minZoom: 13.5,
+            initialCenter: const LatLng(-37.9110, 145.1338),
+            initialZoom: 16.2,
+            minZoom: 15.6,
             maxZoom: 19.0,
             cameraConstraint: CameraConstraint.containCenter(
               bounds: LatLngBounds(
-                const LatLng(-37.895, 145.115),
-                const LatLng(-37.932, 145.156),
+                const LatLng(-37.91134, 145.13270),
+                const LatLng(-37.91056, 145.13444),
               ),
             ),
             onTap: (_, __) {
@@ -866,7 +876,7 @@ class _MapTabState extends State<MapTab> with TickerProviderStateMixin {
                   _MapControlButton(
                     onTap: () => _animateCameraTo(
                       _mapController.camera.center,
-                      (_mapController.camera.zoom + 1).clamp(13.5, 19.0),
+                      (_mapController.camera.zoom + 1).clamp(15.6, 19.0),
                     ),
                     child: const Icon(Icons.add_rounded, size: 20),
                   ),
@@ -874,7 +884,7 @@ class _MapTabState extends State<MapTab> with TickerProviderStateMixin {
                   _MapControlButton(
                     onTap: () => _animateCameraTo(
                       _mapController.camera.center,
-                      (_mapController.camera.zoom - 1).clamp(13.5, 19.0),
+                      (_mapController.camera.zoom - 1).clamp(15.6, 19.0),
                     ),
                     child: const Icon(Icons.remove_rounded, size: 20),
                   ),
