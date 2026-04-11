@@ -796,7 +796,6 @@ class _MapTabState extends State<MapTab> {
               // Present a creation menu
               final choice = await showModalBottomSheet<String?>(
                 context: context,
-<<<<<<< HEAD
                 builder: (ctx) => Column(
                   mainAxisSize: MainAxisSize.min,
                   children: [
@@ -821,34 +820,6 @@ class _MapTabState extends State<MapTab> {
                       onTap: () => Navigator.of(ctx).pop('myki'),
                     ),
                     const SizedBox(height: 8),
-=======
-                builder: (ctx) => AlertDialog(
-                  title: const Text('Add Study Spot'),
-                  content: Column(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      TextField(
-                        controller: titleController,
-                        decoration: const InputDecoration(labelText: 'Title'),
-                      ),
-                      TextField(
-                        controller: locController,
-                        decoration: const InputDecoration(
-                          labelText: 'Location',
-                        ),
-                      ),
-                    ],
-                  ),
-                  actions: [
-                    TextButton(
-                      onPressed: () => Navigator.of(ctx).pop(false),
-                      child: const Text('Cancel'),
-                    ),
-                    ElevatedButton(
-                      onPressed: () => Navigator.of(ctx).pop(true),
-                      child: const Text('Add'),
-                    ),
->>>>>>> d7d88d7abb1410c01f3a2c7123587ce89fee8ee7
                   ],
                 ),
               );
@@ -921,22 +892,6 @@ class _MapTabState extends State<MapTab> {
                 if (result == true && titleController.text.trim().isNotEmpty) {
                   _addTemporaryEvent(category, titleController.text.trim(), locController.text.trim());
                 }
-<<<<<<< HEAD
-=======
-                final id = DateTime.now().millisecondsSinceEpoch.toString();
-                setState(() {
-                  sampleStudySpots.add(
-                    StudySpot(
-                      id: id,
-                      title: titleController.text.trim(),
-                      location: locController.text.trim().isEmpty
-                          ? 'Campus'
-                          : locController.text.trim(),
-                      position: center,
-                    ),
-                  );
-                });
->>>>>>> d7d88d7abb1410c01f3a2c7123587ce89fee8ee7
               }
             },
             child: const Icon(Icons.add_rounded),
