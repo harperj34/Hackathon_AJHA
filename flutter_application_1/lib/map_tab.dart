@@ -137,6 +137,16 @@ class _MapTabState extends State<MapTab> with TickerProviderStateMixin {
     );
   }
 
+  void _onDragHandleTap() {
+    if (!_sheetController.isAttached) return;
+    final next = _sheetExtent < _kPreview - 0.01 ? _kPreview : _kExpanded;
+    _sheetController.animateTo(
+      next,
+      duration: const Duration(milliseconds: 300),
+      curve: Curves.easeOut,
+    );
+  }
+
   void _onPinTap(CampusEvent event) {
     setState(() {
       _selectedEvent = event;
@@ -470,52 +480,16 @@ class _MapTabState extends State<MapTab> with TickerProviderStateMixin {
                   })
                   .toList(),
             ),
-            // Study spot markers — invisible when zoomed-out, smoothly scale up,
-            // and show normal size when filtered or at building zoom.
+            // Study spot markers — always visible, same size as event pins.
             MarkerLayer(
               markers: _filteredStudySpots
-                  .where((s) {
-                    const minVisibleZoom = 18.2;
-                    if (_activeFilter == EventCategory.study) return true;
-                    return _currentZoom >= minVisibleZoom;
-                  })
                   .where((_) => categoryInfo[EventCategory.study] != null)
                   .map((spot) {
                     final info = categoryInfo[EventCategory.study]!;
-                    const double minVisibleZoom = 18.2;
-                    const double normalZoom =
-                        19.0; // use map max zoom as full-size
-
-                    final bool forcedNormal =
-                        _activeFilter == EventCategory.study;
-                    final bool showLabel = _currentZoom >= normalZoom;
-
-                    double scale;
-                    if (forcedNormal) {
-                      scale = 1.0;
-                    } else if (_currentZoom <= minVisibleZoom) {
-                      scale = 0.0;
-                    } else if (_currentZoom >= normalZoom) {
-                      scale = 1.0;
-                    } else {
-                      scale =
-                          (_currentZoom - minVisibleZoom) /
-                          (normalZoom - minVisibleZoom);
-                    }
-
-                    const double baseW = 28.0;
-                    const double baseH = 36.0;
-                    const double minW = 12.0;
-                    const double minH = 16.0;
-
-                    final double pinW = (minW + (baseW - minW) * scale).clamp(
-                      minW,
-                      baseW,
-                    );
-                    final double pinH = (minH + (baseH - minH) * scale).clamp(
-                      minH,
-                      baseH,
-                    );
+                    final bool isSelected = _selectedStudySpot?.id == spot.id;
+                    final double pinW = isSelected ? 34.0 : 28.0;
+                    final double pinH = isSelected ? 44.0 : 36.0;
+                    final bool showLabel = _currentZoom >= 16.5;
 
                     return Marker(
                       point: spot.position,
@@ -544,7 +518,7 @@ class _MapTabState extends State<MapTab> with TickerProviderStateMixin {
                               _MapPin(
                                 color: info.color,
                                 icon: info.icon,
-                                isSelected: _selectedStudySpot?.id == spot.id,
+                                isSelected: isSelected,
                                 width: pinW,
                                 height: pinH,
                               ),
@@ -1433,10 +1407,16 @@ class _MapTabState extends State<MapTab> with TickerProviderStateMixin {
     final id = 'u${DateTime.now().millisecondsSinceEpoch}';
     final loc = location.isEmpty ? 'Campus' : location;
     if (category == EventCategory.study) {
+      final spot = StudySpot(
+        id: id,
+        title: title,
+        location: loc,
+        position: position,
+      );
       setState(() {
-        sampleStudySpots.add(
-          StudySpot(id: id, title: title, location: loc, position: position),
-        );
+        sampleStudySpots.add(spot);
+        _selectedStudySpot = spot;
+        _selectedEvent = null;
       });
     } else {
       final ev = CampusEvent(
@@ -1453,10 +1433,39 @@ class _MapTabState extends State<MapTab> with TickerProviderStateMixin {
       setState(() {
         sampleEvents.add(ev);
         _tempExpiry[id] = DateTime.now().add(const Duration(hours: 2));
+        _selectedEvent = ev;
+        _selectedStudySpot = null;
       });
       _scheduleExpiry(id, const Duration(hours: 2));
     }
     _animateCameraTo(position, 17.5);
+    _sheetController.animateTo(
+      _kPreview,
+      duration: const Duration(milliseconds: 350),
+      curve: Curves.easeOut,
+    );
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: const Row(
+          children: [
+            Icon(Icons.location_on_rounded, color: Colors.white, size: 18),
+            SizedBox(width: 8),
+            Text(
+              'Pin dropped!',
+              style: TextStyle(
+                color: Colors.white,
+                fontWeight: FontWeight.w600,
+              ),
+            ),
+          ],
+        ),
+        backgroundColor: UniverseColors.accent,
+        behavior: SnackBarBehavior.floating,
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+        duration: const Duration(seconds: 2),
+        margin: const EdgeInsets.fromLTRB(16, 0, 16, 12),
+      ),
+    );
   }
 
   // ═══════════════════════════════════════════════════
@@ -1471,7 +1480,7 @@ class _MapTabState extends State<MapTab> with TickerProviderStateMixin {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              const _DragHandle(),
+              _DragHandle(onTap: _onDragHandleTap),
               Padding(
                 padding: const EdgeInsets.fromLTRB(20, 0, 20, 12),
                 child: Row(
@@ -1555,7 +1564,7 @@ class _MapTabState extends State<MapTab> with TickerProviderStateMixin {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                const _DragHandle(),
+                _DragHandle(onTap: _onDragHandleTap),
 
                 // Category pill + close button
                 Row(
@@ -2046,7 +2055,7 @@ class _MapTabState extends State<MapTab> with TickerProviderStateMixin {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                const _DragHandle(),
+                _DragHandle(onTap: _onDragHandleTap),
                 Row(
                   children: [
                     Container(
@@ -2130,19 +2139,24 @@ class _MapTabState extends State<MapTab> with TickerProviderStateMixin {
 // ─────────────────────────────────────────────────────────────────────────────
 
 class _DragHandle extends StatelessWidget {
-  const _DragHandle();
+  final VoidCallback? onTap;
+  const _DragHandle({this.onTap});
 
   @override
   Widget build(BuildContext context) {
-    return Padding(
-      padding: const EdgeInsets.symmetric(vertical: 10),
-      child: Center(
-        child: Container(
-          width: 36,
-          height: 4,
-          decoration: BoxDecoration(
-            color: UniverseColors.borderColor,
-            borderRadius: BorderRadius.circular(2),
+    return GestureDetector(
+      onTap: onTap,
+      behavior: HitTestBehavior.opaque,
+      child: Padding(
+        padding: const EdgeInsets.symmetric(vertical: 10),
+        child: Center(
+          child: Container(
+            width: 36,
+            height: 4,
+            decoration: BoxDecoration(
+              color: UniverseColors.borderColor,
+              borderRadius: BorderRadius.circular(2),
+            ),
           ),
         ),
       ),
