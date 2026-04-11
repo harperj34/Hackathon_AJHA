@@ -26,6 +26,7 @@ class UniverseApp extends StatelessWidget {
       title: 'Universe',
       debugShowCheckedModeBanner: false,
       theme: UniverseTheme.lightTheme,
+      scrollBehavior: const _NoOverscrollBehavior(),
       home: const UniverseShell(),
     );
   }
@@ -140,5 +141,14 @@ class _NavItem extends StatelessWidget {
         ),
       ),
     );
+  }
+}
+
+class _NoOverscrollBehavior extends ScrollBehavior {
+  const _NoOverscrollBehavior();
+
+  @override
+  ScrollPhysics getScrollPhysics(BuildContext context) {
+    return const ClampingScrollPhysics();
   }
 }

@@ -8,134 +8,157 @@ class DiscoverSeeAll extends StatelessWidget {
  
   @override
   Widget build(BuildContext context) {
-    final sortedEvents = [... sampleEvents]
-      ..sort((a,b) => b.attendees.compareTo(a.attendees));
+    final sortedEvents = [...sampleEvents]
+      ..sort((a, b) => b.attendees.compareTo(a.attendees));
+ 
     return Scaffold(
       backgroundColor: Colors.white,
-      appBar: AppBar(
-        backgroundColor: Colors.white,
-        elevation: 0,
-        scrolledUnderElevation: 0,
-        leading: GestureDetector(
-          onTap: () => Navigator.pop(context),
-          child: Container(
-            margin: const EdgeInsets.all(8),
-            decoration: BoxDecoration(
-              color: UniverseColors.borderColor,
-              borderRadius: BorderRadius.circular(12),
-            ),
-            child: const Icon(
-              Icons.arrow_back_ios_new_rounded,
-              color: UniverseColors.textPrimary,
-              size: 18,
-            ),
-          ),
-        ),
-        title: const Text(
-          '🔥 Trending',
-          style: TextStyle(
-            color: UniverseColors.textPrimary,
-            fontSize: 22,
-            fontWeight: FontWeight.w700,
-          ),
-        ),
-        centerTitle: true,
-      ),
-      body: ListView.separated(
-        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-        itemCount: sortedEvents.length,
-        separatorBuilder: (_, __) => const SizedBox(height: 10),
-        itemBuilder: (context, index) {
-          final event = sortedEvents[index];
-          final info = categoryInfo[event.category];
-          if (info == null) return const SizedBox();
- 
-          return GestureDetector(
-            onTap: () => Navigator.push(
-              context,
-              MaterialPageRoute(
-                builder: (_) => EventDetailPage(event: event),
+      body: CustomScrollView(
+        slivers: [
+          SliverAppBar(
+            pinned: true,
+            expandedHeight: 0,        // ← no expansion
+            backgroundColor: Colors.transparent,
+            elevation: 0,
+            scrolledUnderElevation: 0,
+            leading: GestureDetector(
+              onTap: () => Navigator.pop(context),
+              child: Container(
+                margin: const EdgeInsets.all(8),
+                decoration: BoxDecoration(
+                  color: Colors.white.withOpacity(0.2),
+                  borderRadius: BorderRadius.circular(12),
+                ),
+                child: const Icon(
+                  Icons.arrow_back_ios_new_rounded,
+                  color: Colors.white,
+                  size: 18,
+                ),
               ),
             ),
-            child: Container(
-              padding: const EdgeInsets.all(14),
-              decoration: BoxDecoration(
+            title: const Text(
+              '🔥 Trending',
+              style: TextStyle(
                 color: Colors.white,
-                borderRadius: BorderRadius.circular(16),
-                border: Border.all(color: UniverseColors.borderColor),
-              ),
-              child: Row(
-                children: [
-                  // Icon or image thumbnail
-                  ClipRRect(
-                    borderRadius: BorderRadius.circular(12),
-                    child: Image.network(
-                      event.imageUrl,
-                      width: 75,
-                      height: 75,
-                      fit: BoxFit.cover,
-                      errorBuilder: (_, __, ___) => Container(
-                        width: 75,
-                        height: 75,
-                        decoration: BoxDecoration(
-                          color: info.color.withOpacity(0.12),
-                          borderRadius: BorderRadius.circular(12),
-                        ),
-                        child: Icon(info.icon, color: info.color, size: 26),
-                      ),
-                    ),
-                  ),
-                  const SizedBox(width: 30),
-                  // Event details
-                  Expanded(
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Text(
-                          event.title,
-                          style: const TextStyle(
-                            color: UniverseColors.textPrimary,
-                            fontSize: 17,
-                            fontWeight: FontWeight.w600,
-                          ),
-                          maxLines: 1,
-                          overflow: TextOverflow.ellipsis,
-                        ),
-                        const SizedBox(height: 3),
-                        Text(
-                          event.location,
-                          style: const TextStyle(
-                            color: UniverseColors.textLight,
-                            fontSize: 12,
-                          ),
-                          maxLines: 1,
-                          overflow: TextOverflow.ellipsis,
-                        ),
-                      ],
-                    ),
-                  ),
-                  const SizedBox(width: 8),
-                  // Attendees badge
-                  Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 12),
-                    decoration: BoxDecoration(
-                      color: info.color.withOpacity(0.12),
-                      borderRadius: BorderRadius.circular(40),
-                    ),
-                    child: Text(
-                      '${event.attendees} going',
-                      style: TextStyle(
-                        color: info.color,
-                        fontSize: 11,
-                        fontWeight: FontWeight.w600,
-                      ),
-                    ),
-                  ),
-                ],
+                fontSize: 20,
+                fontWeight: FontWeight.w700,
               ),
             ),
-          );
-        },
+            centerTitle: true,
+            flexibleSpace: Container(        // ← gradient always visible
+              decoration: const BoxDecoration(
+                gradient: LinearGradient(
+                  colors: [
+                    Color.fromARGB(255, 255, 99, 99),
+                    Color.fromARGB(255, 255, 150, 121),
+                    Color.fromARGB(255, 255, 253, 122),
+                  ],
+                  begin: Alignment.topLeft,
+                  end: Alignment.bottomRight,
+                ),
+              ),
+            ),
+          ),
+          SliverPadding(
+            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+            sliver: SliverList(
+              delegate: SliverChildBuilderDelegate(
+                (context, index) {
+                  if (index.isOdd) return const SizedBox(height: 10);
+                  final eventIndex = index ~/ 2;
+                  final event = sortedEvents[eventIndex];
+                  final info = categoryInfo[event.category];
+                  if (info == null) return const SizedBox.shrink();
+ 
+                  return GestureDetector(
+                    onTap: () => Navigator.push(
+                      context,
+                      MaterialPageRoute(
+                        builder: (_) => EventDetailPage(event: event),
+                      ),
+                    ),
+                    child: Container(
+                      padding: const EdgeInsets.all(14),
+                      decoration: BoxDecoration(
+                        color: Colors.white,
+                        borderRadius: BorderRadius.circular(16),
+                        border: Border.all(color: UniverseColors.borderColor),
+                      ),
+                      child: Row(
+                        children: [
+                          ClipRRect(
+                            borderRadius: BorderRadius.circular(12),
+                            child: Image.network(
+                              event.imageUrl,
+                              width: 75,
+                              height: 75,
+                              fit: BoxFit.cover,
+                              errorBuilder: (_, __, ___) => Container(
+                                width: 75,
+                                height: 75,
+                                decoration: BoxDecoration(
+                                  color: info.color.withOpacity(0.12),
+                                  borderRadius: BorderRadius.circular(12),
+                                ),
+                                child: Icon(info.icon, color: info.color, size: 26),
+                              ),
+                            ),
+                          ),
+                          const SizedBox(width: 14),
+                          Expanded(
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Text(
+                                  event.title,
+                                  style: const TextStyle(
+                                    color: UniverseColors.textPrimary,
+                                    fontSize: 17,
+                                    fontWeight: FontWeight.w600,
+                                  ),
+                                  maxLines: 1,
+                                  overflow: TextOverflow.ellipsis,
+                                ),
+                                const SizedBox(height: 3),
+                                Text(
+                                  event.location,
+                                  style: const TextStyle(
+                                    color: UniverseColors.textLight,
+                                    fontSize: 12,
+                                  ),
+                                  maxLines: 1,
+                                  overflow: TextOverflow.ellipsis,
+                                ),
+                              ],
+                            ),
+                          ),
+                          const SizedBox(width: 8),
+                          Container(
+                            padding: const EdgeInsets.symmetric(
+                                horizontal: 10, vertical: 12),
+                            decoration: BoxDecoration(
+                              color: info.color.withOpacity(0.12),
+                              borderRadius: BorderRadius.circular(40),
+                            ),
+                            child: Text(
+                              '${event.attendees} going',
+                              style: TextStyle(
+                                color: info.color,
+                                fontSize: 11,
+                                fontWeight: FontWeight.w600,
+                              ),
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  );
+                },
+                childCount: sortedEvents.length * 2 - 1,
+              ),
+            ),
+          ),
+        ],
       ),
     );
   }
