@@ -39,6 +39,7 @@ class _MapTabState extends State<MapTab> with TickerProviderStateMixin {
   bool _headerCollapsed = false;
   double _sheetExtent = _kCollapsed;
   bool _placementMode = false;
+  bool _signalPlacementMode = false;
   bool _pinLifted = false;
   final Map<String, int> _confirmations = {};
   final Map<String, int> _outdatedVotes = {};
@@ -50,6 +51,13 @@ class _MapTabState extends State<MapTab> with TickerProviderStateMixin {
   final Map<String, DateTime> _tempExpiry = {};
   final List<Timer> _expiryTimers = [];
 
+  // ── Signal state ────────────────────────────────────────────────────────
+  CampusSignal? _selectedSignal;
+  DateTime? _lastSignalDropTime;
+  static const Duration _signalCooldown = Duration(minutes: 5);
+  static const Duration _signalLifetime = Duration(minutes: 30);
+  AnimationController? _signalPulseController;
+
   static const double _kCollapsed = 0.20;
   static const double _kPreview = 0.38;
   static const double _kExpanded = 0.85;
@@ -60,6 +68,10 @@ class _MapTabState extends State<MapTab> with TickerProviderStateMixin {
   void initState() {
     super.initState();
     _mapController = MapController();
+    _signalPulseController = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 1400),
+    )..repeat();
     _sheetController.addListener(() {
       if (!mounted || !_sheetController.isAttached) return;
       final extent = _sheetController.size.clamp(0.10, _kExpanded);
@@ -72,11 +84,11 @@ class _MapTabState extends State<MapTab> with TickerProviderStateMixin {
         if (!mounted) return;
         if (event is MapEventMoveStart || event is MapEventScrollWheelZoom) {
           if (!_headerCollapsed) setState(() => _headerCollapsed = true);
-          if (_placementMode && !_pinLifted) setState(() => _pinLifted = true);
+          if ((_placementMode || _signalPlacementMode) && !_pinLifted) setState(() => _pinLifted = true);
         }
         if (event is MapEventMoveEnd) {
-          if (_placementMode && _pinLifted) setState(() => _pinLifted = false);
-          if (_placementMode) _reverseGeocode(_mapController.camera.center);
+          if ((_placementMode || _signalPlacementMode) && _pinLifted) setState(() => _pinLifted = false);
+          if (_placementMode || _signalPlacementMode) _reverseGeocode(_mapController.camera.center);
         }
         final z = _mapController.camera.zoom;
         if ((z - _currentZoom).abs() > 0.08) {
@@ -179,6 +191,7 @@ class _MapTabState extends State<MapTab> with TickerProviderStateMixin {
     setState(() {
       _selectedEvent = null;
       _selectedStudySpot = null;
+      _selectedSignal = null;
     });
     _sheetController.animateTo(
       _kCollapsed,
@@ -266,17 +279,390 @@ class _MapTabState extends State<MapTab> with TickerProviderStateMixin {
     _scheduleExpiry(id, const Duration(hours: 2));
   }
 
-  @override
-  void dispose() {
-    _mapEventSub?.cancel();
-    _mapController.dispose();
-    _sheetController.dispose();
-    _searchController.dispose();
-    _pageController.dispose();
-    for (final t in _expiryTimers) {
-      t.cancel();
-    }
-    super.dispose();
+  // ═══════════════════════════════════════════════════
+  // DROP A SIGNAL
+  // ═══════════════════════════════════════════════════
+
+  bool get _canDropSignal {
+    if (_lastSignalDropTime == null) return true;
+    return DateTime.now().difference(_lastSignalDropTime!) >= _signalCooldown;
+  }
+
+  Duration get _signalCooldownRemaining {
+    if (_lastSignalDropTime == null) return Duration.zero;
+    final elapsed = DateTime.now().difference(_lastSignalDropTime!);
+    final remaining = _signalCooldown - elapsed;
+    return remaining.isNegative ? Duration.zero : remaining;
+  }
+
+  void _onSignalPinTap(CampusSignal signal) {
+    setState(() {
+      _selectedSignal = signal;
+      _selectedEvent = null;
+      _selectedStudySpot = null;
+    });
+    _animateCameraTo(signal.position, 17.0);
+    _sheetController.animateTo(
+      _kPreview,
+      duration: const Duration(milliseconds: 350),
+      curve: Curves.easeOut,
+    );
+  }
+
+  void _dropSignal(String message, SignalCategory category, LatLng position, {String? imageUrl, String? notes}) {
+    final now = DateTime.now();
+    final id = 'sig_${now.millisecondsSinceEpoch}';
+    final signal = CampusSignal(
+      id: id,
+      message: message,
+      category: category,
+      position: position,
+      createdAt: now,
+      expiresAt: now.add(_signalLifetime),
+      imageUrl: imageUrl,
+      notes: notes,
+    );
+    setState(() {
+      activeSignals.add(signal);
+      _lastSignalDropTime = now;
+      _selectedSignal = signal;
+      _selectedEvent = null;
+      _selectedStudySpot = null;
+    });
+    // Schedule removal
+    final timer = Timer(_signalLifetime, () {
+      if (!mounted) return;
+      setState(() {
+        activeSignals.removeWhere((s) => s.id == id);
+        if (_selectedSignal?.id == id) _selectedSignal = null;
+      });
+    });
+    _expiryTimers.add(timer);
+    _animateCameraTo(position, 17.5);
+    _sheetController.animateTo(
+      _kPreview,
+      duration: const Duration(milliseconds: 350),
+      curve: Curves.easeOut,
+    );
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: const Row(
+          children: [
+            Icon(Icons.sensors_rounded, color: Colors.white, size: 18),
+            SizedBox(width: 8),
+            Text(
+              'Signal sent to nearby students!',
+              style: TextStyle(color: Colors.white, fontWeight: FontWeight.w600),
+            ),
+          ],
+        ),
+        backgroundColor: const Color(0xFF6C63FF),
+        behavior: SnackBarBehavior.floating,
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+        duration: const Duration(seconds: 3),
+        margin: const EdgeInsets.fromLTRB(16, 0, 16, 12),
+      ),
+    );
+  }
+
+  void _showSignalCustomizationSheet(LatLng position) {
+    SignalCategory selectedCategory = SignalCategory.other;
+    final msgCtrl = TextEditingController();
+    final locationCtrl = TextEditingController(text: _pendingPinAddress);
+    final notesCtrl = TextEditingController();
+    final imageUrlCtrl = TextEditingController();
+
+    showModalBottomSheet<void>(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+      builder: (ctx) => StatefulBuilder(
+        builder: (ctx, setSheet) => DraggableScrollableSheet(
+          initialChildSize: 0.82,
+          minChildSize: 0.5,
+          maxChildSize: 0.95,
+          expand: false,
+          builder: (_, sc) => Container(
+            decoration: const BoxDecoration(
+              color: Colors.white,
+              borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
+            ),
+            child: Column(
+              children: [
+                Container(
+                  margin: const EdgeInsets.symmetric(vertical: 10),
+                  width: 36,
+                  height: 4,
+                  decoration: BoxDecoration(
+                    color: UniverseColors.borderColor,
+                    borderRadius: BorderRadius.circular(2),
+                  ),
+                ),
+                Padding(
+                  padding: const EdgeInsets.fromLTRB(20, 0, 20, 12),
+                  child: Row(
+                    children: [
+                      Container(
+                        width: 36,
+                        height: 36,
+                        decoration: BoxDecoration(
+                          gradient: const LinearGradient(
+                            colors: [Color(0xFF6C63FF), Color(0xFFFF7AD9)],
+                            begin: Alignment.topLeft,
+                            end: Alignment.bottomRight,
+                          ),
+                          borderRadius: BorderRadius.circular(10),
+                        ),
+                        child: const Icon(Icons.sensors_rounded, color: Colors.white, size: 20),
+                      ),
+                      const SizedBox(width: 12),
+                      Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          const Text(
+                            'Drop a Signal',
+                            style: TextStyle(
+                              fontSize: 17,
+                              fontWeight: FontWeight.w700,
+                              color: UniverseColors.textPrimary,
+                            ),
+                          ),
+                          Text(
+                            'Broadcasts for 30 minutes',
+                            style: TextStyle(fontSize: 12, color: UniverseColors.textMuted),
+                          ),
+                        ],
+                      ),
+                      const Spacer(),
+                      GestureDetector(
+                        onTap: () => Navigator.of(ctx).pop(),
+                        child: Container(
+                          width: 30,
+                          height: 30,
+                          decoration: const BoxDecoration(
+                            color: UniverseColors.bgPage,
+                            shape: BoxShape.circle,
+                          ),
+                          child: const Icon(Icons.close_rounded, size: 16, color: UniverseColors.textMuted),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+                Expanded(
+                  child: ListView(
+                    controller: sc,
+                    padding: const EdgeInsets.fromLTRB(20, 0, 20, 40),
+                    children: [
+                      // ── Category row
+                      const Text(
+                        'Category',
+                        style: TextStyle(
+                          color: UniverseColors.textPrimary,
+                          fontSize: 13,
+                          fontWeight: FontWeight.w600,
+                        ),
+                      ),
+                      const SizedBox(height: 10),
+                      SingleChildScrollView(
+                        scrollDirection: Axis.horizontal,
+                        child: Row(
+                          children: SignalCategory.values.map((cat) {
+                            final meta = signalCategoryMeta[cat]!;
+                            final sel = selectedCategory == cat;
+                            return Padding(
+                              padding: const EdgeInsets.only(right: 8),
+                              child: GestureDetector(
+                                onTap: () => setSheet(() => selectedCategory = cat),
+                                child: AnimatedContainer(
+                                  duration: const Duration(milliseconds: 150),
+                                  padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
+                                  decoration: BoxDecoration(
+                                    color: sel ? meta.color : meta.color.withOpacity(0.10),
+                                    borderRadius: BorderRadius.circular(20),
+                                    border: Border.all(
+                                      color: sel ? meta.color : Colors.transparent,
+                                      width: 1.5,
+                                    ),
+                                  ),
+                                  child: Row(
+                                    mainAxisSize: MainAxisSize.min,
+                                    children: [
+                                      Icon(meta.icon, size: 14, color: sel ? Colors.white : meta.color),
+                                      const SizedBox(width: 6),
+                                      Text(
+                                        meta.label,
+                                        style: TextStyle(
+                                          color: sel ? Colors.white : meta.color,
+                                          fontSize: 13,
+                                          fontWeight: FontWeight.w600,
+                                        ),
+                                      ),
+                                    ],
+                                  ),
+                                ),
+                              ),
+                            );
+                          }).toList(),
+                        ),
+                      ),
+                      const SizedBox(height: 20),
+                      // ── Message
+                      const Text(
+                        'Message',
+                        style: TextStyle(
+                          color: UniverseColors.textPrimary,
+                          fontSize: 13,
+                          fontWeight: FontWeight.w600,
+                        ),
+                      ),
+                      const SizedBox(height: 8),
+                      Container(
+                        decoration: BoxDecoration(
+                          color: UniverseColors.bgPage,
+                          borderRadius: BorderRadius.circular(14),
+                          border: Border.all(color: UniverseColors.borderColor),
+                        ),
+                        child: TextField(
+                          controller: msgCtrl,
+                          maxLength: 80,
+                          maxLines: 3,
+                          minLines: 2,
+                          textInputAction: TextInputAction.done,
+                          style: const TextStyle(fontSize: 15, color: UniverseColors.textPrimary),
+                          decoration: const InputDecoration(
+                            hintText: "What's happening here?",
+                            hintStyle: TextStyle(color: UniverseColors.textMuted, fontSize: 15),
+                            border: InputBorder.none,
+                            contentPadding: EdgeInsets.all(14),
+                            counterStyle: TextStyle(color: UniverseColors.textMuted, fontSize: 11),
+                          ),
+                        ),
+                      ),
+                      const SizedBox(height: 14),
+                      // ── Location
+                      const Text(
+                        'Location',
+                        style: TextStyle(
+                          color: UniverseColors.textPrimary,
+                          fontSize: 13,
+                          fontWeight: FontWeight.w600,
+                        ),
+                      ),
+                      const SizedBox(height: 8),
+                      _SheetTextField(
+                        controller: locationCtrl,
+                        hint: 'Building, room or area',
+                        icon: Icons.location_on_rounded,
+                      ),
+                      const SizedBox(height: 14),
+                      // ── Notes (optional)
+                      const Text(
+                        'Notes (optional)',
+                        style: TextStyle(
+                          color: UniverseColors.textPrimary,
+                          fontSize: 13,
+                          fontWeight: FontWeight.w600,
+                        ),
+                      ),
+                      const SizedBox(height: 8),
+                      Container(
+                        decoration: BoxDecoration(
+                          color: UniverseColors.bgPage,
+                          borderRadius: BorderRadius.circular(14),
+                          border: Border.all(color: UniverseColors.borderColor),
+                        ),
+                        child: TextField(
+                          controller: notesCtrl,
+                          maxLines: 3,
+                          minLines: 2,
+                          style: const TextStyle(fontSize: 14, color: UniverseColors.textPrimary),
+                          decoration: const InputDecoration(
+                            hintText: 'Any extra details...',
+                            hintStyle: TextStyle(color: UniverseColors.textMuted, fontSize: 14),
+                            border: InputBorder.none,
+                            contentPadding: EdgeInsets.all(14),
+                          ),
+                        ),
+                      ),
+                      const SizedBox(height: 14),
+                      // ── Photo URL (optional)
+                      const Text(
+                        'Photo URL (optional)',
+                        style: TextStyle(
+                          color: UniverseColors.textPrimary,
+                          fontSize: 13,
+                          fontWeight: FontWeight.w600,
+                        ),
+                      ),
+                      const SizedBox(height: 8),
+                      _SheetTextField(
+                        controller: imageUrlCtrl,
+                        hint: 'https://...',
+                        icon: Icons.image_rounded,
+                      ),
+                      const SizedBox(height: 24),
+                      // ── Send Signal button
+                      GestureDetector(
+                        onTap: () {
+                          final msg = msgCtrl.text.trim();
+                          if (msg.isEmpty) return;
+                          final imageUrl = imageUrlCtrl.text.trim();
+                          final notes = notesCtrl.text.trim();
+                          Navigator.of(ctx).pop();
+                          _dropSignal(
+                            msg,
+                            selectedCategory,
+                            position,
+                            imageUrl: imageUrl.isNotEmpty ? imageUrl : null,
+                            notes: notes.isNotEmpty ? notes : null,
+                          );
+                        },
+                        child: Container(
+                          height: 52,
+                          decoration: BoxDecoration(
+                            gradient: const LinearGradient(
+                              colors: [Color(0xFF6C63FF), Color(0xFFFF7AD9)],
+                              begin: Alignment.centerLeft,
+                              end: Alignment.centerRight,
+                            ),
+                            borderRadius: BorderRadius.circular(14),
+                            boxShadow: const [
+                              BoxShadow(
+                                color: Color(0x446C63FF),
+                                blurRadius: 16,
+                                offset: Offset(0, 4),
+                              ),
+                            ],
+                          ),
+                          child: const Center(
+                            child: Row(
+                              mainAxisSize: MainAxisSize.min,
+                              children: [
+                                Icon(Icons.sensors_rounded, color: Colors.white, size: 18),
+                                SizedBox(width: 8),
+                                Text(
+                                  'Send Signal',
+                                  style: TextStyle(
+                                    color: Colors.white,
+                                    fontWeight: FontWeight.w700,
+                                    fontSize: 16,
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
   }
 
   Widget _buildTransportChip() {
@@ -438,21 +824,58 @@ class _MapTabState extends State<MapTab> with TickerProviderStateMixin {
                   .map((event) {
                     final info = categoryInfo[event.category]!;
                     final isSelected = _selectedEvent?.id == event.id;
-                    final showLabel = _currentZoom >= 16.5;
+                    final isLive = _isEventLive(event);
+                    final showLabel = _currentZoom >= 16.5 && !isLive;
                     final double pinW = isSelected ? 34.0 : 28.0;
                     final double pinH = isSelected ? 44.0 : 36.0;
+                    final double markerW = isLive ? 70.0 : (showLabel ? 90.0 : pinW);
+                    final double markerH = isLive ? 72.0 : (showLabel ? pinH + 20.0 : pinH);
+
+                    Widget pinWidget = _MapPin(
+                      color: info.color,
+                      icon: info.icon,
+                      isSelected: isSelected,
+                      width: pinW,
+                      height: pinH,
+                    );
+                    if (isLive) {
+                      pinWidget = AnimatedBuilder(
+                        animation: _signalPulseController!,
+                        builder: (_, child) {
+                          final t = _signalPulseController!.value;
+                          final pulseRadius = 18.0 + t * 16.0;
+                          final pulseOpacity = (1.0 - t) * 0.4;
+                          return Stack(
+                            alignment: Alignment.center,
+                            children: [
+                              Container(
+                                width: pulseRadius * 2,
+                                height: pulseRadius * 2,
+                                decoration: BoxDecoration(
+                                  shape: BoxShape.circle,
+                                  color: info.color.withOpacity(pulseOpacity),
+                                ),
+                              ),
+                              child!,
+                            ],
+                          );
+                        },
+                        child: pinWidget,
+                      );
+                    }
+
                     return Marker(
                       point: event.position,
-                      width: showLabel ? 90.0 : pinW,
-                      height: showLabel ? pinH + 20.0 : pinH,
+                      width: markerW,
+                      height: markerH,
                       alignment: Alignment.topCenter,
                       rotate: true,
                       child: GestureDetector(
                         onTap: () => _onPinTap(event),
                         behavior: HitTestBehavior.opaque,
                         child: SizedBox(
-                          width: showLabel ? 90.0 : pinW,
-                          height: showLabel ? pinH + 20.0 : pinH,
+                          width: markerW,
+                          height: markerH,
                           child: Column(
                             mainAxisAlignment: MainAxisAlignment.end,
                             crossAxisAlignment: CrossAxisAlignment.center,
@@ -465,13 +888,7 @@ class _MapTabState extends State<MapTab> with TickerProviderStateMixin {
                                     color: info.color,
                                   ),
                                 ),
-                              _MapPin(
-                                color: info.color,
-                                icon: info.icon,
-                                isSelected: isSelected,
-                                width: pinW,
-                                height: pinH,
-                              ),
+                              pinWidget,
                             ],
                           ),
                         ),
@@ -541,6 +958,32 @@ class _MapTabState extends State<MapTab> with TickerProviderStateMixin {
                     alignment: Alignment.topCenter,
                     rotate: true,
                     child: _BusStopPin(stop: stop, showLabel: showLabel),
+                  );
+                }).toList(),
+              ),
+            // ── Signal pins layer ────────────────────────────────────────────
+            if (activeSignals.isNotEmpty)
+              MarkerLayer(
+                markers: activeSignals.map((signal) {
+                  final meta = signalCategoryMeta[signal.category]!;
+                  final isSelected = _selectedSignal?.id == signal.id;
+                  return Marker(
+                    point: signal.position,
+                    width: 50.0,
+                    height: 50.0,
+                    alignment: Alignment.topCenter,
+                    rotate: true,
+                    child: GestureDetector(
+                      onTap: () => _onSignalPinTap(signal),
+                      behavior: HitTestBehavior.opaque,
+                      child: _SignalPin(
+                        color: meta.color,
+                        icon: meta.icon,
+                        isSelected: isSelected,
+                        pulseController: _signalPulseController!,
+                        imageUrl: signal.imageUrl,
+                      ),
+                    ),
                   );
                 }).toList(),
               ),
@@ -830,7 +1273,9 @@ class _MapTabState extends State<MapTab> with TickerProviderStateMixin {
                   ),
                 ],
               ),
-              child: _selectedStudySpot != null
+              child: _selectedSignal != null
+                  ? _buildSignalPanel(scrollController, _selectedSignal!)
+                  : _selectedStudySpot != null
                   ? _buildStudySpotPanel(scrollController, _selectedStudySpot!)
                   : _selectedEvent == null
                   ? _buildHappeningNow(scrollController)
@@ -908,6 +1353,51 @@ class _MapTabState extends State<MapTab> with TickerProviderStateMixin {
           ),
         ),
 
+        // ── Drop a Signal FAB
+        Positioned(
+          left: 80,
+          top: addPinTop,
+          child: IgnorePointer(
+            ignoring: _hideFloatingMapControls || _placementMode || _signalPlacementMode,
+            child: AnimatedOpacity(
+              duration: const Duration(milliseconds: 180),
+              opacity: (_hideFloatingMapControls || _placementMode || _signalPlacementMode) ? 0 : 1,
+              child: FloatingActionButton(
+                heroTag: 'signal_fab',
+                backgroundColor: _canDropSignal
+                    ? const Color(0xFFFF7AD9)
+                    : UniverseColors.iosSysGray2,
+                onPressed: () {
+                  if (!_canDropSignal) {
+                    final rem = _signalCooldownRemaining;
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      SnackBar(
+                        content: Text(
+                          'You can drop another signal in ${rem.inMinutes}m ${rem.inSeconds % 60}s',
+                          style: const TextStyle(color: Colors.white, fontWeight: FontWeight.w600),
+                        ),
+                        backgroundColor: const Color(0xFF6C63FF),
+                        behavior: SnackBarBehavior.floating,
+                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                        duration: const Duration(seconds: 3),
+                        margin: const EdgeInsets.fromLTRB(16, 0, 16, 12),
+                      ),
+                    );
+                    return;
+                  }
+                  setState(() {
+                    _signalPlacementMode = true;
+                    _pinLifted = false;
+                    _headerCollapsed = true;
+                  });
+                  _reverseGeocode(_mapController.camera.center);
+                },
+                child: const Icon(Icons.sensors_rounded),
+              ),
+            ),
+          ),
+        ),
+
         // ── Pin placement mode overlay ──────────────────────────────────────
         if (_placementMode) ...[
           const IgnorePointer(
@@ -920,7 +1410,7 @@ class _MapTabState extends State<MapTab> with TickerProviderStateMixin {
             top: MediaQuery.of(context).padding.top + 70,
             left: 24,
             right: 24,
-            child: const IgnorePointer(
+            child: IgnorePointer(
               child: Center(child: _PlacementBanner()),
             ),
           ),
@@ -1014,8 +1504,151 @@ class _MapTabState extends State<MapTab> with TickerProviderStateMixin {
             ),
           ),
         ],
+
+        // ── Signal placement mode overlay ───────────────────────────────────
+        if (_signalPlacementMode) ...[
+          const IgnorePointer(
+            child: ColoredBox(
+              color: Color(0x14000000),
+              child: SizedBox.expand(),
+            ),
+          ),
+          Positioned(
+            top: MediaQuery.of(context).padding.top + 70,
+            left: 24,
+            right: 24,
+            child: IgnorePointer(
+              child: Center(
+                child: _PlacementBanner(
+                  text: 'Move the map to position your signal',
+                ),
+              ),
+            ),
+          ),
+          IgnorePointer(
+            child: Center(
+              child: _PlacementPin(
+                lifted: _pinLifted,
+                color: const Color(0xFFFF7AD9),
+                icon: Icons.sensors_rounded,
+              ),
+            ),
+          ),
+          Positioned(
+            bottom: confirmBarBottom,
+            left: 20,
+            right: 20,
+            child: SafeArea(
+              top: false,
+              child: Row(
+                children: [
+                  Expanded(
+                    child: GestureDetector(
+                      onTap: () => setState(() {
+                        _signalPlacementMode = false;
+                        _pinLifted = false;
+                      }),
+                      child: Container(
+                        height: 50,
+                        decoration: BoxDecoration(
+                          color: Colors.white,
+                          borderRadius: BorderRadius.circular(14),
+                          border: Border.all(color: UniverseColors.borderColor),
+                          boxShadow: const [
+                            BoxShadow(
+                              color: Color(0x1A000000),
+                              blurRadius: 12,
+                              offset: Offset(0, 2),
+                            ),
+                          ],
+                        ),
+                        child: const Center(
+                          child: Text(
+                            'Cancel',
+                            style: TextStyle(
+                              color: UniverseColors.textPrimary,
+                              fontWeight: FontWeight.w600,
+                              fontSize: 15,
+                            ),
+                          ),
+                        ),
+                      ),
+                    ),
+                  ),
+                  const SizedBox(width: 12),
+                  Expanded(
+                    flex: 2,
+                    child: GestureDetector(
+                      onTap: () {
+                        final pos = _mapController.camera.center;
+                        setState(() {
+                          _signalPlacementMode = false;
+                          _pinLifted = false;
+                        });
+                        _showSignalCustomizationSheet(pos);
+                      },
+                      child: Container(
+                        height: 50,
+                        decoration: BoxDecoration(
+                          gradient: const LinearGradient(
+                            colors: [Color(0xFF6C63FF), Color(0xFFFF7AD9)],
+                            begin: Alignment.centerLeft,
+                            end: Alignment.centerRight,
+                          ),
+                          borderRadius: BorderRadius.circular(14),
+                          boxShadow: const [
+                            BoxShadow(
+                              color: Color(0x44FF7AD9),
+                              blurRadius: 12,
+                              offset: Offset(0, 3),
+                            ),
+                          ],
+                        ),
+                        child: const Center(
+                          child: Text(
+                            'Set Signal Location',
+                            style: TextStyle(
+                              color: Colors.white,
+                              fontWeight: FontWeight.w700,
+                              fontSize: 15,
+                            ),
+                          ),
+                        ),
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ),
+        ],
       ],
     );
+  }
+
+  // ═══════════════════════════════════════════════════
+  // LIVE EVENT DETECTION
+  // ═══════════════════════════════════════════════════
+
+  bool _isEventLive(CampusEvent event) {
+    if (event.time == 'Now') return true;
+    if (!event.time.startsWith('Today')) return false;
+    try {
+      final timePart = event.time.replaceFirst('Today, ', '');
+      final parts = timePart.split(' ');
+      final hhmm = parts[0].split(':');
+      var hour = int.parse(hhmm[0]);
+      final minute = int.parse(hhmm[1]);
+      final isPm = parts[1].toUpperCase() == 'PM';
+      if (isPm && hour != 12) hour += 12;
+      if (!isPm && hour == 12) hour = 0;
+      final now = DateTime.now();
+      final eventTime = DateTime(now.year, now.month, now.day, hour, minute);
+      final diff = now.difference(eventTime);
+      return diff.inMinutes >= 0 && diff.inMinutes < 90;
+    } catch (_) {
+      return false;
+    }
   }
 
   // ═══════════════════════════════════════════════════
@@ -1075,6 +1708,7 @@ class _MapTabState extends State<MapTab> with TickerProviderStateMixin {
     EventCategory? selectedCategory;
     final titleCtrl = TextEditingController();
     final locationCtrl = TextEditingController(text: _pendingPinAddress);
+    final imageUrlCtrl = TextEditingController();
     final Set<String> amenities = {};
     String busyLevel = 'Quiet';
 
@@ -1228,6 +1862,22 @@ class _MapTabState extends State<MapTab> with TickerProviderStateMixin {
                         hint: 'Building, room or area',
                         icon: Icons.location_on_rounded,
                       ),
+                      const SizedBox(height: 14),
+                      // ── Photo URL (optional)
+                      const Text(
+                        'Photo URL (optional)',
+                        style: TextStyle(
+                          color: UniverseColors.textPrimary,
+                          fontSize: 13,
+                          fontWeight: FontWeight.w600,
+                        ),
+                      ),
+                      const SizedBox(height: 8),
+                      _SheetTextField(
+                        controller: imageUrlCtrl,
+                        hint: 'https://...',
+                        icon: Icons.image_rounded,
+                      ),
                       // ── Study-spot extras
                       if (selectedCategory == EventCategory.study) ...[
                         const SizedBox(height: 20),
@@ -1345,6 +1995,7 @@ class _MapTabState extends State<MapTab> with TickerProviderStateMixin {
                             title,
                             locationCtrl.text.trim(),
                             center,
+                            imageUrl: imageUrlCtrl.text.trim(),
                           );
                         },
                         child: Container(
@@ -1402,8 +2053,9 @@ class _MapTabState extends State<MapTab> with TickerProviderStateMixin {
     EventCategory category,
     String title,
     String location,
-    LatLng position,
-  ) {
+    LatLng position, {
+    String? imageUrl,
+  }) {
     final id = 'u${DateTime.now().millisecondsSinceEpoch}';
     final loc = location.isEmpty ? 'Campus' : location;
     if (category == EventCategory.study) {
@@ -1425,7 +2077,7 @@ class _MapTabState extends State<MapTab> with TickerProviderStateMixin {
         subtitle: 'You',
         location: loc,
         time: 'Now',
-        imageUrl: '',
+        imageUrl: (imageUrl != null && imageUrl.isNotEmpty) ? imageUrl : '',
         category: category,
         position: position,
         attendees: 0,
@@ -1465,6 +2117,181 @@ class _MapTabState extends State<MapTab> with TickerProviderStateMixin {
         duration: const Duration(seconds: 2),
         margin: const EdgeInsets.fromLTRB(16, 0, 16, 12),
       ),
+    );
+  }
+
+  // ═══════════════════════════════════════════════════
+  // PANEL S — Signal preview
+  // ═══════════════════════════════════════════════════
+  Widget _buildSignalPanel(ScrollController scrollController, CampusSignal signal) {
+    final meta = signalCategoryMeta[signal.category]!;
+    return CustomScrollView(
+      controller: scrollController,
+      physics: const ClampingScrollPhysics(),
+      slivers: [
+        SliverToBoxAdapter(
+          child: Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 16),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                _DragHandle(onTap: _onDragHandleTap),
+                // Header row
+                Row(
+                  children: [
+                    Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                      decoration: BoxDecoration(
+                        color: meta.color.withOpacity(0.12),
+                        borderRadius: BorderRadius.circular(8),
+                      ),
+                      child: Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          Icon(Icons.sensors_rounded, size: 13, color: meta.color),
+                          const SizedBox(width: 4),
+                          Text(
+                            'Signal · ${meta.label}',
+                            style: TextStyle(
+                              color: meta.color,
+                              fontSize: 12,
+                              fontWeight: FontWeight.w700,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                    const Spacer(),
+                    GestureDetector(
+                      onTap: _dismissPreview,
+                      child: Container(
+                        width: 30,
+                        height: 30,
+                        decoration: const BoxDecoration(
+                          color: UniverseColors.bgPage,
+                          shape: BoxShape.circle,
+                        ),
+                        child: const Icon(Icons.close_rounded, size: 16, color: UniverseColors.textMuted),
+                      ),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 14),
+                // Message
+                Container(
+                  width: double.infinity,
+                  padding: const EdgeInsets.all(14),
+                  decoration: BoxDecoration(
+                    color: meta.color.withOpacity(0.07),
+                    borderRadius: BorderRadius.circular(14),
+                    border: Border.all(color: meta.color.withOpacity(0.18)),
+                  ),
+                  child: Row(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Icon(meta.icon, color: meta.color, size: 20),
+                      const SizedBox(width: 10),
+                      Expanded(
+                        child: Text(
+                          signal.message,
+                          style: const TextStyle(
+                            fontSize: 16,
+                            fontWeight: FontWeight.w600,
+                            color: UniverseColors.textPrimary,
+                            height: 1.35,
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+                const SizedBox(height: 12),
+                // Meta row — time + expiry
+                Row(
+                  children: [
+                    Icon(Icons.access_time_rounded, size: 13, color: UniverseColors.textMuted),
+                    const SizedBox(width: 4),
+                    Text(
+                      signal.timeAgoLabel,
+                      style: const TextStyle(fontSize: 13, color: UniverseColors.textMuted),
+                    ),
+                    const SizedBox(width: 16),
+                    Icon(Icons.timer_outlined, size: 13, color: UniverseColors.textMuted),
+                    const SizedBox(width: 4),
+                    _SignalCountdown(signal: signal),
+                  ],
+                ),
+                const SizedBox(height: 20),
+                // Dismiss button
+                SizedBox(
+                  width: double.infinity,
+                  height: 48,
+                  child: GestureDetector(
+                    onTap: _dismissPreview,
+                    child: Container(
+                      decoration: BoxDecoration(
+                        color: UniverseColors.bgPage,
+                        borderRadius: BorderRadius.circular(14),
+                        border: Border.all(color: UniverseColors.borderColor),
+                      ),
+                      child: const Center(
+                        child: Text(
+                          'Dismiss',
+                          style: TextStyle(
+                            color: UniverseColors.textSecondary,
+                            fontWeight: FontWeight.w600,
+                            fontSize: 15,
+                          ),
+                        ),
+                      ),
+                    ),
+                  ),
+                ),
+                const SizedBox(height: 8),
+                // Remove Signal button
+                SizedBox(
+                  width: double.infinity,
+                  height: 48,
+                  child: GestureDetector(
+                    onTap: () {
+                      final sigId = signal.id;
+                      setState(() {
+                        activeSignals.removeWhere((s) => s.id == sigId);
+                      });
+                      _dismissPreview();
+                    },
+                    child: Container(
+                      decoration: BoxDecoration(
+                        color: const Color(0xFFFFEEEE),
+                        borderRadius: BorderRadius.circular(14),
+                        border: Border.all(color: const Color(0xFFFFCCCC)),
+                      ),
+                      child: const Center(
+                        child: Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            Icon(Icons.delete_outline_rounded, color: Color(0xFFEF5350), size: 18),
+                            SizedBox(width: 8),
+                            Text(
+                              'Remove Signal',
+                              style: TextStyle(
+                                color: Color(0xFFEF5350),
+                                fontWeight: FontWeight.w600,
+                                fontSize: 15,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ),
+                  ),
+                ),
+                const SizedBox(height: 24),
+              ],
+            ),
+          ),
+        ),
+      ],
     );
   }
 
@@ -2774,7 +3601,8 @@ class _MapControlButton extends StatelessWidget {
 
 /// Instruction banner shown while the user is placing a pin.
 class _PlacementBanner extends StatelessWidget {
-  const _PlacementBanner();
+  final String text;
+  const _PlacementBanner({this.text = 'Move the map to position your pin'});
 
   @override
   Widget build(BuildContext context) {
@@ -2784,9 +3612,9 @@ class _PlacementBanner extends StatelessWidget {
         color: Colors.black.withOpacity(0.62),
         borderRadius: BorderRadius.circular(24),
       ),
-      child: const Text(
-        'Move the map to position your pin',
-        style: TextStyle(
+      child: Text(
+        text,
+        style: const TextStyle(
           color: Colors.white,
           fontSize: 13,
           fontWeight: FontWeight.w500,
@@ -2797,9 +3625,176 @@ class _PlacementBanner extends StatelessWidget {
 }
 
 /// Animated pin shown fixed at the centre of the screen during placement mode.
+// ─────────────────────────────────────────────────────────────────────────────
+// SIGNAL PIN — pulsing broadcast marker
+// ─────────────────────────────────────────────────────────────────────────────
+
+class _SignalPin extends StatelessWidget {
+  final Color color;
+  final IconData icon;
+  final bool isSelected;
+  final AnimationController pulseController;
+  final String? imageUrl;
+
+  const _SignalPin({
+    required this.color,
+    required this.icon,
+    required this.isSelected,
+    required this.pulseController,
+    this.imageUrl,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final hasImage = imageUrl != null && imageUrl!.isNotEmpty;
+    final double circleSize = isSelected ? 32.0 : 26.0;
+    return SizedBox(
+      width: 50,
+      height: 50,
+      child: Column(
+        mainAxisAlignment: MainAxisAlignment.end,
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          AnimatedBuilder(
+            animation: pulseController,
+            builder: (_, child) {
+              final t = pulseController.value;
+              final pulseRadius = circleSize / 2 + t * 14.0;
+              final pulseOpacity = (1.0 - t) * 0.4;
+              return SizedBox(
+                width: circleSize,
+                height: circleSize,
+                child: Stack(
+                  alignment: Alignment.center,
+                  clipBehavior: Clip.none,
+                  children: [
+                    // Pulse ring — drawn outside bounds, doesn't affect layout
+                    Positioned(
+                      left: circleSize / 2 - pulseRadius,
+                      top: circleSize / 2 - pulseRadius,
+                      child: Container(
+                        width: pulseRadius * 2,
+                        height: pulseRadius * 2,
+                        decoration: BoxDecoration(
+                          shape: BoxShape.circle,
+                          color: UniverseColors.accent.withOpacity(pulseOpacity),
+                        ),
+                      ),
+                    ),
+                    child!,
+                  ],
+                ),
+              );
+            },
+            child: Container(
+              width: circleSize,
+              height: circleSize,
+              clipBehavior: Clip.antiAlias,
+              decoration: BoxDecoration(
+                gradient: hasImage
+                    ? null
+                    : LinearGradient(
+                        colors: [color, color.withOpacity(0.7)],
+                        begin: Alignment.topLeft,
+                        end: Alignment.bottomRight,
+                      ),
+                shape: BoxShape.circle,
+                border: Border.all(
+                  color: UniverseColors.accent,
+                  width: isSelected ? 3 : 2,
+                ),
+                boxShadow: [
+                  BoxShadow(
+                    color: UniverseColors.accent.withOpacity(0.45),
+                    blurRadius: isSelected ? 14 : 8,
+                    offset: const Offset(0, 3),
+                  ),
+                ],
+              ),
+              child: hasImage
+                  ? Image.network(
+                      imageUrl!,
+                      fit: BoxFit.cover,
+                      errorBuilder: (_, __, ___) =>
+                          Icon(icon, color: Colors.white, size: isSelected ? 20 : 16),
+                    )
+                  : Icon(icon, color: Colors.white, size: isSelected ? 20 : 16),
+            ),
+          ),
+          const SizedBox(height: 3),
+          // Dot tail
+          Container(
+            width: isSelected ? 6 : 5,
+            height: isSelected ? 6 : 5,
+            decoration: BoxDecoration(
+              color: UniverseColors.accent,
+              shape: BoxShape.circle,
+              boxShadow: [
+                BoxShadow(
+                  color: UniverseColors.accent.withOpacity(0.35),
+                  blurRadius: 4,
+                ),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+/// Live countdown showing time remaining on a signal.
+class _SignalCountdown extends StatefulWidget {
+  final CampusSignal signal;
+  const _SignalCountdown({required this.signal});
+
+  @override
+  State<_SignalCountdown> createState() => _SignalCountdownState();
+}
+
+class _SignalCountdownState extends State<_SignalCountdown> {
+  late Timer _timer;
+
+  @override
+  void initState() {
+    super.initState();
+    _timer = Timer.periodic(const Duration(seconds: 30), (_) {
+      if (mounted) setState(() {});
+    });
+  }
+
+  @override
+  void dispose() {
+    _timer.cancel();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final rem = widget.signal.timeRemaining;
+    if (rem.isNegative) {
+      return const Text(
+        'Expired',
+        style: TextStyle(fontSize: 13, color: UniverseColors.textMuted),
+      );
+    }
+    final minutes = rem.inMinutes;
+    return Text(
+      'Expires in ${minutes}m',
+      style: const TextStyle(fontSize: 13, color: UniverseColors.textMuted),
+    );
+  }
+}
+
 class _PlacementPin extends StatelessWidget {
   final bool lifted;
-  const _PlacementPin({required this.lifted});
+  final Color color;
+  final IconData icon;
+  const _PlacementPin({
+    required this.lifted,
+    this.color = UniverseColors.accent,
+    this.icon = Icons.add_rounded,
+  });
 
   @override
   Widget build(BuildContext context) {
@@ -2810,9 +3805,9 @@ class _PlacementPin extends StatelessWidget {
           duration: const Duration(milliseconds: 180),
           curve: Curves.easeOut,
           margin: EdgeInsets.only(bottom: lifted ? 14 : 0),
-          child: const _MapPin(
-            color: UniverseColors.accent,
-            icon: Icons.add_rounded,
+          child: _MapPin(
+            color: color,
+            icon: icon,
             width: 36,
             height: 46,
           ),

@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:latlong2/latlong.dart';
 
-enum EventCategory { clubs, food, events, social, study, freeStuff, myki }
+enum EventCategory { food, events, social, study, freeStuff, myki }
 
 class EventCategoryInfo {
   final String label;
@@ -16,11 +16,6 @@ class EventCategoryInfo {
 }
 
 final Map<EventCategory, EventCategoryInfo> categoryInfo = {
-  EventCategory.clubs: const EventCategoryInfo(
-    label: 'Clubs',
-    icon: Icons.groups_rounded,
-    color: Color(0xFF3D8BFF),
-  ),
   EventCategory.food: const EventCategoryInfo(
     label: 'Food',
     icon: Icons.restaurant_rounded,
@@ -123,7 +118,7 @@ final List<CampusEvent> sampleEvents = [
     location: 'Campus Centre',
     time: 'Today, 4:30 PM',
     imageUrl: 'https://images.unsplash.com/photo-1547153760-18fc86c0bba0?w=400',
-    category: EventCategory.clubs,
+    category: EventCategory.events,
     position: LatLng(-37.9125, 145.1315),
     attendees: 56,
   ),
@@ -181,7 +176,7 @@ final List<CampusEvent> sampleEvents = [
     time: 'Sat, 10:00 AM',
     imageUrl:
         'https://images.unsplash.com/photo-1529699211952-734e80c4d42b?w=400',
-    category: EventCategory.clubs,
+    category: EventCategory.events,
     position: LatLng(-37.9142, 145.1335),
     attendees: 28,
   ),
@@ -254,3 +249,83 @@ List<StudySpot> sampleStudySpots = [
     position: LatLng(-37.9128, 145.1310),
   ),
 ];
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Drop a Signal — ephemeral 30-minute broadcast pins
+// ─────────────────────────────────────────────────────────────────────────────
+
+enum SignalCategory { freeFood, study, social, activity, other }
+
+const Map<SignalCategory, _SignalCategoryMeta> signalCategoryMeta = {
+  SignalCategory.freeFood: _SignalCategoryMeta(
+    label: 'Free Food',
+    icon: Icons.fastfood_rounded,
+    color: Color(0xFFFF9F43),
+  ),
+  SignalCategory.study: _SignalCategoryMeta(
+    label: 'Study',
+    icon: Icons.menu_book_rounded,
+    color: Color(0xFF00B894),
+  ),
+  SignalCategory.social: _SignalCategoryMeta(
+    label: 'Social',
+    icon: Icons.emoji_people_rounded,
+    color: Color(0xFFFF7AD9),
+  ),
+  SignalCategory.activity: _SignalCategoryMeta(
+    label: 'Activity',
+    icon: Icons.sports_rounded,
+    color: Color(0xFF3D8BFF),
+  ),
+  SignalCategory.other: _SignalCategoryMeta(
+    label: 'Other',
+    icon: Icons.campaign_rounded,
+    color: Color(0xFF6C63FF),
+  ),
+};
+
+class _SignalCategoryMeta {
+  final String label;
+  final IconData icon;
+  final Color color;
+  const _SignalCategoryMeta({
+    required this.label,
+    required this.icon,
+    required this.color,
+  });
+}
+
+class CampusSignal {
+  final String id;
+  final String message;
+  final SignalCategory category;
+  final LatLng position;
+  final DateTime createdAt;
+  final DateTime expiresAt;
+  final String? imageUrl;
+  final String? notes;
+
+  CampusSignal({
+    required this.id,
+    required this.message,
+    required this.category,
+    required this.position,
+    required this.createdAt,
+    required this.expiresAt,
+    this.imageUrl,
+    this.notes,
+  });
+
+  Duration get timeRemaining => expiresAt.difference(DateTime.now());
+  bool get isExpired => DateTime.now().isAfter(expiresAt);
+
+  String get timeAgoLabel {
+    final diff = DateTime.now().difference(createdAt);
+    if (diff.inMinutes < 1) return 'Just now';
+    if (diff.inMinutes == 1) return '1 minute ago';
+    return '${diff.inMinutes} minutes ago';
+  }
+}
+
+/// Live list of active signals — managed by MapTab state.
+final List<CampusSignal> activeSignals = [];
