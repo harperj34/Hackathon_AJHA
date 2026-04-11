@@ -6,6 +6,12 @@ import 'package:latlong2/latlong.dart';
 import 'theme.dart';
 import 'models.dart';
 
+class HeatPoint {
+  final LatLng position;
+  final double intensity; // 0.0 – 1.0
+  const HeatPoint(this.position, this.intensity);
+}
+
 class MapTab extends StatefulWidget {
   const MapTab({super.key});
 
@@ -25,6 +31,7 @@ class _MapTabState extends State<MapTab> {
   bool _isGoing = false;
   String _searchQuery = '';
   bool _showTransport = false;
+  bool _showHeatmap = false;
   double _currentZoom = 15.5;
   StreamSubscription<MapEvent>? _mapEventSub;
 
@@ -158,6 +165,32 @@ class _MapTabState extends State<MapTab> {
     );
   }
 
+  // ── Heatmap helpers ────────────────────────────────────────────────────────
+
+  List<HeatPoint> get _heatPoints {
+    final pts = <HeatPoint>[];
+    for (final e in sampleEvents) {
+      final intensity = (e.attendees / 200.0).clamp(0.0, 1.0);
+      pts.add(HeatPoint(e.position, intensity));
+    }
+    return pts;
+  }
+
+  Color _heatColor(double intensity) {
+    if (intensity < 0.4) {
+      return Color.lerp(
+        const Color(0x556C63FF),
+        const Color(0x88A855F7),
+        intensity / 0.4,
+      )!;
+    }
+    return Color.lerp(
+      const Color(0x88A855F7),
+      const Color(0xAAFF7AD9),
+      (intensity - 0.4) / 0.6,
+    )!;
+  }
+
   @override
   Widget build(BuildContext context) {
     return Stack(
@@ -187,8 +220,28 @@ class _MapTabState extends State<MapTab> {
               subdomains: const ['a', 'b', 'c', 'd'],
               userAgentPackageName: 'com.universe.app',
             ),
+            // ── Heatmap blobs (above base map, below pins) ─────────────────
+            if (_showHeatmap)
+              MarkerLayer(
+                markers: _heatPoints.map((pt) {
+                  final radius = 60.0 + pt.intensity * 40.0;
+                  return Marker(
+                    point: pt.position,
+                    width: radius * 2,
+                    height: radius * 2,
+                    child: CustomPaint(
+                      size: Size(radius * 2, radius * 2),
+                      painter: _HeatBlobPainter(
+                        color: _heatColor(pt.intensity),
+                        intensity: pt.intensity,
+                      ),
+                    ),
+                  );
+                }).toList(),
+              ),
+            // ── Event pins (primary interactive layer) ─────────────────────
             MarkerLayer(
-              markers: _filteredEvents.map((event) {
+                markers: _filteredEvents.map((event) {
                 final info = categoryInfo[event.category]!;
                 final isSelected = _selectedEvent?.id == event.id;
                 final showLabel = _currentZoom >= 16.5;
@@ -395,6 +448,42 @@ class _MapTabState extends State<MapTab> {
                   : _buildEventPanel(scrollController, _selectedEvent!),
             );
           },
+        ),
+
+        // ── Map controls (bottom-right) ─────────────────────────────────────
+        Positioned(
+          right: 16,
+          bottom: MediaQuery.of(context).size.height * _kCollapsed + 16,
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              // Heatmap toggle
+              _MapControlButton(
+                onTap: () => setState(() => _showHeatmap = !_showHeatmap),
+                active: _showHeatmap,
+                activeColor: UniverseColors.accentPink,
+                child: const Icon(Icons.whatshot_rounded, size: 20),
+              ),
+              const SizedBox(height: 8),
+              // Zoom in
+              _MapControlButton(
+                onTap: () => _mapController.move(
+                  _mapController.camera.center,
+                  (_mapController.camera.zoom + 1).clamp(13.5, 19.0),
+                ),
+                child: const Icon(Icons.add_rounded, size: 20),
+              ),
+              const SizedBox(height: 4),
+              // Zoom out
+              _MapControlButton(
+                onTap: () => _mapController.move(
+                  _mapController.camera.center,
+                  (_mapController.camera.zoom - 1).clamp(13.5, 19.0),
+                ),
+                child: const Icon(Icons.remove_rounded, size: 20),
+              ),
+            ],
+          ),
         ),
       ],
     );
@@ -1355,6 +1444,80 @@ class _BusStopPin extends StatelessWidget {
           ),
         ),
       ],
+    );
+  }
+}
+
+/// Soft radial gradient blob rendered for the heatmap layer.
+class _HeatBlobPainter extends CustomPainter {
+  final Color color;
+  final double intensity;
+
+  const _HeatBlobPainter({required this.color, required this.intensity});
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    final center = Offset(size.width / 2, size.height / 2);
+    final radius = size.width / 2;
+    final paint = Paint()
+      ..shader = ui.Gradient.radial(
+        center,
+        radius,
+        [color, color.withOpacity(0.0)],
+        [0.0, 1.0],
+      );
+    canvas.drawCircle(center, radius, paint);
+  }
+
+  @override
+  bool shouldRepaint(_HeatBlobPainter old) =>
+      old.color != color || old.intensity != intensity;
+}
+
+/// Reusable circular map control button (zoom +/-, heatmap toggle, etc.)
+class _MapControlButton extends StatelessWidget {
+  final VoidCallback onTap;
+  final Widget child;
+  final bool active;
+  final Color activeColor;
+
+  const _MapControlButton({
+    required this.onTap,
+    required this.child,
+    this.active = false,
+    this.activeColor = UniverseColors.accent,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return GestureDetector(
+      onTap: onTap,
+      child: AnimatedContainer(
+        duration: const Duration(milliseconds: 180),
+        width: 44,
+        height: 44,
+        decoration: BoxDecoration(
+          color: Colors.white,
+          shape: BoxShape.circle,
+          border: Border.all(
+            color: active ? activeColor : UniverseColors.borderColor,
+            width: 1.5,
+          ),
+          boxShadow: const [
+            BoxShadow(
+              color: Color(0x1A000000),
+              blurRadius: 8,
+              offset: Offset(0, 2),
+            ),
+          ],
+        ),
+        child: IconTheme(
+          data: IconThemeData(
+            color: active ? activeColor : UniverseColors.textMuted,
+          ),
+          child: Center(child: child),
+        ),
+      ),
     );
   }
 }
