@@ -4,10 +4,12 @@ import 'theme.dart';
 import 'map_tab.dart';
 import 'discover_tab.dart';
 import 'profile_tab.dart';
+import 'activity_tab.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'login_page.dart';
 import 'onboarding_overlay.dart';
 import 'events_service.dart';
+import 'session_state.dart';
 
 void main() {
   WidgetsFlutterBinding.ensureInitialized();
@@ -46,7 +48,12 @@ class _UniverseShellState extends State<UniverseShell> {
   int _currentIndex = 0;
   bool _showOnboarding = false;
 
-  final List<Widget> _tabs = const [MapTab(), DiscoverTab(), ProfileTab()];
+  final List<Widget> _tabs = const [
+    MapTab(),
+    DiscoverTab(),
+    ActivityTab(),
+    ProfileTab(),
+  ];
 
   @override
   void initState() {
@@ -63,10 +70,9 @@ class _UniverseShellState extends State<UniverseShell> {
     }
   }
 
-  // update onComplete to also clear the flag
   void _completeOnboarding() async {
     final prefs = await SharedPreferences.getInstance();
-    await prefs.remove('needs_onboarding'); // clear the flag
+    await prefs.remove('needs_onboarding');
     setState(() => _showOnboarding = false);
   }
 
@@ -87,10 +93,7 @@ class _UniverseShellState extends State<UniverseShell> {
               decoration: BoxDecoration(
                 color: Colors.white,
                 border: const Border(
-                  top: BorderSide(
-                    color: UniverseColors.borderColor,
-                    width: 0.5,
-                  ),
+                  top: BorderSide(color: UniverseColors.borderColor, width: 0.5),
                 ),
                 boxShadow: const [
                   BoxShadow(
@@ -119,10 +122,16 @@ class _UniverseShellState extends State<UniverseShell> {
                         onTap: () => setState(() => _currentIndex = 1),
                       ),
                       _NavItem(
-                        icon: Icons.person_outline,
-                        label: 'Profile',
+                        icon: Icons.notifications_none,
+                        label: 'Activity',
                         isActive: _currentIndex == 2,
                         onTap: () => setState(() => _currentIndex = 2),
+                      ),
+                      _NavItem(
+                        icon: Icons.person_outline,
+                        label: 'Profile',
+                        isActive: _currentIndex == 3,
+                        onTap: () => setState(() => _currentIndex = 3),
                       ),
                     ],
                   ),
@@ -188,15 +197,19 @@ class _AuthGateState extends State<AuthGate> {
     final prefs = await SharedPreferences.getInstance();
     final email = prefs.getString('logged_in_email');
 
-    // Load events from DB in parallel with login check
+    // Set current user email in session state
+    if (email != null) {
+      SessionState.currentUserEmail = email;
+    }
+
     await EventsService.loadEvents();
 
     if (mounted) {
       Navigator.of(context).pushReplacement(
         MaterialPageRoute(
           builder: (_) => email != null
-              ? const UniverseShell() // already logged in, no onboarding
-              : const LoginPage(), // not logged in, go to login
+              ? const UniverseShell()
+              : const LoginPage(),
         ),
       );
     }
