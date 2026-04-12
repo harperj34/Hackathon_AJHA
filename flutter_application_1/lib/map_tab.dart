@@ -464,10 +464,12 @@ Future<void> _reverseGeocode(LatLng pos) async {
       EventsService.createEvent(ev);
       SessionState.addCreatedEvent(ev);
 
-      setState(() {
-        _selectedEvent = ev;
-        _selectedStudySpot = null;
-      });
+      if (mounted) {
+        setState(() {
+          _selectedEvent = ev;
+          _selectedStudySpot = null;
+        });
+      }
     }
     _animateCameraTo(position, 17.5);
     _sheetController.animateTo(
