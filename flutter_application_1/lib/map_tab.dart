@@ -19,6 +19,7 @@ import 'map/panels/place_panel.dart';
 import 'map/panels/study_spot_panel.dart';
 import 'map/sheets/signal_customization_sheet.dart';
 import 'map/sheets/pin_customization_sheet.dart';
+import 'session_state.dart';
 
 class MapTab extends StatefulWidget {
   const MapTab({super.key});
@@ -434,6 +435,7 @@ class _MapTabState extends State<MapTab> with TickerProviderStateMixin {
       );
       setState(() {
         sampleEvents.add(ev);
+        SessionState.addCreatedEvent(ev);
         _tempExpiry[id] = DateTime.now().add(const Duration(hours: 2));
         _selectedEvent = ev;
         _selectedStudySpot = null;
@@ -732,7 +734,10 @@ class _MapTabState extends State<MapTab> with TickerProviderStateMixin {
       outdatedCount: _outdatedVotes[_selectedEvent!.id] ?? 0,
       onDragHandleTap: _onDragHandleTap,
       onDismiss: _dismissPreview,
-      onGoingChanged: (v) => setState(() => _isGoing = v),
+      onGoingChanged: (v) {
+        setState(() => _isGoing = v);
+        SessionState.setGoing(_selectedEvent!.id, v);
+      },
       onLikeToggle: () => setState(() {
         if (_likedItems.contains(_selectedEvent!.id)) {
           _likedItems.remove(_selectedEvent!.id);
