@@ -35,14 +35,10 @@ class EventsService {
   static List<CampusEvent> get _activeEvents {
     if (_appStartTime == null) return _allEvents;
     final elapsed = DateTime.now().difference(_appStartTime!).inMinutes;
-    return _allEvents
-        .where((e) => elapsed < e.durationMinutes)
-        .toList();
+    return _allEvents.where((e) => elapsed < e.durationMinutes).toList();
   }
 
-
   static List<CampusEvent> get currentEvents => _activeEvents;
-
 
   static Future<bool> createEvent(CampusEvent event) async {
     try {

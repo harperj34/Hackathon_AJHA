@@ -153,7 +153,8 @@ class _MapTabState extends State<MapTab> with TickerProviderStateMixin {
     return EventsService.currentEvents.where((e) {
       final matchesFilter =
           _activeFilter == null || e.category == _activeFilter;
-      final matchesSearch = _searchQuery.isEmpty ||
+      final matchesSearch =
+          _searchQuery.isEmpty ||
           e.title.toLowerCase().contains(_searchQuery.toLowerCase()) ||
           e.location.toLowerCase().contains(_searchQuery.toLowerCase()) ||
           e.subtitle.toLowerCase().contains(_searchQuery.toLowerCase());
@@ -161,16 +162,17 @@ class _MapTabState extends State<MapTab> with TickerProviderStateMixin {
     }).toList();
   }
 
-    List<StudySpot> get _filteredStudySpots {
-      return sampleStudySpots.where((s) {
-        final matchesFilter =
-            _activeFilter == null || _activeFilter == EventCategory.study;
-        final matchesSearch = _searchQuery.isEmpty ||
-            s.title.toLowerCase().contains(_searchQuery.toLowerCase()) ||
-            s.location.toLowerCase().contains(_searchQuery.toLowerCase());
-        return matchesFilter && matchesSearch;
-      }).toList();
-    }
+  List<StudySpot> get _filteredStudySpots {
+    return sampleStudySpots.where((s) {
+      final matchesFilter =
+          _activeFilter == null || _activeFilter == EventCategory.study;
+      final matchesSearch =
+          _searchQuery.isEmpty ||
+          s.title.toLowerCase().contains(_searchQuery.toLowerCase()) ||
+          s.location.toLowerCase().contains(_searchQuery.toLowerCase());
+      return matchesFilter && matchesSearch;
+    }).toList();
+  }
 
   // ═══════════════════════════════════════════════════
   // EVENT HANDLERS
@@ -284,7 +286,10 @@ class _MapTabState extends State<MapTab> with TickerProviderStateMixin {
       curve: Curves.easeInOut,
     );
     animation.addListener(() {
-      if (!mounted) { controller.dispose(); return; }
+      if (!mounted) {
+        controller.dispose();
+        return;
+      }
       final t = animation.value;
       _mapController.move(
         LatLng(
@@ -378,14 +383,19 @@ class _MapTabState extends State<MapTab> with TickerProviderStateMixin {
     );
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(
-        content: const Row(children: [
-          Icon(Icons.sensors_rounded, color: Colors.white, size: 18),
-          SizedBox(width: 8),
-          Text(
-            'Signal sent to nearby students!',
-            style: TextStyle(color: Colors.white, fontWeight: FontWeight.w600),
-          ),
-        ]),
+        content: const Row(
+          children: [
+            Icon(Icons.sensors_rounded, color: Colors.white, size: 18),
+            SizedBox(width: 8),
+            Text(
+              'Signal sent to nearby students!',
+              style: TextStyle(
+                color: Colors.white,
+                fontWeight: FontWeight.w600,
+              ),
+            ),
+          ],
+        ),
         backgroundColor: const Color(0xFF6C63FF),
         behavior: SnackBarBehavior.floating,
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
@@ -407,28 +417,28 @@ class _MapTabState extends State<MapTab> with TickerProviderStateMixin {
   }
 
   Color _heatColor(double intensity) {
-  if (intensity < 0.4) {
+    if (intensity < 0.4) {
+      return Color.lerp(
+        const Color(0x556C63FF),
+        const Color(0x88A855F7),
+        intensity / 0.4,
+      )!;
+    }
     return Color.lerp(
-      const Color(0x556C63FF),
       const Color(0x88A855F7),
-      intensity / 0.4,
+      const Color(0xAAFF7AD9),
+      (intensity - 0.4) / 0.6,
     )!;
   }
-  return Color.lerp(
-    const Color(0x88A855F7),
-    const Color(0xAAFF7AD9),
-    (intensity - 0.4) / 0.6,
-  )!;
-}
 
-// ═══════════════════════════════════════════════════
-// REVERSE GEOCODING
-// ═══════════════════════════════════════════════════
+  // ═══════════════════════════════════════════════════
+  // REVERSE GEOCODING
+  // ═══════════════════════════════════════════════════
 
-Future<void> _reverseGeocode(LatLng pos) async {
-  final label = await GeoService.reverseGeocode(pos);
-  if (mounted) setState(() => _pendingPinAddress = label);
-}
+  Future<void> _reverseGeocode(LatLng pos) async {
+    final label = await GeoService.reverseGeocode(pos);
+    if (mounted) setState(() => _pendingPinAddress = label);
+  }
 
   // ═══════════════════════════════════════════════════
   // PIN CREATION
@@ -444,7 +454,12 @@ Future<void> _reverseGeocode(LatLng pos) async {
     final id = 'u${DateTime.now().millisecondsSinceEpoch}';
     final loc = location.isEmpty ? 'Campus' : location;
     if (category == EventCategory.study) {
-      final spot = StudySpot(id: id, title: title, location: loc, position: position);
+      final spot = StudySpot(
+        id: id,
+        title: title,
+        location: loc,
+        position: position,
+      );
       setState(() {
         sampleStudySpots.add(spot);
         _selectedStudySpot = spot;
@@ -478,14 +493,19 @@ Future<void> _reverseGeocode(LatLng pos) async {
     );
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(
-        content: const Row(children: [
-          Icon(Icons.location_on_rounded, color: Colors.white, size: 18),
-          SizedBox(width: 8),
-          Text(
-            'Pin dropped!',
-            style: TextStyle(color: Colors.white, fontWeight: FontWeight.w600),
-          ),
-        ]),
+        content: const Row(
+          children: [
+            Icon(Icons.location_on_rounded, color: Colors.white, size: 18),
+            SizedBox(width: 8),
+            Text(
+              'Pin dropped!',
+              style: TextStyle(
+                color: Colors.white,
+                fontWeight: FontWeight.w600,
+              ),
+            ),
+          ],
+        ),
         backgroundColor: UniverseColors.accent,
         behavior: SnackBarBehavior.floating,
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
@@ -513,13 +533,23 @@ Future<void> _reverseGeocode(LatLng pos) async {
     const fabHeight = 56.0;
 
     final mapControlsTop = _placementMode
-        ? (screenHeight - safeBottom - confirmBarHeight - controlsGap - controlsHeight)
-            .clamp(safeTop + 12, screenHeight)
-        : (sheetTop - controlsGap - controlsHeight).clamp(safeTop + 12, screenHeight);
+        ? (screenHeight -
+                  safeBottom -
+                  confirmBarHeight -
+                  controlsGap -
+                  controlsHeight)
+              .clamp(safeTop + 12, screenHeight)
+        : (sheetTop - controlsGap - controlsHeight).clamp(
+            safeTop + 12,
+            screenHeight,
+          );
 
     final addPinTop = _placementMode
         ? screenHeight
-        : (sheetTop - controlsGap - fabHeight).clamp(safeTop + 12, screenHeight);
+        : (sheetTop - controlsGap - fabHeight).clamp(
+            safeTop + 12,
+            screenHeight,
+          );
 
     return Stack(
       children: [
@@ -615,10 +645,15 @@ Future<void> _reverseGeocode(LatLng pos) async {
           signalPlacementMode: _signalPlacementMode,
           pinLifted: _pinLifted,
           confirmBarBottom: confirmBarBottom,
-          onCancelPin: () =>
-              setState(() { _placementMode = false; _pinLifted = false; }),
+          onCancelPin: () => setState(() {
+            _placementMode = false;
+            _pinLifted = false;
+          }),
           onConfirmPin: () {
-            setState(() { _placementMode = false; _pinLifted = false; });
+            setState(() {
+              _placementMode = false;
+              _pinLifted = false;
+            });
             PinCustomizationSheet.show(
               context,
               center: _mapController.camera.center,
@@ -626,11 +661,16 @@ Future<void> _reverseGeocode(LatLng pos) async {
               onCreate: _createPin,
             );
           },
-          onCancelSignal: () =>
-              setState(() { _signalPlacementMode = false; _pinLifted = false; }),
+          onCancelSignal: () => setState(() {
+            _signalPlacementMode = false;
+            _pinLifted = false;
+          }),
           onConfirmSignal: () {
             final pos = _mapController.camera.center;
-            setState(() { _signalPlacementMode = false; _pinLifted = false; });
+            setState(() {
+              _signalPlacementMode = false;
+              _pinLifted = false;
+            });
             SignalCustomizationSheet.show(
               context,
               position: pos,
@@ -688,8 +728,7 @@ Future<void> _reverseGeocode(LatLng pos) async {
         child: Container(
           decoration: BoxDecoration(
             color: UniverseColors.glassWhite,
-            borderRadius:
-                const BorderRadius.vertical(top: Radius.circular(20)),
+            borderRadius: const BorderRadius.vertical(top: Radius.circular(20)),
             border: Border.all(color: UniverseColors.glassBorder, width: 0.5),
             boxShadow: const [
               BoxShadow(

@@ -30,9 +30,7 @@ class NeonService {
 
   //returning user
   static Future<bool> emailExists(String email) async {
-    final response = await http.get(
-      Uri.parse('$baseUrl/user/$email'),
-    );
+    final response = await http.get(Uri.parse('$baseUrl/user/$email'));
     if (response.statusCode == 200) {
       final data = jsonDecode(response.body);
       return data['exists'] == true;
