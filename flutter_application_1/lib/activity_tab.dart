@@ -11,26 +11,37 @@ class ActivityTab extends StatelessWidget {
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Padding(
-            padding: const EdgeInsets.fromLTRB(20, 16, 20, 0),
-            child: Center(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.center,
+            padding: const EdgeInsets.fromLTRB(20, 16, 20, 12),
+            child: Row(
+              crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Text(
-                  'Activity',
-                  style: UniverseTextStyles.displayLarge,
+                SizedBox(
+                  width: 44,
+                  height: 44,
+                  child: BackButton(color: UniverseColors.textPrimary),
                 ),
-                const SizedBox(height: 4),
-                const Text(
-                  'Your recent campus activity',
-                  style: TextStyle(
-                    color: UniverseColors.textMuted,
-                    fontSize: 15,
+                const SizedBox(width: 12),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        'Activity',
+                        style: UniverseTextStyles.displayLarge,
+                      ),
+                      const SizedBox(height: 8),
+                      const Text(
+                        'Your recent campus activity',
+                        style: TextStyle(
+                          color: UniverseColors.textMuted,
+                          fontSize: 15,
+                        ),
+                      ),
+                    ],
                   ),
                 ),
               ],
             ),
-          ),
           ),
           const SizedBox(height: 20),
           Expanded(
@@ -50,7 +61,7 @@ class ActivityTab extends StatelessWidget {
                     _ActivityItem(
                       icon: Icons.favorite_rounded,
                       iconColor: UniverseColors.accentPink,
-                      title: 'You saved Hackathon Kickoff 🚀',
+                      title: 'You saved Hackathon Kickoff',
                       subtitle: 'Learning & Teaching Building',
                       time: '5h ago',
                     ),
@@ -70,7 +81,7 @@ class ActivityTab extends StatelessWidget {
                     _ActivityItem(
                       icon: Icons.star_rounded,
                       iconColor: UniverseColors.accentOrange,
-                      title: 'New event near you: Free Bubble Tea 🧋',
+                      title: 'New event near you: Free Bubble Tea',
                       subtitle: 'Sir John Monash Drive',
                       time: '1d ago',
                     ),

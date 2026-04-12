@@ -2,13 +2,23 @@ import 'package:flutter/material.dart';
 import 'theme.dart';
 import 'models.dart';
 
-class EventDetailPage extends StatelessWidget {
+class EventDetailPage extends StatefulWidget {
   final CampusEvent event;
 
   const EventDetailPage({super.key, required this.event});
 
   @override
+  State<EventDetailPage> createState() => _EventDetailPageState();
+}
+
+class _EventDetailPageState extends State<EventDetailPage> {
+  final Set<String> _likedItems = {};
+  final Set<String> _savedItems = {};
+  bool _isGoing = false;
+
+  @override
   Widget build(BuildContext context) {
+    final event = widget.event;
     final info = categoryInfo[event.category]!;
     return Scaffold(
       backgroundColor: UniverseColors.bgPage,
@@ -150,88 +160,150 @@ class EventDetailPage extends StatelessWidget {
 
                   const SizedBox(height: 32),
 
-                  // CTA Button — gradient primary action
-                  Container(
-                    width: double.infinity,
-                    height: 54,
-                    decoration: BoxDecoration(
-                      borderRadius: BorderRadius.circular(16),
-                      gradient: const LinearGradient(
-                        colors: [
-                          Color(0xFF6C63FF),
-                          Color(0xFF3D8BFF),
-                        ],
-                        begin: Alignment.centerLeft,
-                        end: Alignment.centerRight,
-                      ),
-                      boxShadow: const [
-                        BoxShadow(
-                          color: Color(0x446C63FF),
-                          blurRadius: 16,
-                          offset: Offset(0, 4),
-                        ),
-                      ],
+                  // Friends going (static sample similar to map)
+                  const Text(
+                    'Friends Going',
+                    style: TextStyle(
+                      color: UniverseColors.textPrimary,
+                      fontSize: 15,
+                      fontWeight: FontWeight.w700,
                     ),
-                    child: Material(
-                      color: Colors.transparent,
-                      child: InkWell(
-                        borderRadius: BorderRadius.circular(16),
+                  ),
+                  const SizedBox(height: 12),
+                  Row(
+                    children: [
+                      _FriendAvatar(initials: 'AJ', name: 'Alex', color: UniverseColors.accent),
+                      const SizedBox(width: 12),
+                      _FriendAvatar(initials: 'MK', name: 'Maya', color: UniverseColors.accentPink),
+                      const SizedBox(width: 12),
+                      _FriendAvatar(initials: 'RS', name: 'Ryan', color: UniverseColors.accentBlue),
+                      const SizedBox(width: 16),
+                      Text(
+                        '+${event.attendees - 3} more',
+                        style: const TextStyle(
+                          color: UniverseColors.textLight,
+                          fontSize: 12,
+                        ),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 28),
+
+                  // Like / Save / Share
+                  Row(
+                    children: [
+                      _ActionButton(
+                        icon: _likedItems.contains(event.id) ? Icons.favorite_rounded : Icons.favorite_border_rounded,
+                        color: _likedItems.contains(event.id) ? const Color(0xFFFF4D6D) : UniverseColors.textMuted,
+                        label: _likedItems.contains(event.id) ? 'Liked' : 'Like',
+                        onTap: () => setState(() {
+                          if (_likedItems.contains(event.id)) {
+                            _likedItems.remove(event.id);
+                          } else {
+                            _likedItems.add(event.id);
+                          }
+                        }),
+                      ),
+                      const SizedBox(width: 8),
+                      _ActionButton(
+                        icon: _savedItems.contains(event.id) ? Icons.bookmark_rounded : Icons.bookmark_border_rounded,
+                        color: _savedItems.contains(event.id) ? UniverseColors.accent : UniverseColors.textMuted,
+                        label: _savedItems.contains(event.id) ? 'Saved' : 'Save',
+                        onTap: () => setState(() {
+                          if (_savedItems.contains(event.id)) {
+                            _savedItems.remove(event.id);
+                          } else {
+                            _savedItems.add(event.id);
+                          }
+                        }),
+                      ),
+                      const SizedBox(width: 8),
+                      _ActionButton(
+                        icon: Icons.share_rounded,
+                        color: UniverseColors.textMuted,
+                        label: 'Share',
                         onTap: () {},
-                        child: const Center(
-                          child: Text(
-                            "I'm Going  ✓",
-                            style: TextStyle(
-                              color: Colors.white,
-                              fontSize: 17,
-                              fontWeight: FontWeight.w700,
-                              letterSpacing: 0.2,
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 20),
+
+                  // Going / Not Going
+                  Row(
+                    children: [
+                      Expanded(
+                        child: GestureDetector(
+                          onTap: () => setState(() => _isGoing = true),
+                          child: AnimatedContainer(
+                            duration: const Duration(milliseconds: 180),
+                            height: 50,
+                            decoration: BoxDecoration(
+                              borderRadius: BorderRadius.circular(14),
+                              gradient: _isGoing
+                                  ? const LinearGradient(
+                                      colors: [
+                                        Color(0xFF6C63FF),
+                                        Color(0xFF3D8BFF),
+                                      ],
+                                      begin: Alignment.centerLeft,
+                                      end: Alignment.centerRight,
+                                    )
+                                  : null,
+                              color: _isGoing ? null : Colors.white,
+                              border: _isGoing ? null : Border.all(color: UniverseColors.accent),
+                              boxShadow: _isGoing
+                                  ? const [
+                                      BoxShadow(
+                                        color: Color(0x446C63FF),
+                                        blurRadius: 12,
+                                        offset: Offset(0, 3),
+                                      ),
+                                    ]
+                                  : null,
+                            ),
+                            child: Center(
+                              child: Text(
+                                _isGoing ? '✓  Going' : 'Going',
+                                style: TextStyle(
+                                  color: _isGoing ? Colors.white : UniverseColors.accent,
+                                  fontWeight: FontWeight.w700,
+                                  fontSize: 15,
+                                ),
+                              ),
                             ),
                           ),
                         ),
                       ),
-                    ),
-                  ),
-
-                  const SizedBox(height: 16),
-
-                  // Share button
-                  Container(
-                    width: double.infinity,
-                    height: 48,
-                    decoration: BoxDecoration(
-                      borderRadius: BorderRadius.circular(16),
-                      color: UniverseColors.bgPage,
-                      border: Border.all(color: UniverseColors.borderColor),
-                    ),
-                    child: Material(
-                      color: Colors.transparent,
-                      child: InkWell(
-                        borderRadius: BorderRadius.circular(16),
-                        onTap: () {},
-                        child: Row(
-                          mainAxisAlignment: MainAxisAlignment.center,
-                          children: [
-                            const Icon(
-                              Icons.ios_share_rounded,
-                              size: 17,
-                              color: UniverseColors.textMuted,
-                            ),
-                            const SizedBox(width: 8),
-                            Text(
-                              'Share with friends',
-                              style: TextStyle(
-                                color: UniverseColors.textMuted,
-                                fontSize: 15,
-                                fontWeight: FontWeight.w600,
+                      const SizedBox(width: 12),
+                      Expanded(
+                        child: GestureDetector(
+                          onTap: () => setState(() => _isGoing = false),
+                          child: AnimatedContainer(
+                            duration: const Duration(milliseconds: 180),
+                            height: 50,
+                            decoration: BoxDecoration(
+                              color: !_isGoing ? UniverseColors.bgPage : Colors.white,
+                              borderRadius: BorderRadius.circular(14),
+                              border: Border.all(
+                                color: UniverseColors.borderColor,
                               ),
                             ),
-                          ],
+                            child: const Center(
+                              child: Text(
+                                'Not Going',
+                                style: TextStyle(
+                                  color: UniverseColors.textMuted,
+                                  fontWeight: FontWeight.w600,
+                                  fontSize: 15,
+                                ),
+                              ),
+                            ),
+                          ),
                         ),
                       ),
-                    ),
+                    ],
                   ),
-
-                  const SizedBox(height: 60),
+                  const SizedBox(height: 120),
                 ],
               ),
             ),
@@ -240,6 +312,78 @@ class EventDetailPage extends StatelessWidget {
       ),
     );
   }
+}
+
+// Small icon + label action button used in the event detail page.
+class _ActionButton extends StatelessWidget {
+  final IconData icon;
+  final Color color;
+  final String label;
+  final VoidCallback onTap;
+
+  const _ActionButton({required this.icon, required this.color, required this.label, required this.onTap});
+
+  @override
+  Widget build(BuildContext context) {
+    return Expanded(
+      child: GestureDetector(
+        onTap: onTap,
+        child: Container(
+          height: 44,
+          decoration: BoxDecoration(
+            color: UniverseColors.bgPage,
+            borderRadius: BorderRadius.circular(12),
+          ),
+          child: Column(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              Icon(icon, color: color, size: 20),
+              const SizedBox(height: 3),
+              Text(
+                label,
+                style: TextStyle(
+                  color: color,
+                  fontSize: 11,
+                  fontWeight: FontWeight.w600,
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class _FriendAvatar extends StatelessWidget {
+  final String initials;
+  final String name;
+  final Color color;
+
+  const _FriendAvatar({required this.initials, required this.name, required this.color});
+
+  @override
+  Widget build(BuildContext context) {
+    return Column(
+      children: [
+        CircleAvatar(
+          radius: 22,
+          backgroundColor: color,
+          child: Text(
+            initials,
+            style: const TextStyle(
+              color: Colors.white,
+              fontWeight: FontWeight.w700,
+              fontSize: 13,
+            ),
+          ),
+        ),
+        const SizedBox(height: 4),
+        Text(name, style: const TextStyle(color: UniverseColors.textMuted, fontSize: 10)),
+      ],
+    );
+  }
+
 }
 
 class _InfoRow extends StatelessWidget {

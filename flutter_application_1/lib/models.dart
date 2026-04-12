@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:latlong2/latlong.dart';
 
-enum EventCategory { clubs, food, events, social, study }
+enum EventCategory { food, events, study, deals, social, myki }
 
 class EventCategoryInfo {
   final String label;
@@ -16,30 +16,35 @@ class EventCategoryInfo {
 }
 
 final Map<EventCategory, EventCategoryInfo> categoryInfo = {
-  EventCategory.clubs: const EventCategoryInfo(
-    label: 'Clubs',
-    icon: Icons.groups_rounded,
-    color: Color(0xFF3D8BFF),
-  ),
   EventCategory.food: const EventCategoryInfo(
     label: 'Food',
     icon: Icons.restaurant_rounded,
-    color: Color(0xFFFF9F43),
+    color: Color(0xFFFF9F43), // warm orange
   ),
   EventCategory.events: const EventCategoryInfo(
     label: 'Events',
-    icon: Icons.celebration_rounded,
-    color: Color(0xFF6C63FF),
+    icon: Icons.bolt_rounded,
+    color: Color(0xFF6C63FF), // universe purple
+  ),
+  EventCategory.study: const EventCategoryInfo(
+    label: 'Study',
+    icon: Icons.menu_book_rounded,
+    color: Color(0xFF3D8BFF), // cosmic blue
+  ),
+  EventCategory.deals: const EventCategoryInfo(
+    label: 'Deals',
+    icon: Icons.local_offer_rounded,
+    color: Color(0xFF34D399), // muted emerald
   ),
   EventCategory.social: const EventCategoryInfo(
     label: 'Social',
-    icon: Icons.emoji_people_rounded,
-    color: Color(0xFFFF7AD9),
+    icon: Icons.people_rounded,
+    color: Color(0xFFF472B6), // soft pink
   ),
-  EventCategory.study: const EventCategoryInfo(
-    label: 'Study Spots',
-    icon: Icons.menu_book_rounded,
-    color: Color(0xFF00B894),
+  EventCategory.myki: const EventCategoryInfo(
+    label: 'Myki',
+    icon: Icons.shield_rounded,
+    color: Color(0xFFF87171), // soft red
   ),
 };
 
@@ -134,6 +139,15 @@ class StudySpot {
   });
 }
 
+// Returns "Today, H:MM AM/PM" for a time [minutesFromNow] minutes in the future.
+String _todayPlusMinutes(int minutesFromNow) {
+  final t = DateTime.now().add(Duration(minutes: minutesFromNow));
+  final isPm = t.hour >= 12;
+  final displayHour = t.hour % 12 == 0 ? 12 : t.hour % 12;
+  final minuteStr = t.minute.toString().padLeft(2, '0');
+  return 'Today, $displayHour:$minuteStr ${isPm ? 'PM' : 'AM'}';
+}
+
 // Sample campus data — using Monash University Clayton campus as example
 final List<CampusEvent> sampleEvents = [
   CampusEvent(
@@ -166,13 +180,13 @@ final List<CampusEvent> sampleEvents = [
     location: 'Campus Centre',
     time: 'Today, 4:30 PM',
     imageUrl: 'https://images.unsplash.com/photo-1547153760-18fc86c0bba0?w=400',
-    category: EventCategory.clubs,
+    category: EventCategory.events,
     position: LatLng(-37.9125, 145.1315),
     attendees: 56,
   ),
   CampusEvent(
     id: '4',
-    title: 'Free Bubble Tea 🧋',
+    title: 'Free Bubble Tea',
     subtitle: 'Asian Society',
     location: 'Sir John Monash Drive',
     time: 'Today, 1:00 PM',
@@ -183,7 +197,7 @@ final List<CampusEvent> sampleEvents = [
   ),
   CampusEvent(
     id: '5',
-    title: 'Hackathon Kickoff 🚀',
+    title: 'Hackathon Kickoff',
     subtitle: 'WIRED Club',
     location: 'Learning & Teaching Building',
     time: 'Fri, 6:00 PM',
@@ -224,9 +238,21 @@ final List<CampusEvent> sampleEvents = [
     time: 'Sat, 10:00 AM',
     imageUrl:
         'https://images.unsplash.com/photo-1529699211952-734e80c4d42b?w=400',
-    category: EventCategory.clubs,
+    category: EventCategory.events,
     position: LatLng(-37.9142, 145.1335),
     attendees: 28,
+  ),
+  CampusEvent(
+    id: '9',
+    title: 'Free Pizza Giveaway',
+    subtitle: 'Student Union',
+    location: 'Campus Centre',
+    time: _todayPlusMinutes(20),
+    imageUrl:
+        'https://images.unsplash.com/photo-1513104890138-7c749659a591?w=400',
+    category: EventCategory.food,
+    position: LatLng(-37.9109, 145.1330),
+    attendees: 60,
   ),
 ];
 
@@ -295,5 +321,169 @@ List<StudySpot> sampleStudySpots = [
     title: 'Group Study Room',
     location: 'Learning & Teaching Building — G12',
     position: LatLng(-37.9128, 145.1310),
+  ),
+];
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Drop a Signal — ephemeral 30-minute broadcast pins
+// ─────────────────────────────────────────────────────────────────────────────
+
+enum SignalCategory {
+  freeFood,
+  study,
+  social,
+  studyGroup,
+  mykiOfficers,
+  fireAlarm,
+}
+
+const Map<SignalCategory, _SignalCategoryMeta> signalCategoryMeta = {
+  SignalCategory.freeFood: _SignalCategoryMeta(
+    label: 'Free Food',
+    icon: Icons.fastfood_rounded,
+    color: Color(0xFFFF9F43),
+  ),
+  SignalCategory.study: _SignalCategoryMeta(
+    label: 'Study',
+    icon: Icons.menu_book_rounded,
+    color: Color(0xFF00B894),
+  ),
+  SignalCategory.social: _SignalCategoryMeta(
+    label: 'Social',
+    icon: Icons.emoji_people_rounded,
+    color: Color(0xFFFF7AD9),
+  ),
+  SignalCategory.studyGroup: _SignalCategoryMeta(
+    label: 'Study Group',
+    icon: Icons.groups_rounded,
+    color: Color(0xFF3D8BFF),
+  ),
+  SignalCategory.mykiOfficers: _SignalCategoryMeta(
+    label: 'Myki Officers',
+    icon: Icons.security_rounded,
+    color: Color(0xFFEF5350),
+  ),
+  SignalCategory.fireAlarm: _SignalCategoryMeta(
+    label: 'Fire Alarm',
+    icon: Icons.local_fire_department_rounded,
+    color: Color(0xFFFF5722),
+  ),
+};
+
+class _SignalCategoryMeta {
+  final String label;
+  final IconData icon;
+  final Color color;
+  const _SignalCategoryMeta({
+    required this.label,
+    required this.icon,
+    required this.color,
+  });
+}
+
+class CampusSignal {
+  final String id;
+  final String message;
+  final SignalCategory category;
+  final LatLng position;
+  final DateTime createdAt;
+  final DateTime expiresAt;
+  final String? imageUrl;
+  final String? notes;
+
+  CampusSignal({
+    required this.id,
+    required this.message,
+    required this.category,
+    required this.position,
+    required this.createdAt,
+    required this.expiresAt,
+    this.imageUrl,
+    this.notes,
+  });
+
+  Duration get timeRemaining => expiresAt.difference(DateTime.now());
+  bool get isExpired => DateTime.now().isAfter(expiresAt);
+
+  String get timeAgoLabel {
+    final diff = DateTime.now().difference(createdAt);
+    if (diff.inMinutes < 1) return 'Just now';
+    if (diff.inMinutes == 1) return '1 minute ago';
+    return '${diff.inMinutes} minutes ago';
+  }
+}
+
+/// Live list of active signals — managed by MapTab state.
+final List<CampusSignal> activeSignals = [];
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Campus Places — permanent restaurants / cafés / businesses
+// ─────────────────────────────────────────────────────────────────────────────
+
+class CampusPlace {
+  final String id;
+  final String name;
+  final String category; // e.g. 'Mexican', 'Café', 'Grocery'
+  final String hours; // e.g. 'Open until 9:30 PM'
+  final double rating; // 0.0 – 5.0
+  final IconData icon;
+  final LatLng position;
+
+  const CampusPlace({
+    required this.id,
+    required this.name,
+    required this.category,
+    required this.hours,
+    required this.rating,
+    required this.icon,
+    required this.position,
+  });
+}
+
+final List<CampusPlace> campusPlaces = [
+  CampusPlace(
+    id: 'p1',
+    name: 'GYG',
+    category: 'Mexican',
+    hours: 'Open until 9:30 PM',
+    rating: 4.2,
+    icon: Icons.lunch_dining_rounded,
+    position: LatLng(-37.9112, 145.1326),
+  ),
+  CampusPlace(
+    id: 'p2',
+    name: 'Boost Juice',
+    category: 'Juice Bar',
+    hours: 'Open until 5:00 PM',
+    rating: 4.4,
+    icon: Icons.local_drink_rounded,
+    position: LatLng(-37.9108, 145.1328),
+  ),
+  CampusPlace(
+    id: 'p3',
+    name: 'Wholefoods Café',
+    category: 'Café',
+    hours: 'Open until 4:00 PM',
+    rating: 4.1,
+    icon: Icons.coffee_rounded,
+    position: LatLng(-37.9118, 145.1345),
+  ),
+  CampusPlace(
+    id: 'p4',
+    name: 'Sir John\'s Bar',
+    category: 'Bar & Grill',
+    hours: 'Open until 11:00 PM',
+    rating: 4.0,
+    icon: Icons.sports_bar_rounded,
+    position: LatLng(-37.9104, 145.1358),
+  ),
+  CampusPlace(
+    id: 'p5',
+    name: 'Campus Centre Food Court',
+    category: 'Food Court',
+    hours: 'Open until 6:00 PM',
+    rating: 3.9,
+    icon: Icons.store_mall_directory_rounded,
+    position: LatLng(-37.9106, 145.1331),
   ),
 ];

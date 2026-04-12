@@ -3,7 +3,6 @@ import 'package:flutter/services.dart';
 import 'theme.dart';
 import 'map_tab.dart';
 import 'discover_tab.dart';
-import 'activity_tab.dart';
 import 'profile_tab.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'login_page.dart';
@@ -47,12 +46,7 @@ class _UniverseShellState extends State<UniverseShell> {
   int _currentIndex = 0;
   bool _showOnboarding = false;
 
-  final List<Widget> _tabs = const [
-    MapTab(),
-    DiscoverTab(),
-    ActivityTab(),
-    ProfileTab(),
-  ];
+  final List<Widget> _tabs = const [MapTab(), DiscoverTab(), ProfileTab()];
 
   @override
   void initState() {
@@ -82,23 +76,21 @@ class _UniverseShellState extends State<UniverseShell> {
       extendBody: true,
       body: Stack(
         children: [
-          // Main app content
           IndexedStack(index: _currentIndex, children: _tabs),
-
-          // Onboarding overlay shown on top if new user
-                    if (_showOnboarding)
-            OnboardingOverlay(
-              onComplete: _completeOnboarding,
-            ),
+          if (_showOnboarding)
+            OnboardingOverlay(onComplete: _completeOnboarding),
         ],
       ),
       bottomNavigationBar: _showOnboarding
-          ? null // hide nav bar during onboarding
+          ? null
           : Container(
               decoration: BoxDecoration(
                 color: Colors.white,
                 border: const Border(
-                  top: BorderSide(color: UniverseColors.borderColor, width: 0.5),
+                  top: BorderSide(
+                    color: UniverseColors.borderColor,
+                    width: 0.5,
+                  ),
                 ),
                 boxShadow: const [
                   BoxShadow(
@@ -127,16 +119,10 @@ class _UniverseShellState extends State<UniverseShell> {
                         onTap: () => setState(() => _currentIndex = 1),
                       ),
                       _NavItem(
-                        icon: Icons.notifications_none,
-                        label: 'Activity',
-                        isActive: _currentIndex == 2,
-                        onTap: () => setState(() => _currentIndex = 2),
-                      ),
-                      _NavItem(
                         icon: Icons.person_outline,
                         label: 'Profile',
-                        isActive: _currentIndex == 3,
-                        onTap: () => setState(() => _currentIndex = 3),
+                        isActive: _currentIndex == 2,
+                        onTap: () => setState(() => _currentIndex = 2),
                       ),
                     ],
                   ),
@@ -209,8 +195,8 @@ class _AuthGateState extends State<AuthGate> {
       Navigator.of(context).pushReplacement(
         MaterialPageRoute(
           builder: (_) => email != null
-              ? const UniverseShell()   // already logged in, no onboarding
-              : const LoginPage(),      // not logged in, go to login
+              ? const UniverseShell() // already logged in, no onboarding
+              : const LoginPage(), // not logged in, go to login
         ),
       );
     }
