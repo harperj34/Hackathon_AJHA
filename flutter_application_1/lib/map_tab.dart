@@ -432,15 +432,19 @@ class _MapTabState extends State<MapTab> with TickerProviderStateMixin {
         category: category,
         position: position,
         attendees: 0,
+        durationMinutes: 120,
+        isSeed: false,
+        createdBy: SessionState.currentUserEmail,
       );
+
+      // Save to DB and in-memory EventsService list
+      EventsService.createEvent(ev);
+      SessionState.addCreatedEvent(ev);
+
       setState(() {
-        sampleEvents.add(ev);
-        SessionState.addCreatedEvent(ev);
-        _tempExpiry[id] = DateTime.now().add(const Duration(hours: 2));
         _selectedEvent = ev;
         _selectedStudySpot = null;
       });
-      _scheduleExpiry(id, const Duration(hours: 2));
     }
     _animateCameraTo(position, 17.5);
     _sheetController.animateTo(
