@@ -5,37 +5,102 @@ import 'neon_service.dart';
 import 'main.dart';
 import 'package:url_launcher/url_launcher.dart';
 import 'package:flutter/gestures.dart';
-
+ 
 class LoginPage extends StatefulWidget {
   const LoginPage({super.key});
-
+ 
   @override
   State<LoginPage> createState() => _LoginPageState();
 }
-
+ 
 class _LoginPageState extends State<LoginPage> {
   final _emailController = TextEditingController();
   bool _isLoading = false;
   String? _errorMessage;
   String? _statusMessage;
-
+ 
+  // ── Typewriter animation ───────────────────────────────────────────────────
+  String _animatedWord = '';
+  bool _showCursor = true;
+ 
+  final List<String> _sequence = [
+    'UNItersity',  // type to here
+    'UNI',         // backspace to here
+    'UNIty',       // type to here
+    'U',           // backspace to here
+    'UNIverse',    // type to here — final
+  ];
+ 
+  static const _typeSpeed   = Duration(milliseconds: 80);
+  static const _deleteSpeed = Duration(milliseconds: 50);
+  static const _pauseSpeed  = Duration(milliseconds: 700);
+ 
+  @override
+  void initState() {
+    super.initState();
+    _startAnimation();
+    _startCursorBlink();
+  }
+ 
+  void _startCursorBlink() {
+    Future.doWhile(() async {
+      await Future.delayed(const Duration(milliseconds: 500));
+      if (!mounted) return false;
+      setState(() => _showCursor = !_showCursor);
+      return true;
+    });
+  }
+ 
+  Future<void> _startAnimation() async {
+    await Future.delayed(const Duration(milliseconds: 400));
+ 
+    for (int i = 0; i < _sequence.length; i++) {
+      if (!mounted) return;
+      final target = _sequence[i];
+ 
+      if (target.length > _animatedWord.length) {
+        // Type forward
+        while (_animatedWord.length < target.length) {
+          await Future.delayed(_typeSpeed);
+          if (!mounted) return;
+          setState(() =>
+              _animatedWord = target.substring(0, _animatedWord.length + 1));
+        }
+      } else {
+        // Backspace
+        while (_animatedWord.length > target.length) {
+          await Future.delayed(_deleteSpeed);
+          if (!mounted) return;
+          setState(() => _animatedWord =
+              _animatedWord.substring(0, _animatedWord.length - 1));
+        }
+      }
+ 
+      // Pause between words, longer at the final word
+      final isLast = i == _sequence.length - 1;
+      await Future.delayed(
+          isLast ? const Duration(milliseconds: 1200) : _pauseSpeed);
+    }
+  }
+ 
+  // ── Login logic ────────────────────────────────────────────────────────────
   Future<void> _handleContinue() async {
     final email = _emailController.text.trim().toLowerCase();
-
+ 
     if (email.isEmpty || !email.contains('@') || !email.contains('.')) {
       setState(() => _errorMessage = 'Please enter a valid email address');
       return;
     }
-
+ 
     setState(() {
       _isLoading = true;
       _errorMessage = null;
       _statusMessage = null;
     });
-
+ 
     try {
       final exists = await NeonService.emailExists(email);
-
+ 
       if (exists) {
         setState(() => _statusMessage = '👋 Welcome back!');
         await Future.delayed(const Duration(milliseconds: 800));
@@ -63,30 +128,30 @@ class _LoginPageState extends State<LoginPage> {
           );
         }
       }
-
+ 
       await Future.delayed(const Duration(milliseconds: 800));
-
       final prefs = await SharedPreferences.getInstance();
       await prefs.setString('logged_in_email', email);
-
+ 
       if (mounted) {
         Navigator.of(context).pushReplacement(
           MaterialPageRoute(builder: (_) => const UniverseShell()),
         );
       }
     } catch (e) {
-      setState(() => _errorMessage = 'Something went wrong. Check your connection and try again.');
+      setState(() => _errorMessage =
+          'Something went wrong. Check your connection and try again.');
     } finally {
       setState(() => _isLoading = false);
     }
   }
-
+ 
   @override
   void dispose() {
     _emailController.dispose();
     super.dispose();
   }
-
+ 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -103,26 +168,38 @@ class _LoginPageState extends State<LoginPage> {
             end: Alignment.bottomRight,
           ),
         ),
-        child: SafeArea(                          // ← child goes here, inside Container
+        child: SafeArea(
           child: Padding(
             padding: const EdgeInsets.symmetric(horizontal: 28),
             child: Column(
               mainAxisAlignment: MainAxisAlignment.center,
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-
-                // Title
+ 
+                // Animated title
                 Row(
                   crossAxisAlignment: CrossAxisAlignment.center,
                   children: [
-                    const Flexible(
-                      child: Text(
-                        'Sign In to Universe',
-                        style: TextStyle(
-                          color: Colors.white,
-                          fontSize: 36,
-                          fontWeight: FontWeight.w800,
-                          height: 1.2,
+                    Flexible(
+                      child: RichText(
+                        text: TextSpan(
+                          style: const TextStyle(
+                            color: Colors.white,
+                            fontSize: 36,
+                            fontWeight: FontWeight.w800,
+                            height: 1.2,
+                          ),
+                          children: [
+                            const TextSpan(text: 'Sign In to '),
+                            TextSpan(text: _animatedWord),
+                            TextSpan(
+                              text: _showCursor ? '|' : ' ',
+                              style: TextStyle(
+                                color: Colors.white.withOpacity(0.8),
+                                fontWeight: FontWeight.w300,
+                              ),
+                            ),
+                          ],
                         ),
                       ),
                     ),
@@ -134,17 +211,13 @@ class _LoginPageState extends State<LoginPage> {
                     ),
                   ],
                 ),
+ 
                 const SizedBox(height: 10),
                 RichText(
                   text: TextSpan(
-                    style: const TextStyle(
-                      color: Color.fromARGB(255, 255, 255, 255),
-                      fontSize: 15,
-                    ),
+                    style: const TextStyle(color: Colors.white, fontSize: 15),
                     children: [
-                      const TextSpan(
-                        text: 'You are on Boonwurrung Land. ',
-                      ),
+                      const TextSpan(text: 'You are on Boonwurrung Land. '),
                       TextSpan(
                         text: 'Learn More →',
                         style: const TextStyle(
@@ -168,14 +241,11 @@ class _LoginPageState extends State<LoginPage> {
                 const SizedBox(height: 10),
                 const Text(
                   'Enter your email to get started',
-                  style: TextStyle(
-                    color: Color.fromARGB(255, 255, 255, 255),
-                    fontSize: 15,
-                  ),
+                  style: TextStyle(color: Colors.white, fontSize: 15),
                 ),
                 const SizedBox(height: 20),
-
-                // Email input field
+ 
+                // Email input
                 Container(
                   decoration: BoxDecoration(
                     color: Colors.white,
@@ -202,17 +272,14 @@ class _LoginPageState extends State<LoginPage> {
                     ),
                   ),
                 ),
-
-                // Error
+ 
                 if (_errorMessage != null) ...[
                   const SizedBox(height: 10),
-                  Text(
-                    _errorMessage!,
-                    style: const TextStyle(color: Colors.red, fontSize: 13),
-                  ),
+                  Text(_errorMessage!,
+                      style:
+                          const TextStyle(color: Colors.red, fontSize: 13)),
                 ],
-
-                // Status message
+ 
                 if (_statusMessage != null) ...[
                   const SizedBox(height: 10),
                   Text(
@@ -224,9 +291,9 @@ class _LoginPageState extends State<LoginPage> {
                     ),
                   ),
                 ],
-
+ 
                 const SizedBox(height: 20),
-
+ 
                 // Continue button
                 SizedBox(
                   width: double.infinity,
@@ -261,8 +328,8 @@ class _LoginPageState extends State<LoginPage> {
                           ),
                   ),
                 ),
-
-                // Dev bypass button
+ 
+                // Dev bypass
                 const SizedBox(height: 12),
                 SizedBox(
                   width: double.infinity,
@@ -270,7 +337,8 @@ class _LoginPageState extends State<LoginPage> {
                   child: TextButton(
                     onPressed: () async {
                       final prefs = await SharedPreferences.getInstance();
-                      await prefs.setString('logged_in_email', 'dev@bypass.com');
+                      await prefs.setString(
+                          'logged_in_email', 'dev@bypass.com');
                       if (mounted) {
                         Navigator.of(context).pushReplacement(
                           MaterialPageRoute(
@@ -295,3 +363,4 @@ class _LoginPageState extends State<LoginPage> {
     );
   }
 }
+ 
