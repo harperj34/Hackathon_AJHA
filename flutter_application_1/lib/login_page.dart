@@ -24,7 +24,7 @@ class _LoginPageState extends State<LoginPage> {
   bool _showCursor = true;
  
   final List<String> _sequence = [
-    'UNItersity',  // type to here
+    'UNIversity',  // type to here
     'UNI',         // backspace to here
     'UNIty',       // type to here
     'U',           // backspace to here
