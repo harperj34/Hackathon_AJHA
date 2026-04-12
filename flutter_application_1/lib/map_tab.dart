@@ -5,6 +5,7 @@ import 'package:flutter_map/flutter_map.dart';
 import 'package:latlong2/latlong.dart';
 import 'theme.dart';
 import 'models.dart';
+import 'events_service.dart';
 
 class HeatPoint {
   final LatLng position;
@@ -42,6 +43,10 @@ class _MapTabState extends State<MapTab> {
 
   @override
   void initState() {
+    //adding a refresh every 60 seconds to remove expired events
+    Timer.periodic(const Duration(seconds: 60), (_) {
+      if (mounted) setState(() {});
+    });
     super.initState();
     WidgetsBinding.instance.addPostFrameCallback((_) {
       _mapEventSub = _mapController.mapEventStream.listen((_) {
@@ -55,7 +60,7 @@ class _MapTabState extends State<MapTab> {
   }
 
   List<CampusEvent> get _filteredEvents {
-    return sampleEvents.where((e) {
+    return EventsService.currentEvents.where((e) {
       final matchesFilter =
           _activeFilter == null || e.category == _activeFilter;
       final matchesSearch =
@@ -197,7 +202,7 @@ class _MapTabState extends State<MapTab> {
 
   List<HeatPoint> get _heatPoints {
     final pts = <HeatPoint>[];
-    for (final e in sampleEvents) {
+    for (final e in EventsService.currentEvents) {
       final intensity = (e.attendees / 200.0).clamp(0.0, 1.0);
       pts.add(HeatPoint(e.position, intensity));
     }
@@ -592,15 +597,31 @@ class _MapTabState extends State<MapTab> {
                 ),
               );
               if (result == true && titleController.text.trim().isNotEmpty) {
-                final center = _mapController.camera.center ?? const LatLng(-37.9110, 145.1335);
+                final center = _mapController.camera.center;
                 final id = DateTime.now().millisecondsSinceEpoch.toString();
+
+                final newEvent = CampusEvent(
+                  id: id,
+                  title: titleController.text.trim(),
+                  subtitle: 'User Added',
+                  location: locController.text.trim().isEmpty
+                      ? 'Campus'
+                      : locController.text.trim(),
+                  time: 'Now',
+                  imageUrl: '',
+                  category: EventCategory.study,
+                  position: center,
+                  durationMinutes: 60,
+                  isSeed: false,
+                );
+
+                await EventsService.createEvent(newEvent);
+
                 setState(() {
                   sampleStudySpots.add(StudySpot(
                     id: id,
-                    title: titleController.text.trim(),
-                    location: locController.text.trim().isEmpty
-                        ? 'Campus'
-                        : locController.text.trim(),
+                    title: newEvent.title,
+                    location: newEvent.location,
                     position: center,
                   ));
                 });
