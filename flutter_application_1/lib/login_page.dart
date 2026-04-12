@@ -148,7 +148,7 @@ class _LoginPageState extends State<LoginPage> {
                       TextSpan(
                         text: 'Learn More →',
                         style: const TextStyle(
-                          color: UniverseColors.accent,
+                          color: Colors.white,
                           fontWeight: FontWeight.w600,
                           decoration: TextDecoration.underline,
                         ),
