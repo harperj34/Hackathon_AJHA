@@ -2,13 +2,14 @@ import 'package:flutter/material.dart';
 import 'theme.dart';
 import 'models.dart';
 import 'event_detail.dart';
+import 'events_service.dart';
  
 class DiscoverSeeAll extends StatelessWidget {
   const DiscoverSeeAll({super.key});
  
   @override
   Widget build(BuildContext context) {
-    final sortedEvents = [... sampleEvents]
+    final sortedEvents = [...EventsService.currentEvents]
       ..sort((a,b) => b.attendees.compareTo(a.attendees));
     return Scaffold(
       backgroundColor: Colors.white,

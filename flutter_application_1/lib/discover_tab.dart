@@ -5,6 +5,7 @@ import 'models.dart';
 import 'event_detail.dart';
 import 'discover_see_all.dart';
 import 'category_events.dart';
+import 'events_service.dart';
 
 class DiscoverTab extends StatelessWidget {
   const DiscoverTab({super.key});
@@ -273,9 +274,9 @@ class DiscoverTab extends StatelessWidget {
               child: ListView.builder(
                 scrollDirection: Axis.horizontal,
                 padding: const EdgeInsets.fromLTRB(16, 12, 16, 4),
-                itemCount: sampleEvents.length,
+                itemCount: EventsService.currentEvents.length,
                 itemBuilder: (context, index) {
-                  final event = sampleEvents[index];
+                  final event = EventsService.currentEvents[index];
                   final info = categoryInfo[event.category]!;
                   return GestureDetector(
                     onTap: () => Navigator.push(

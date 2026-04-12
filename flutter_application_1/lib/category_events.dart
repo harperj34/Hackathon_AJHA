@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'theme.dart';
 import 'models.dart';
 import 'event_detail.dart';
+import 'events_service.dart';
  
 class CategoryEvents extends StatelessWidget {
   final EventCategory category;
@@ -12,7 +13,7 @@ class CategoryEvents extends StatelessWidget {
   Widget build(BuildContext context) {
     final info = categoryInfo[category]!;
  
-    final sortedEvents = [...sampleEvents]
+    final sortedEvents = [...EventsService.currentEvents]
       ..retainWhere((e) => e.category == category)
       ..sort((a, b) => b.attendees.compareTo(a.attendees));
  
