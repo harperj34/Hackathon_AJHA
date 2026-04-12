@@ -101,7 +101,6 @@ class CampusEvent {
   static EventCategory _parseCategory(String cat) {
     switch (cat) {
       case 'food': return EventCategory.food;
-      case 'clubs': return EventCategory.events;
       case 'events': return EventCategory.events;
       case 'clubs': return EventCategory.events; // map old 'clubs' to events
       case 'social': return EventCategory.social;
