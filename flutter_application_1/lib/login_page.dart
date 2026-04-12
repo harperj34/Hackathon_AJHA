@@ -112,14 +112,27 @@ class _LoginPageState extends State<LoginPage> {
               children: [
 
                 // Title
-                const Text(
-                  'Sign In to Universe 🌌',
-                  style: TextStyle(
-                    color: Color.fromARGB(255, 255, 255, 255),
-                    fontSize: 36,
-                    fontWeight: FontWeight.w800,
-                    height: 1.2,
-                  ),
+                Row(
+                  crossAxisAlignment: CrossAxisAlignment.center,
+                  children: [
+                    const Flexible(
+                      child: Text(
+                        'Sign In to Universe',
+                        style: TextStyle(
+                          color: Colors.white,
+                          fontSize: 36,
+                          fontWeight: FontWeight.w800,
+                          height: 1.2,
+                        ),
+                      ),
+                    ),
+                    const SizedBox(width: 12),
+                    Image.asset(
+                      'fonts/images/universe.png',
+                      width: 100,
+                      height: 100,
+                    ),
+                  ],
                 ),
                 const SizedBox(height: 10),
                 RichText(
