@@ -60,6 +60,7 @@ class CampusEvent {
   final int attendees;
   final int durationMinutes; // how long it lives from app open
   final bool isSeed;         // true = dummy, false = user-created
+  final String createdBy;
 
   const CampusEvent({
     required this.id,
@@ -73,6 +74,7 @@ class CampusEvent {
     this.attendees = 0,
     this.durationMinutes = 120,
     this.isSeed = false,
+    this.createdBy = '',
   });
 
   // Parse a row coming back from the Node server / Neon
@@ -92,12 +94,14 @@ class CampusEvent {
       attendees: (json['attendees'] as num?)?.toInt() ?? 0,
       durationMinutes: (json['duration_minutes'] as num?)?.toInt() ?? 120,
       isSeed: json['is_seed'] as bool? ?? false,
+      createdBy: json['created_by'] as String? ?? '',
     );
   }
 
   static EventCategory _parseCategory(String cat) {
     switch (cat) {
       case 'food': return EventCategory.food;
+      case 'clubs': return EventCategory.events;
       case 'events': return EventCategory.events;
       case 'clubs': return EventCategory.events; // map old 'clubs' to events
       case 'social': return EventCategory.social;
@@ -122,6 +126,7 @@ class CampusEvent {
       'lng': position.longitude,
       'attendees': attendees,
       'is_seed': isSeed,
+      'created_by': createdBy,
     };
   }
 }
