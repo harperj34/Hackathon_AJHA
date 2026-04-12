@@ -83,21 +83,22 @@ app.post('/events', async (req, res) => {
   const {
     id, title, subtitle, location, display_time,
     duration_minutes, image_url, category,
-    lat, lng, attendees, is_seed
+    lat, lng, attendees, is_seed, created_by
   } = req.body;
 
   try {
     await pool.query(
       `INSERT INTO events 
-        (id, title, subtitle, location, display_time, duration_minutes, image_url, category, lat, lng, attendees, is_seed)
-       VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12)`,
+        (id, title, subtitle, location, display_time, duration_minutes, image_url, category, lat, lng, attendees, is_seed, created_by)
+       VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13)`,
       [
         id, title, subtitle, location, display_time,
         duration_minutes ?? 60,
         image_url ?? '',
         category, lat, lng,
         attendees ?? 0,
-        is_seed ?? false
+        is_seed ?? false,
+        created_by ?? ''
       ]
     );
     res.json({ success: true });
