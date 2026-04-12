@@ -45,6 +45,8 @@ class EventsService {
 
 
   static Future<bool> createEvent(CampusEvent event) async {
+    //also add to in-memory list immediately
+    _allEvents.add(event);
     try {
       final response = await http.post(
         Uri.parse('$_baseUrl/events'),
@@ -52,8 +54,6 @@ class EventsService {
         body: jsonEncode(event.toJson()),
       );
       if (response.statusCode == 200) {
-        //also add to in-memory list immediately
-        _allEvents.add(event);
         return true;
       }
     } catch (e) {
