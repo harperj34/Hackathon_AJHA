@@ -112,6 +112,81 @@ app.post('/events', async (req, res) => {
   }
 });
 
+// GET /signals — fetch all visible, non-expired signals
+app.get('/signals', async (req, res) => {
+  try {
+    const result = await pool.query(
+      `SELECT * FROM signals
+       WHERE visible = true
+         AND lat IS NOT NULL AND lng IS NOT NULL
+         AND created_at + (duration_minutes * INTERVAL '1 minute') > now()
+       ORDER BY created_at DESC`
+    );
+    res.json({ signals: result.rows });
+  } catch (err) {
+    console.error('Error fetching signals:', err.message);
+    res.status(500).json({ error: 'Database error' });
+  }
+});
+
+// POST /signals — save a new signal
+app.post('/signals', async (req, res) => {
+  const {
+    id, title, subtitle, location, display_time,
+    duration_minutes, image_url, category,
+    lat, lng, attendees, is_seed, created_by, visible,
+  } = req.body;
+
+  try {
+    await pool.query(
+      `INSERT INTO signals
+         (id, title, subtitle, location, display_time,
+          duration_minutes, image_url, category, lat, lng,
+          attendees, is_seed, created_by, visible)
+       VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14)`,
+      [
+        id,
+        title,
+        subtitle ?? '',
+        location ?? '',
+        display_time ?? '',
+        duration_minutes ?? 30,
+        image_url ?? '',
+        category,
+        lat,
+        lng,
+        attendees ?? 0,
+        is_seed ?? false,
+        created_by ?? '',
+        visible !== false,
+      ]
+    );
+    res.json({ success: true });
+  } catch (err) {
+    if (err.code === '23505') {
+      res.json({ success: true, note: 'Already exists' });
+    } else {
+      console.error('Error saving signal:', err.message);
+      res.status(500).json({ error: 'Database error' });
+    }
+  }
+});
+
+// PATCH /signals/:id — mark a signal as no longer visible
+app.patch('/signals/:id', async (req, res) => {
+  const { id } = req.params;
+  try {
+    await pool.query(
+      `UPDATE signals SET visible = false WHERE id = $1`,
+      [id]
+    );
+    res.json({ success: true });
+  } catch (err) {
+    console.error('Error hiding signal:', err.message);
+    res.status(500).json({ error: 'Database error' });
+  }
+});
+
 // ── START SERVER ─────────────────────────────────────────────────────────────
 
 app.listen(PORT, '0.0.0.0', () => {

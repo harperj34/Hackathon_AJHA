@@ -2,12 +2,16 @@
   "version": 2,
   "builds": [
     { "src": "api/events.js", "use": "@vercel/node" },
+    { "src": "api/signals.js", "use": "@vercel/node" },
+    { "src": "api/signals/[id].js", "use": "@vercel/node" },
     { "src": "api/user.js", "use": "@vercel/node" },
     { "src": "api/user/[email].js", "use": "@vercel/node" },
     { "src": "build/web/**", "use": "@vercel/static" }
   ],
   "routes": [
     { "src": "^/api/events$", "dest": "/api/events.js" },
+    { "src": "^/api/signals/(.+)$", "dest": "/api/signals/[id].js?id=$1" },
+    { "src": "^/api/signals$", "dest": "/api/signals.js" },
     { "src": "^/api/user/(.+)$", "dest": "/api/user/[email].js?email=$1" },
     { "src": "^/api/user$", "dest": "/api/user.js" },
     { "src": "^/(.*\\..+)$", "dest": "/build/web/$1" },

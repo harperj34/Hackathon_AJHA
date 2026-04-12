@@ -397,6 +397,7 @@ class CampusSignal {
   final DateTime expiresAt;
   final String? imageUrl;
   final String? notes;
+  final String createdBy;
 
   CampusSignal({
     required this.id,
@@ -407,7 +408,52 @@ class CampusSignal {
     required this.expiresAt,
     this.imageUrl,
     this.notes,
+    this.createdBy = '',
   });
+
+  factory CampusSignal.fromJson(Map<String, dynamic> json) {
+    final createdAt = DateTime.parse(json['created_at'] as String).toLocal();
+    final durationMinutes = (json['duration_minutes'] as num?)?.toInt() ?? 30;
+    return CampusSignal(
+      id: json['id'] as String,
+      message: json['title'] as String,
+      category: _parseCategory(json['category'] as String? ?? ''),
+      position: LatLng(
+        (json['lat'] as num).toDouble(),
+        (json['lng'] as num).toDouble(),
+      ),
+      createdAt: createdAt,
+      expiresAt: createdAt.add(Duration(minutes: durationMinutes)),
+      imageUrl: json['image_url'] as String?,
+      createdBy: json['created_by'] as String? ?? '',
+    );
+  }
+
+  static SignalCategory _parseCategory(String cat) {
+    return SignalCategory.values.firstWhere(
+      (c) => c.name == cat,
+      orElse: () => SignalCategory.social,
+    );
+  }
+
+  Map<String, dynamic> toJson() {
+    return {
+      'id': id,
+      'title': message,
+      'subtitle': '',
+      'location': '',
+      'display_time': '',
+      'duration_minutes': 30,
+      'image_url': imageUrl ?? '',
+      'category': category.name,
+      'lat': position.latitude,
+      'lng': position.longitude,
+      'attendees': 0,
+      'is_seed': false,
+      'created_by': createdBy,
+      'visible': true,
+    };
+  }
 
   Duration get timeRemaining => expiresAt.difference(DateTime.now());
   bool get isExpired => DateTime.now().isAfter(expiresAt);

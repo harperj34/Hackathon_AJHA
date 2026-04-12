@@ -6,6 +6,7 @@ import 'package:latlong2/latlong.dart';
 import 'theme.dart';
 import 'models.dart';
 import 'events_service.dart';
+import 'signals_service.dart';
 import 'map/services/geo_service.dart';
 import 'map/widgets/map_controls.dart';
 import 'map/widgets/map_layer_stack.dart';
@@ -87,9 +88,28 @@ class _MapTabState extends State<MapTab> with TickerProviderStateMixin {
   void initState() {
     super.initState();
     _mapController = MapController();
-    // Load events from DB immediately after the map mounts
+    // Load events and signals from DB immediately after the map mounts
     EventsService.loadEvents().then((_) {
       if (mounted) setState(() {});
+    });
+    SignalService.loadSignals().then((loaded) {
+      if (!mounted) return;
+      for (final signal in loaded) {
+        activeSignals.add(signal);
+        final remaining = signal.timeRemaining;
+        if (remaining > Duration.zero) {
+          final timer = Timer(remaining, () {
+            if (!mounted) return;
+            SignalService.hideSignal(signal.id);
+            setState(() {
+              activeSignals.removeWhere((s) => s.id == signal.id);
+              if (_selectedSignal?.id == signal.id) _selectedSignal = null;
+            });
+          });
+          _expiryTimers.add(timer);
+        }
+      }
+      setState(() {});
     });
     // Refresh events from DB every 60 seconds and remove expired ones
     Timer.periodic(const Duration(seconds: 60), (_) async {
@@ -368,8 +388,10 @@ class _MapTabState extends State<MapTab> with TickerProviderStateMixin {
       _selectedEvent = null;
       _selectedStudySpot = null;
     });
+    SignalService.createSignal(signal);
     final timer = Timer(_signalLifetime, () {
       if (!mounted) return;
+      SignalService.hideSignal(id);
       setState(() {
         activeSignals.removeWhere((s) => s.id == id);
         if (_selectedSignal?.id == id) _selectedSignal = null;
@@ -759,6 +781,7 @@ class _MapTabState extends State<MapTab> with TickerProviderStateMixin {
         onDismiss: _dismissPreview,
         onRemoveSignal: () {
           final sigId = _selectedSignal!.id;
+          SignalService.hideSignal(sigId);
           setState(() => activeSignals.removeWhere((s) => s.id == sigId));
           _dismissPreview();
         },
