@@ -12,9 +12,9 @@ class EventsService {
   // In-memory cache of all events fetched this session
   static List<CampusEvent> _allEvents = [];
 
-  //fetch all events from DB and record start time
+  //fetch all events from DB; only record start time on the first load
   static Future<List<CampusEvent>> loadEvents() async {
-    _appStartTime = DateTime.now();
+    _appStartTime ??= DateTime.now();
     try {
       final response = await http.get(Uri.parse('$_baseUrl/events'));
       if (response.statusCode == 200) {

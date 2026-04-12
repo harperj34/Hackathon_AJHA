@@ -1,19 +1,14 @@
 {
   "version": 2,
   "builds": [
-    {
-      "src": "build/web/**",
-      "use": "@vercel/static"
-    }
+    { "src": "api/**/*.js", "use": "@vercel/node" },
+    { "src": "build/web/**", "use": "@vercel/static" }
   ],
   "routes": [
-    {
-      "src": "^/(.*\\..+)$",
-      "dest": "/build/web/$1"
-    },
-    {
-      "src": "^/(.*)$",
-      "dest": "/build/web/index.html"
-    }
+    { "src": "^/api/user/(.+)$", "dest": "/api/user/[email]" },
+    { "src": "^/api/user$", "dest": "/api/user" },
+    { "src": "^/api/events$", "dest": "/api/events" },
+    { "src": "^/(.*\\..+)$", "dest": "/build/web/$1" },
+    { "src": "^/(.*)$", "dest": "/build/web/index.html" }
   ]
 }

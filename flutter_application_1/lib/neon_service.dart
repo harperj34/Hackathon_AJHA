@@ -6,8 +6,16 @@ import 'package:flutter/foundation.dart';
 class NeonService {
   static String get baseUrl {
     if (kIsWeb) {
-      //in chrome
-      return 'http://localhost:3000';
+      final base = Uri.base;
+      // Local dev: the Flutter web dev server is not the Express server
+      if (base.host == 'localhost' || base.host == '127.0.0.1') {
+        return 'http://localhost:3000';
+      }
+      // Production (Vercel): use same-origin /api (serverless functions)
+      final port = (base.hasPort && base.port != 80 && base.port != 443)
+          ? ':${base.port}'
+          : '';
+      return '${base.scheme}://${base.host}$port/api';
     } else if (Platform.isAndroid) {
       // Android emulator uses 10.0.2.2
       return 'http://10.0.2.2:3000';

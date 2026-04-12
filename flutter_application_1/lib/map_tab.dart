@@ -84,12 +84,19 @@ class _MapTabState extends State<MapTab> with TickerProviderStateMixin {
 
   @override
   void initState() {
-    //adding a refresh every 60 seconds to remove expired events
-    Timer.periodic(const Duration(seconds: 60), (_) {
-      if (mounted) setState(() {});
-    });
     super.initState();
     _mapController = MapController();
+    // Load events from DB immediately after the map mounts
+    EventsService.loadEvents().then((_) {
+      if (mounted) setState(() {});
+    });
+    // Refresh events from DB every 60 seconds and remove expired ones
+    Timer.periodic(const Duration(seconds: 60), (_) async {
+      if (mounted) {
+        await EventsService.loadEvents();
+        if (mounted) setState(() {});
+      }
+    });
     _signalPulseController = AnimationController(
       vsync: this,
       duration: const Duration(milliseconds: 1400),
