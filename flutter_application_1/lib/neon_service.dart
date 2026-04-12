@@ -30,13 +30,19 @@ class NeonService {
 
   //returning user
   static Future<bool> emailExists(String email) async {
-    final response = await http.get(Uri.parse('$baseUrl/user/$email'));
-    if (response.statusCode == 200) {
-      final data = jsonDecode(response.body);
-      return data['exists'] == true;
-    }
-    throw Exception('Failed to check email');
+  final encodedEmail = Uri.encodeComponent(email);
+
+  final response = await http.get(
+    Uri.parse('$baseUrl/user/$encodedEmail'),
+  );
+
+  if (response.statusCode == 200) {
+    final data = jsonDecode(response.body);
+    return data['exists'] == true;
   }
+
+  throw Exception('Failed to check email');
+}
 
   //new user creation
   static Future<bool> createUser(String email) async {
