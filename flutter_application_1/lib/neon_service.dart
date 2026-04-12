@@ -4,7 +4,7 @@ import 'dart:io';
 import 'package:flutter/foundation.dart';
 
 class NeonService {
-  static String get _baseUrl {
+  static String get baseUrl {
     if (kIsWeb) {
       //in chrome
       return 'http://localhost:3000';
@@ -23,7 +23,7 @@ class NeonService {
   //returning user
   static Future<bool> emailExists(String email) async {
     final response = await http.get(
-      Uri.parse('$_baseUrl/user/$email'),
+      Uri.parse('$baseUrl/user/$email'),
     );
     if (response.statusCode == 200) {
       final data = jsonDecode(response.body);
@@ -35,7 +35,7 @@ class NeonService {
   //new user creation
   static Future<bool> createUser(String email) async {
     final response = await http.post(
-      Uri.parse('$_baseUrl/user'),
+      Uri.parse('$baseUrl/user'),
       headers: {'Content-Type': 'application/json'},
       body: jsonEncode({'email': email}),
     );

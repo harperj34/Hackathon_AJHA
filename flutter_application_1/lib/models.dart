@@ -58,6 +58,8 @@ class CampusEvent {
   final EventCategory category;
   final LatLng position;
   final int attendees;
+  final int durationMinutes; // how long it lives from app open
+  final bool isSeed;         // true = dummy, false = user-created
 
   const CampusEvent({
     required this.id,
@@ -69,8 +71,59 @@ class CampusEvent {
     required this.category,
     required this.position,
     this.attendees = 0,
+    this.durationMinutes = 120,
+    this.isSeed = false,
   });
+
+  // Parse a row coming back from the Node server / Neon
+  factory CampusEvent.fromJson(Map<String, dynamic> json) {
+    return CampusEvent(
+      id: json['id'] as String,
+      title: json['title'] as String,
+      subtitle: json['subtitle'] as String,
+      location: json['location'] as String,
+      time: json['display_time'] as String,
+      imageUrl: json['image_url'] as String,
+      category: _parseCategory(json['category'] as String),
+      position: LatLng(
+        (json['lat'] as num).toDouble(),
+        (json['lng'] as num).toDouble(),
+      ),
+      attendees: (json['attendees'] as num?)?.toInt() ?? 0,
+      durationMinutes: (json['duration_minutes'] as num?)?.toInt() ?? 120,
+      isSeed: json['is_seed'] as bool? ?? false,
+    );
+  }
+
+  static EventCategory _parseCategory(String cat) {
+    switch (cat) {
+      case 'food': return EventCategory.food;
+      case 'clubs': return EventCategory.clubs;
+      case 'events': return EventCategory.events;
+      case 'social': return EventCategory.social;
+      case 'study': return EventCategory.study;
+      default: return EventCategory.events;
+    }
+  }
+
+  Map<String, dynamic> toJson() {
+    return {
+      'id': id,
+      'title': title,
+      'subtitle': subtitle,
+      'location': location,
+      'display_time': time,
+      'duration_minutes': durationMinutes,
+      'image_url': imageUrl,
+      'category': category.name,
+      'lat': position.latitude,
+      'lng': position.longitude,
+      'attendees': attendees,
+      'is_seed': isSeed,
+    };
+  }
 }
+
 
 class StudySpot {
   final String id;

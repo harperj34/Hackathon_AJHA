@@ -5,6 +5,7 @@ import 'package:flutter_map/flutter_map.dart';
 import 'package:latlong2/latlong.dart';
 import 'theme.dart';
 import 'models.dart';
+import 'events_service.dart';
 import 'map/services/geo_service.dart';
 import 'map/widgets/map_controls.dart';
 import 'map/widgets/map_layer_stack.dart';
@@ -77,6 +78,10 @@ class _MapTabState extends State<MapTab> with TickerProviderStateMixin {
 
   @override
   void initState() {
+    //adding a refresh every 60 seconds to remove expired events
+    Timer.periodic(const Duration(seconds: 60), (_) {
+      if (mounted) setState(() {});
+    });
     super.initState();
     _mapController = MapController();
     _signalPulseController = AnimationController(
@@ -141,7 +146,7 @@ class _MapTabState extends State<MapTab> with TickerProviderStateMixin {
       sampleEvents.removeWhere((ev) => ev.id == id);
       _tempExpiry.remove(id);
     }
-    return sampleEvents.where((e) {
+    return EventsService.currentEvents.where((e) {
       final matchesFilter =
           _activeFilter == null || e.category == _activeFilter;
       final matchesSearch = _searchQuery.isEmpty ||

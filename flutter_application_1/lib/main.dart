@@ -7,6 +7,7 @@ import 'profile_tab.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'login_page.dart';
 import 'onboarding_overlay.dart';
+import 'events_service.dart';
 
 void main() {
   WidgetsFlutterBinding.ensureInitialized();
@@ -186,6 +187,9 @@ class _AuthGateState extends State<AuthGate> {
   Future<void> _checkLogin() async {
     final prefs = await SharedPreferences.getInstance();
     final email = prefs.getString('logged_in_email');
+
+    // Load events from DB in parallel with login check
+    await EventsService.loadEvents();
 
     if (mounted) {
       Navigator.of(context).pushReplacement(
