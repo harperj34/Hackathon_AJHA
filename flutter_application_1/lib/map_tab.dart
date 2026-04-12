@@ -5,6 +5,7 @@ import 'package:flutter_map/flutter_map.dart';
 import 'package:latlong2/latlong.dart';
 import 'theme.dart';
 import 'models.dart';
+import 'events_service.dart';
 import 'map/services/geo_service.dart';
 import 'map/widgets/map_controls.dart';
 import 'map/widgets/map_layer_stack.dart';
@@ -77,6 +78,10 @@ class _MapTabState extends State<MapTab> with TickerProviderStateMixin {
 
   @override
   void initState() {
+    //adding a refresh every 60 seconds to remove expired events
+    Timer.periodic(const Duration(seconds: 60), (_) {
+      if (mounted) setState(() {});
+    });
     super.initState();
     _mapController = MapController();
     _signalPulseController = AnimationController(
@@ -141,7 +146,7 @@ class _MapTabState extends State<MapTab> with TickerProviderStateMixin {
       sampleEvents.removeWhere((ev) => ev.id == id);
       _tempExpiry.remove(id);
     }
-    return sampleEvents.where((e) {
+    return EventsService.currentEvents.where((e) {
       final matchesFilter =
           _activeFilter == null || e.category == _activeFilter;
       final matchesSearch = _searchQuery.isEmpty ||
@@ -386,6 +391,30 @@ class _MapTabState extends State<MapTab> with TickerProviderStateMixin {
     );
   }
 
+  // ── Heatmap helpers ────────────────────────────────────────────────────────
+
+  List<HeatPoint> get _heatPoints {
+    final pts = <HeatPoint>[];
+    for (final e in EventsService.currentEvents) {
+      final intensity = (e.attendees / 200.0).clamp(0.0, 1.0);
+      pts.add(HeatPoint(e.position, intensity));
+    }
+    return pts;
+  }
+
+  Color _heatColor(double intensity) {
+    if (intensity < 0.4) {
+      return Color.lerp(
+        const Color(0x556C63FF),
+        const Color(0x88A855F7),
+        intensity / 0.4,
+      )!;
+    }
+    return Color.lerp(
+      const Color(0x88A855F7),
+      const Color(0xAAFF7AD9),
+      (intensity - 0.4) / 0.6,
+    )!;
   // ═══════════════════════════════════════════════════
   // REVERSE GEOCODING
   // ═══════════════════════════════════════════════════
@@ -636,6 +665,108 @@ class _MapTabState extends State<MapTab> with TickerProviderStateMixin {
             });
             _reverseGeocode(_mapController.camera.center);
           },
+          bottom: MediaQuery.of(context).size.height * _kCollapsed + 16,
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              // Heatmap toggle
+              _MapControlButton(
+                onTap: () => setState(() => _showHeatmap = !_showHeatmap),
+                active: _showHeatmap,
+                activeColor: UniverseColors.accentPink,
+                child: const Icon(Icons.whatshot_rounded, size: 20),
+              ),
+              const SizedBox(height: 8),
+              // Zoom in
+              _MapControlButton(
+                onTap: () => _mapController.move(
+                  _mapController.camera.center,
+                  (_mapController.camera.zoom + 1).clamp(13.5, 19.0),
+                ),
+                child: const Icon(Icons.add_rounded, size: 20),
+              ),
+              const SizedBox(height: 4),
+              // Zoom out
+              _MapControlButton(
+                onTap: () => _mapController.move(
+                  _mapController.camera.center,
+                  (_mapController.camera.zoom - 1).clamp(13.5, 19.0),
+                ),
+                child: const Icon(Icons.remove_rounded, size: 20),
+              ),
+            ],
+          ),
+        ),
+        // Floating button to add a study spot (on top of the pullup bar)
+        Positioned(
+          right: 16,
+          bottom: MediaQuery.of(context).size.height * _kCollapsed - 40 < 16
+              ? 16
+              : MediaQuery.of(context).size.height * _kCollapsed - 40,
+          child: FloatingActionButton(
+            onPressed: () async {
+              final titleController = TextEditingController();
+              final locController = TextEditingController();
+              final result = await showDialog<bool>(
+                context: context,
+                builder: (ctx) => AlertDialog(
+                  title: const Text('Add Study Spot'),
+                  content: Column(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      TextField(
+                        controller: titleController,
+                        decoration: const InputDecoration(labelText: 'Title'),
+                      ),
+                      TextField(
+                        controller: locController,
+                        decoration: const InputDecoration(labelText: 'Location'),
+                      ),
+                    ],
+                  ),
+                  actions: [
+                    TextButton(
+                        onPressed: () => Navigator.of(ctx).pop(false),
+                        child: const Text('Cancel')),
+                    ElevatedButton(
+                        onPressed: () => Navigator.of(ctx).pop(true),
+                        child: const Text('Add')),
+                  ],
+                ),
+              );
+              if (result == true && titleController.text.trim().isNotEmpty) {
+                final center = _mapController.camera.center;
+                final id = DateTime.now().millisecondsSinceEpoch.toString();
+
+                final newEvent = CampusEvent(
+                  id: id,
+                  title: titleController.text.trim(),
+                  subtitle: 'User Added',
+                  location: locController.text.trim().isEmpty
+                      ? 'Campus'
+                      : locController.text.trim(),
+                  time: 'Now',
+                  imageUrl: '',
+                  category: EventCategory.study,
+                  position: center,
+                  durationMinutes: 60,
+                  isSeed: false,
+                );
+
+                await EventsService.createEvent(newEvent);
+
+                setState(() {
+                  sampleStudySpots.add(StudySpot(
+                    id: id,
+                    title: newEvent.title,
+                    location: newEvent.location,
+                    position: center,
+                  ));
+                });
+              }
+            },
+            child: const Icon(Icons.add_rounded),
+          ),
         ),
       ],
     );
