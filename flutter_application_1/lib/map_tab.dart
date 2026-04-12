@@ -6,7 +6,6 @@ import 'package:latlong2/latlong.dart';
 import 'theme.dart';
 import 'models.dart';
 import 'events_service.dart';
-import 'events_service.dart';
 import 'map/services/geo_service.dart';
 import 'map/widgets/map_controls.dart';
 import 'map/widgets/map_layer_stack.dart';
@@ -20,6 +19,12 @@ import 'map/panels/place_panel.dart';
 import 'map/panels/study_spot_panel.dart';
 import 'map/sheets/signal_customization_sheet.dart';
 import 'map/sheets/pin_customization_sheet.dart';
+
+class HeatPoint {
+  final LatLng position;
+  final double intensity;
+  const HeatPoint(this.position, this.intensity);
+}
 
 class MapTab extends StatefulWidget {
   const MapTab({super.key});
@@ -138,15 +143,6 @@ class _MapTabState extends State<MapTab> with TickerProviderStateMixin {
   // ═══════════════════════════════════════════════════
 
   List<CampusEvent> get _filteredEvents {
-    final now = DateTime.now();
-    final expired = _tempExpiry.entries
-        .where((e) => e.value.isBefore(now))
-        .map((e) => e.key)
-        .toList();
-    for (final id in expired) {
-      sampleEvents.removeWhere((ev) => ev.id == id);
-      _tempExpiry.remove(id);
-    }
     return EventsService.currentEvents.where((e) {
       final matchesFilter =
           _activeFilter == null || e.category == _activeFilter;
@@ -158,16 +154,16 @@ class _MapTabState extends State<MapTab> with TickerProviderStateMixin {
     }).toList();
   }
 
-  List<StudySpot> get _filteredStudySpots {
-    return sampleStudySpots.where((s) {
-      final matchesFilter =
-          _activeFilter == null || _activeFilter == EventCategory.study;
-      final matchesSearch = _searchQuery.isEmpty ||
-          s.title.toLowerCase().contains(_searchQuery.toLowerCase()) ||
-          s.location.toLowerCase().contains(_searchQuery.toLowerCase());
-      return matchesFilter && matchesSearch;
-    }).toList();
-  }
+    List<StudySpot> get _filteredStudySpots {
+      return sampleStudySpots.where((s) {
+        final matchesFilter =
+            _activeFilter == null || _activeFilter == EventCategory.study;
+        final matchesSearch = _searchQuery.isEmpty ||
+            s.title.toLowerCase().contains(_searchQuery.toLowerCase()) ||
+            s.location.toLowerCase().contains(_searchQuery.toLowerCase());
+        return matchesFilter && matchesSearch;
+      }).toList();
+    }
 
   // ═══════════════════════════════════════════════════
   // EVENT HANDLERS
@@ -404,29 +400,28 @@ class _MapTabState extends State<MapTab> with TickerProviderStateMixin {
   }
 
   Color _heatColor(double intensity) {
-    if (intensity < 0.4) {
-      return Color.lerp(
-        const Color(0x556C63FF),
-        const Color(0x88A855F7),
-        intensity / 0.4,
-      )!;
-    }
+  if (intensity < 0.4) {
     return Color.lerp(
+      const Color(0x556C63FF),
       const Color(0x88A855F7),
-      const Color(0xAAFF7AD9),
-      (intensity - 0.4) / 0.6,
+      intensity / 0.4,
     )!;
-  // ═══════════════════════════════════════════════════
-  // REVERSE GEOCODING
-  // ═══════════════════════════════════════════════════
-
-  Future<void> _reverseGeocode(LatLng pos) async {
-    final label = await GeoService.reverseGeocode(pos);
-    if (mounted) setState(() => _pendingPinAddress = label);
-  Future<void> _reverseGeocode(LatLng pos) async {
-    final label = await GeoService.reverseGeocode(pos);
-    if (mounted) setState(() => _pendingPinAddress = label);
   }
+  return Color.lerp(
+    const Color(0x88A855F7),
+    const Color(0xAAFF7AD9),
+    (intensity - 0.4) / 0.6,
+  )!;
+}
+
+// ═══════════════════════════════════════════════════
+// REVERSE GEOCODING
+// ═══════════════════════════════════════════════════
+
+Future<void> _reverseGeocode(LatLng pos) async {
+  final label = await GeoService.reverseGeocode(pos);
+  if (mounted) setState(() => _pendingPinAddress = label);
+}
 
   // ═══════════════════════════════════════════════════
   // PIN CREATION

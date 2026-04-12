@@ -98,10 +98,12 @@ class CampusEvent {
   static EventCategory _parseCategory(String cat) {
     switch (cat) {
       case 'food': return EventCategory.food;
-      case 'clubs': return EventCategory.clubs;
       case 'events': return EventCategory.events;
+      case 'clubs': return EventCategory.events; // map old 'clubs' to events
       case 'social': return EventCategory.social;
       case 'study': return EventCategory.study;
+      case 'deals': return EventCategory.deals;
+      case 'myki': return EventCategory.myki;
       default: return EventCategory.events;
     }
   }
